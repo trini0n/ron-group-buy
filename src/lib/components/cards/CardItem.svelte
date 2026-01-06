@@ -3,8 +3,9 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as CardUI from '$components/ui/card';
+  import { Input } from '$components/ui/input';
   import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
-  import { Plus } from 'lucide-svelte';
+  import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
   interface Props {
@@ -12,6 +13,9 @@
   }
 
   let { card }: Props = $props();
+
+  // Quantity state
+  let quantity = $state(1);
 
   // Get both image URLs
   const ronImageUrl = $derived(getRonImageUrl(card.ron_image_url));
@@ -52,7 +56,24 @@
   function addToCart(e: Event) {
     e.preventDefault();
     e.stopPropagation();
-    cartStore.addItem(card);
+    cartStore.addItem(card, quantity);
+    quantity = 1; // Reset after adding
+  }
+
+  function incrementQuantity(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity < 99) quantity++;
+  }
+
+  function decrementQuantity(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity > 1) quantity--;
+  }
+
+  function handleQuantityInput(e: Event) {
+    e.stopPropagation();
   }
 
   function handleImageError() {
@@ -87,17 +108,6 @@
       {#if card.is_new}
         <Badge class="absolute left-2 top-2 bg-green-600">New</Badge>
       {/if}
-
-      <!-- Quick add button -->
-      {#if card.is_in_stock}
-        <Button
-          size="icon"
-          class="absolute bottom-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
-          onclick={addToCart}
-        >
-          <Plus class="h-4 w-4" />
-        </Button>
-      {/if}
     </div>
 
     <!-- Card Info -->
@@ -112,6 +122,44 @@
         <span class="font-bold">{formatPrice(price)}</span>
         <Badge variant="secondary" class="text-xs">{card.card_type}</Badge>
       </div>
+
+      <!-- Quantity & Add to Cart -->
+      {#if card.is_in_stock}
+        <div class="mt-3 flex items-center gap-2" role="group">
+          <div class="flex items-center rounded-md border">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 rounded-r-none"
+              onclick={decrementQuantity}
+              disabled={quantity <= 1}
+            >
+              <Minus class="h-3 w-3" />
+            </Button>
+            <Input
+              type="number"
+              min="1"
+              max="99"
+              class="h-7 w-10 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              bind:value={quantity}
+              onclick={handleQuantityInput}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 rounded-l-none"
+              onclick={incrementQuantity}
+              disabled={quantity >= 99}
+            >
+              <Plus class="h-3 w-3" />
+            </Button>
+          </div>
+          <Button size="sm" class="flex-1" onclick={addToCart}>
+            <ShoppingCart class="mr-1 h-3 w-3" />
+            Add
+          </Button>
+        </div>
+      {/if}
     </CardUI.Content>
   </CardUI.Root>
 </a>

@@ -1,12 +1,15 @@
 <script lang="ts">
   import CardGrid from '$components/cards/CardGrid.svelte';
+  import CardTableView from '$components/cards/CardTableView.svelte';
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
-  import { Search } from 'lucide-svelte';
+  import { Button } from '$components/ui/button';
+  import { Search, LayoutGrid, List } from 'lucide-svelte';
 
   let { data } = $props();
 
   let searchQuery = $state('');
+  let viewMode = $state<'grid' | 'table'>('grid');
   let filters = $state({
     setCode: '',
     colorIdentity: [] as string[],
@@ -32,15 +35,37 @@
     </p>
   </div>
 
-  <!-- Search Bar -->
-  <div class="relative mb-6">
-    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-    <Input
-      type="search"
-      placeholder="Search cards by name..."
-      class="pl-10"
-      bind:value={searchQuery}
-    />
+  <!-- Search Bar & View Toggle -->
+  <div class="mb-6 flex items-center gap-4">
+    <div class="relative flex-1">
+      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        type="search"
+        placeholder="Search cards by name..."
+        class="pl-10"
+        bind:value={searchQuery}
+      />
+    </div>
+    <div class="flex items-center rounded-lg border bg-muted p-1">
+      <Button
+        variant={viewMode === 'grid' ? 'default' : 'ghost'}
+        size="sm"
+        onclick={() => viewMode = 'grid'}
+        class="gap-2"
+      >
+        <LayoutGrid class="h-4 w-4" />
+        <span class="hidden sm:inline">Gallery</span>
+      </Button>
+      <Button
+        variant={viewMode === 'table' ? 'default' : 'ghost'}
+        size="sm"
+        onclick={() => viewMode = 'table'}
+        class="gap-2"
+      >
+        <List class="h-4 w-4" />
+        <span class="hidden sm:inline">List</span>
+      </Button>
+    </div>
   </div>
 
   <div class="flex flex-col gap-6 lg:flex-row">
@@ -49,13 +74,21 @@
       <SearchFilters bind:filters sets={data.sets} />
     </aside>
 
-    <!-- Card Grid -->
+    <!-- Card View -->
     <div class="flex-1">
-      <CardGrid 
-        cards={data.cards} 
-        {searchQuery} 
-        {filters}
-      />
+      {#if viewMode === 'grid'}
+        <CardGrid 
+          cards={data.cards} 
+          {searchQuery} 
+          {filters}
+        />
+      {:else}
+        <CardTableView
+          cards={data.cards}
+          {searchQuery}
+          {filters}
+        />
+      {/if}
     </div>
   </div>
 </div>

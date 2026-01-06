@@ -3,11 +3,15 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import { Separator } from '$components/ui/separator';
+  import { Input } from '$components/ui/input';
   import { getCardImages, getCardPrice, formatPrice } from '$lib/utils';
-  import { ShoppingCart, ExternalLink, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ShoppingCart, ExternalLink, ArrowLeft, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
   let { data } = $props();
+
+  // Quantity state
+  let quantity = $state(1);
 
   // Compute images array - ensure it's always valid
   const images = $derived.by(() => {
@@ -42,7 +46,16 @@
   }
 
   function addToCart() {
-    cartStore.addItem(data.card);
+    cartStore.addItem(data.card, quantity);
+    quantity = 1; // Reset after adding
+  }
+
+  function incrementQuantity() {
+    if (quantity < 99) quantity++;
+  }
+
+  function decrementQuantity() {
+    if (quantity > 1) quantity--;
   }
 
   // Current image with safety check
@@ -191,7 +204,38 @@
         {/if}
       </Card.Content>
 
-      <Card.Footer class="flex gap-4">
+      <Card.Footer class="flex flex-wrap items-center gap-4">
+        <!-- Quantity Controls -->
+        {#if data.card.is_in_stock}
+          <div class="flex items-center rounded-md border">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-10 w-10 rounded-r-none"
+              onclick={decrementQuantity}
+              disabled={quantity <= 1}
+            >
+              <Minus class="h-4 w-4" />
+            </Button>
+            <Input
+              type="number"
+              min="1"
+              max="99"
+              class="h-10 w-14 rounded-none border-x border-y-0 text-center text-lg [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              bind:value={quantity}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-10 w-10 rounded-l-none"
+              onclick={incrementQuantity}
+              disabled={quantity >= 99}
+            >
+              <Plus class="h-4 w-4" />
+            </Button>
+          </div>
+        {/if}
+
         <Button size="lg" onclick={addToCart} disabled={!data.card.is_in_stock}>
           <ShoppingCart class="mr-2 h-4 w-4" />
           Add to Cart
