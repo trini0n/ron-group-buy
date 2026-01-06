@@ -15,6 +15,7 @@
   interface Filters {
     setCode: string;
     colorIdentity: string[];
+    colorIdentityStrict: boolean;
     priceCategories: string[];
     cardTypes: string[];
     frameTypes: string[];
@@ -42,9 +43,8 @@
   ];
 
   const priceCategories = [
-    { value: 'Normal', label: 'Normal ($1.25)' },
-    { value: 'Holo', label: 'Holo ($1.25)' },
-    { value: 'Foil', label: 'Foil ($1.50)' }
+    { value: 'Non-Foil', label: 'Non-Foil' },
+    { value: 'Foil', label: 'Foil' }
   ];
 
   const cardTypes = [
@@ -101,7 +101,8 @@
     filters = {
       setCode: '',
       colorIdentity: [],
-      priceCategories: ['Normal', 'Holo', 'Foil'],
+      colorIdentityStrict: false,
+      priceCategories: ['Non-Foil', 'Foil'],
       cardTypes: [],
       frameTypes: [],
       inStockOnly: false,
@@ -119,7 +120,7 @@
   const hasActiveFilters = $derived(
     filters.setCode !== '' ||
       filters.colorIdentity.length > 0 ||
-      filters.priceCategories.length < 3 ||
+      filters.priceCategories.length < 2 ||
       filters.cardTypes.length > 0 ||
       filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
@@ -127,9 +128,11 @@
   );
 
   // Get display labels for selects
-  const selectedSetLabel = $derived(
-    filters.setCode ? sets.find((s) => s.code === filters.setCode)?.name ?? 'All Sets' : 'All Sets'
-  );
+  const selectedSetLabel = $derived.by(() => {
+    if (!filters.setCode) return 'All Sets';
+    const set = sets.find((s) => s.code === filters.setCode);
+    return set ? `${set.name} (${set.code.toUpperCase()})` : 'All Sets';
+  });
 
   // Filter sets based on search
   const filteredSets = $derived.by(() => {
@@ -225,6 +228,15 @@
         </button>
       {/each}
     </div>
+    {#if filters.colorIdentity.length > 0}
+      <label class="flex cursor-pointer items-center space-x-2 pt-1">
+        <Checkbox
+          checked={filters.colorIdentityStrict}
+          onCheckedChange={(v) => filters.colorIdentityStrict = !!v}
+        />
+        <span class="text-sm">Strict (exact match)</span>
+      </label>
+    {/if}
   </div>
 
   <!-- Card Types (Type Line) - Multiselect with OR logic -->
@@ -243,9 +255,9 @@
     </div>
   </div>
 
-  <!-- Price Category (card_type column) - Multiselect, all checked by default -->
+  <!-- Finish (card_type column) - Multiselect, all checked by default -->
   <div class="space-y-2">
-    <Label>Price Category</Label>
+    <Label>Finish</Label>
     <div class="space-y-2">
       {#each priceCategories as category}
         <label class="flex cursor-pointer items-center space-x-2">

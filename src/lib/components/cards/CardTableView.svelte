@@ -5,13 +5,15 @@
   import { Input } from '$components/ui/input';
   import { Checkbox } from '$components/ui/checkbox';
   import { Badge } from '$components/ui/badge';
-  import { ChevronUp, ChevronDown, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ChevronUp, ChevronDown, ShoppingCart, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-svelte';
+  import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
 
   interface Filters {
     setCode: string;
     colorIdentity: string[];
+    colorIdentityStrict: boolean;
     priceCategories: string[];
     cardTypes: string[];
     frameTypes: string[];
@@ -38,6 +40,25 @@
   // Selection state
   let selectedSerials = $state<Set<string>>(new Set());
   let bulkQuantity = $state(1);
+  
+  // Per-row quantity state
+  let rowQuantities = $state<Map<string, number>>(new Map());
+  
+  // Get quantity for a row (default 1)
+  function getRowQuantity(serial: string): number {
+    return rowQuantities.get(serial) ?? 1;
+  }
+  
+  // Set quantity for a row
+  function setRowQuantity(serial: string, qty: number) {
+    const newMap = new Map(rowQuantities);
+    newMap.set(serial, Math.max(1, Math.min(99, qty)));
+    rowQuantities = newMap;
+  }
+
+  // Hover state for card image popup
+  let hoveredCard = $state<Card | null>(null);
+  let hoverPosition = $state({ x: 0, y: 0 });
 
   // Pagination
   const CARDS_PER_PAGE = 50;
@@ -80,14 +101,30 @@
 
       // Color identity filter
       if (filters.colorIdentity.length > 0) {
-        const cardColors = card.color_identity?.split(', ') || [];
-        const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));
-        if (!hasMatchingColor) return false;
+        const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
+        if (filters.colorIdentityStrict) {
+          // Strict mode: exact match (same colors, no more, no less)
+          const selectedSorted = [...filters.colorIdentity].sort().join(',');
+          const cardSorted = [...cardColors].sort().join(',');
+          if (selectedSorted !== cardSorted) return false;
+        } else {
+          // Non-strict: card has at least one of the selected colors
+          const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));
+          if (!hasMatchingColor) return false;
+        }
       }
 
-      // Price category filter (card_type column)
-      if (filters.priceCategories.length < 3) {
-        if (!filters.priceCategories.includes(card.card_type)) {
+      // Finish filter (card_type column)
+      if (filters.priceCategories.length < 2) {
+        // Map filter values to actual card_type values
+        const allowedTypes: string[] = [];
+        if (filters.priceCategories.includes('Non-Foil')) {
+          allowedTypes.push('Normal', 'Holo');
+        }
+        if (filters.priceCategories.includes('Foil')) {
+          allowedTypes.push('Foil');
+        }
+        if (!allowedTypes.includes(card.card_type)) {
           return false;
         }
       }
@@ -230,9 +267,30 @@
   function addSelectedToCart() {
     const selectedCards = paginatedCards.filter((c) => selectedSerials.has(c.serial) && c.is_in_stock);
     for (const card of selectedCards) {
-      cartStore.addItem(card, bulkQuantity);
+      const qty = getRowQuantity(card.serial);
+      cartStore.addItem(card, qty);
     }
     selectedSerials = new Set();
+    rowQuantities = new Map();
+  }
+
+  // Handle mouse move for card image popup
+  function handleRowMouseMove(e: MouseEvent, card: Card) {
+    hoveredCard = card;
+    hoverPosition = { x: e.clientX, y: e.clientY };
+  }
+
+  function handleRowMouseLeave() {
+    hoveredCard = null;
+  }
+
+  // Get image URL for hover popup
+  function getCardImageUrl(card: Card): string {
+    const ronUrl = getRonImageUrl(card.ron_image_url);
+    if (ronUrl) return ronUrl;
+    return card.scryfall_id 
+      ? getScryfallImageUrl(card.scryfall_id, 'normal') 
+      : '/images/card-placeholder.png';
   }
 
   function goToPage(page: number) {
@@ -256,16 +314,6 @@
   {#if selectedSerials.size > 0}
     <div class="mb-4 flex items-center gap-4 rounded-lg border bg-muted/50 p-3">
       <span class="text-sm font-medium">{selectedSerials.size} card(s) selected</span>
-      <div class="flex items-center gap-2">
-        <span class="text-sm">Qty:</span>
-        <Input
-          type="number"
-          min="1"
-          max="99"
-          class="h-8 w-16"
-          bind:value={bulkQuantity}
-        />
-      </div>
       <Button size="sm" onclick={addSelectedToCart}>
         <ShoppingCart class="mr-2 h-4 w-4" />
         Add to Cart
@@ -335,18 +383,6 @@
               {/if}
             </div>
           </Table.Head>
-          <Table.Head class="w-24 cursor-pointer select-none" onclick={() => toggleSort('mana_cost')}>
-            <div class="flex items-center gap-1">
-              Cost
-              {#if sortKey === 'mana_cost'}
-                {#if sortDirection === 'asc'}
-                  <ChevronUp class="h-4 w-4" />
-                {:else}
-                  <ChevronDown class="h-4 w-4" />
-                {/if}
-              {/if}
-            </div>
-          </Table.Head>
           <Table.Head class="cursor-pointer select-none" onclick={() => toggleSort('type_line')}>
             <div class="flex items-center gap-1">
               Type
@@ -391,6 +427,7 @@
         {#each paginatedCards as card (card.serial)}
           {@const isSelected = selectedSerials.has(card.serial)}
           {@const price = getCardPrice(card.card_type)}
+          {@const rowQty = getRowQuantity(card.serial)}
           <Table.Row class={isSelected ? 'bg-muted/50' : ''}>
             <Table.Cell>
               <Checkbox
@@ -400,26 +437,46 @@
               />
             </Table.Cell>
             <Table.Cell>
-              <Input
-                type="number"
-                min="1"
-                max="99"
-                value="1"
-                class="h-7 w-14 text-center"
-                disabled={!card.is_in_stock}
-                onchange={(e) => {
-                  const qty = parseInt((e.target as HTMLInputElement).value) || 1;
-                  cartStore.addItem(card, qty);
-                }}
-              />
+              <div class="flex items-center">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-6 w-6"
+                  onclick={() => setRowQuantity(card.serial, rowQty - 1)}
+                  disabled={!card.is_in_stock || rowQty <= 1}
+                >
+                  <Minus class="h-3 w-3" />
+                </Button>
+                <span class="w-6 text-center text-sm">{rowQty}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-6 w-6"
+                  onclick={() => setRowQuantity(card.serial, rowQty + 1)}
+                  disabled={!card.is_in_stock || rowQty >= 99}
+                >
+                  <Plus class="h-3 w-3" />
+                </Button>
+              </div>
             </Table.Cell>
-            <Table.Cell class="font-mono text-xs uppercase">
+            <Table.Cell 
+              class="font-mono text-xs uppercase"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {card.set_code ?? '-'}
             </Table.Cell>
-            <Table.Cell class="font-mono text-xs">
+            <Table.Cell 
+              class="font-mono text-xs"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {card.collector_number ?? '-'}
             </Table.Cell>
-            <Table.Cell>
+            <Table.Cell
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               <a href={getCardUrl(card)} class="font-medium hover:underline">
                 {card.card_name}
               </a>
@@ -430,22 +487,38 @@
                 <Badge class="ml-2 bg-green-600 text-xs">New</Badge>
               {/if}
             </Table.Cell>
-            <Table.Cell class="font-mono text-xs">
-              {card.mana_cost ?? '-'}
-            </Table.Cell>
-            <Table.Cell class="text-sm">
+            <Table.Cell 
+              class="text-sm"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {getMainCardType(card.type_line)}
             </Table.Cell>
-            <Table.Cell class="text-center font-mono text-xs uppercase">
+            <Table.Cell 
+              class="text-center font-mono text-xs uppercase"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {(card.language ?? 'en').toUpperCase()}
             </Table.Cell>
-            <Table.Cell class="text-xs">
+            <Table.Cell 
+              class="text-xs"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {getFrameType(card)}
             </Table.Cell>
-            <Table.Cell>
+            <Table.Cell
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               <Badge variant="secondary" class="text-xs">{card.card_type}</Badge>
             </Table.Cell>
-            <Table.Cell class="font-medium">
+            <Table.Cell 
+              class="font-medium"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+              onmouseleave={handleRowMouseLeave}
+            >
               {formatPrice(price)}
             </Table.Cell>
           </Table.Row>
@@ -527,4 +600,19 @@
       </Button>
     </div>
   {/if}
+{/if}
+
+<!-- Card image popup on hover -->
+{#if hoveredCard}
+  <div
+    class="pointer-events-none fixed z-50 rounded-lg border bg-background shadow-xl"
+    style="left: {hoverPosition.x + 20}px; top: {hoverPosition.y - 150}px;"
+  >
+    <img
+      src={getCardImageUrl(hoveredCard)}
+      alt={hoveredCard.card_name}
+      class="h-[300px] w-auto rounded-lg object-contain"
+      referrerpolicy="no-referrer"
+    />
+  </div>
 {/if}

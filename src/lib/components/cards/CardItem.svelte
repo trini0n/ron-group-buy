@@ -4,6 +4,7 @@
   import { Badge } from '$components/ui/badge';
   import * as CardUI from '$components/ui/card';
   import { Input } from '$components/ui/input';
+  import * as Tooltip from '$components/ui/tooltip';
   import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
@@ -52,6 +53,9 @@
     }
     return parts.join(' ') || card.set_name || '';
   });
+
+  // Get display label for card finish (Normal, Holo, Foil, or Surge Foil)
+  const finishLabel = $derived(card.foil_type || card.card_type);
 
   function addToCart(e: Event) {
     e.preventDefault();
@@ -106,7 +110,7 @@
 
       <!-- New badge -->
       {#if card.is_new}
-        <Badge class="absolute left-2 top-2 bg-green-600">New</Badge>
+        <Badge class="absolute right-2 top-2 bg-green-600/65 backdrop-blur-sm">New</Badge>
       {/if}
     </div>
 
@@ -120,7 +124,7 @@
       </p>
       <div class="mt-2 flex items-center justify-between">
         <span class="font-bold">{formatPrice(price)}</span>
-        <Badge variant="secondary" class="text-xs">{card.card_type}</Badge>
+        <Badge variant="secondary" class="text-xs">{finishLabel}</Badge>
       </div>
 
       <!-- Quantity & Add to Cart -->
@@ -154,9 +158,16 @@
               <Plus class="h-3 w-3" />
             </Button>
           </div>
-          <Button size="icon" class="h-8 w-8" onclick={addToCart} title="Add to Cart">
-            <ShoppingCart class="h-4 w-4" />
-          </Button>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              <Button size="icon" class="h-8 w-8" onclick={addToCart}>
+                <ShoppingCart class="h-4 w-4" />
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              <p>Add to Cart</p>
+            </Tooltip.Content>
+          </Tooltip.Root>
         </div>
       {/if}
     </CardUI.Content>

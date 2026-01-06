@@ -6,9 +6,16 @@
   import { Separator } from '$components/ui/separator';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { formatPrice, getCardPrice } from '$lib/utils';
-  import { ArrowLeft, Check } from 'lucide-svelte';
+  import { createSupabaseClient } from '$lib/supabase';
+  import { ArrowLeft, Check, AlertTriangle, Mail } from 'lucide-svelte';
 
   let { data } = $props();
+
+  const supabase = createSupabaseClient();
+
+  // Email verification
+  let isResendingVerification = $state(false);
+  let verificationSent = $state(false);
 
   // Form state
   let selectedAddressId = $state<string | null>(
@@ -28,8 +35,26 @@
     country: 'US'
   });
 
+  async function resendVerificationEmail() {
+    isResendingVerification = true;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: data.userEmail
+    });
+    isResendingVerification = false;
+    if (!error) {
+      verificationSent = true;
+    }
+  }
+
   async function handleSubmit(e: Event) {
     e.preventDefault();
+    
+    if (!data.isEmailVerified) {
+      alert('Please verify your email address before placing an order.');
+      return;
+    }
+    
     isSubmitting = true;
 
     try {
@@ -77,6 +102,39 @@
   </a>
 
   <h1 class="mb-8 text-3xl font-bold">Checkout</h1>
+
+  <!-- Email Verification Warning -->
+  {#if !data.isEmailVerified}
+    <div class="mb-6 rounded-lg border border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-900/20">
+      <div class="flex items-start gap-3">
+        <AlertTriangle class="mt-0.5 h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+        <div class="flex-1">
+          <h3 class="font-medium text-yellow-800 dark:text-yellow-300">Email Verification Required</h3>
+          <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
+            Please verify your email address ({data.userEmail}) before placing an order.
+            Check your inbox for the verification link.
+          </p>
+          {#if verificationSent}
+            <p class="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <Check class="h-4 w-4" />
+              Verification email sent! Check your inbox.
+            </p>
+          {:else}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              class="mt-2" 
+              onclick={resendVerificationEmail}
+              disabled={isResendingVerification}
+            >
+              <Mail class="mr-2 h-4 w-4" />
+              {isResendingVerification ? 'Sending...' : 'Resend Verification Email'}
+            </Button>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <form onsubmit={handleSubmit}>
     <div class="grid gap-8 lg:grid-cols-2">
@@ -206,9 +264,12 @@
           </Card.Content>
         </Card.Root>
 
-        <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting}>
+        <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting || !isEmailVerified}>
           {#if isSubmitting}
             Submitting...
+          {:else if !isEmailVerified}
+            <AlertTriangle class="mr-2 h-4 w-4" />
+            Verify Email to Order
           {:else}
             <Check class="mr-2 h-4 w-4" />
             Place Order

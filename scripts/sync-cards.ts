@@ -81,6 +81,7 @@ interface CardRecord {
   is_borderless: boolean
   is_etched: boolean
   is_foil: boolean
+  foil_type: string | null
   language: string
   flavor_name: string | null
   scryfall_link: string | null
@@ -97,6 +98,11 @@ interface CardRecord {
 
 function parseBoolean(value: string): boolean {
   return value?.toUpperCase() === 'TRUE'
+}
+
+function parseIsNew(value: string): boolean {
+  // The 🆕 column uses the emoji itself to mark new cards
+  return value?.includes('🆕') || value?.toUpperCase() === 'TRUE'
 }
 
 function getCardTypeFromSerial(serial: string): 'Normal' | 'Holo' | 'Foil' {
@@ -128,7 +134,8 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
       is_showcase: parseBoolean(row['Showcase?']),
       is_borderless: parseBoolean(row['Borderless?']),
       is_etched: parseBoolean(row['Etched?']),
-      is_foil: parseBoolean(row['Foil?']),
+      is_foil: row['Foil?']?.length > 0,
+      foil_type: row['Foil?'] && row['Foil?'] !== 'TRUE' ? row['Foil?'] : null,
       language: row.Language || 'en',
       flavor_name: row['Flavor Name'] || null,
       scryfall_link: row.Link || null,
@@ -140,7 +147,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
       mana_cost: row['Mana Cost'] || null,
       ron_image_url: row['Ron Print'] || null,
       is_in_stock: !parseBoolean(row.OOS),
-      is_new: parseBoolean(row['🆕'])
+      is_new: parseIsNew(row['🆕'])
     }))
 }
 
@@ -163,8 +170,49 @@ async function upsertCards(cards: CardRecord[]): Promise<{ success: number; erro
     `   📤 Upserting ${uniqueCards.length} unique cards (${cards.length - uniqueCards.length} duplicates removed)...`
   )
 
-  for (let i = 0; i < uniqueCards.length; i += batchSize) {
-    const batch = uniqueCards.slice(i, i + batchSize)
+  // Fetch existing cards with converted Google Photos URLs (lh3.googleusercontent.com)
+  // to preserve them during upsert
+  console.log('   📷 Fetching existing converted image URLs...')
+  const existingConvertedUrls = new Map<string, string>()
+
+  // Fetch in batches due to Supabase row limits
+  let offset = 0
+  const fetchBatchSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data: existingCards } = await supabase
+      .from('cards')
+      .select('serial, ron_image_url')
+      .like('ron_image_url', 'https://lh3.googleusercontent.com/%')
+      .range(offset, offset + fetchBatchSize - 1)
+
+    if (existingCards && existingCards.length > 0) {
+      existingCards.forEach((card) => {
+        if (card.ron_image_url) {
+          existingConvertedUrls.set(card.serial, card.ron_image_url)
+        }
+      })
+      offset += fetchBatchSize
+      hasMore = existingCards.length === fetchBatchSize
+    } else {
+      hasMore = false
+    }
+  }
+
+  console.log(`   📷 Found ${existingConvertedUrls.size} cards with converted URLs to preserve`)
+
+  // Preserve converted URLs
+  const cardsToUpsert = uniqueCards.map((card) => {
+    const existingUrl = existingConvertedUrls.get(card.serial)
+    if (existingUrl) {
+      return { ...card, ron_image_url: existingUrl }
+    }
+    return card
+  })
+
+  for (let i = 0; i < cardsToUpsert.length; i += batchSize) {
+    const batch = cardsToUpsert.slice(i, i + batchSize)
 
     const { error } = await supabase.from('cards').upsert(batch, {
       onConflict: 'serial',

@@ -4,6 +4,7 @@
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
   import { Button } from '$components/ui/button';
+  import * as Tooltip from '$components/ui/tooltip';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
 
   let { data } = $props();
@@ -13,7 +14,8 @@
   let filters = $state({
     setCode: '',
     colorIdentity: [] as string[],
-    priceCategories: ['Normal', 'Holo', 'Foil'] as string[],
+    colorIdentityStrict: false,
+    priceCategories: ['Non-Foil', 'Foil'] as string[],
     cardTypes: [] as string[],
     frameTypes: [] as string[],
     inStockOnly: false,
@@ -47,24 +49,36 @@
       />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
-      <Button
-        variant={viewMode === 'grid' ? 'default' : 'ghost'}
-        size="icon"
-        class="h-8 w-8"
-        onclick={() => (viewMode = 'grid')}
-        title="Gallery View"
-      >
-        <LayoutGrid class="h-4 w-4" />
-      </Button>
-      <Button
-        variant={viewMode === 'table' ? 'default' : 'ghost'}
-        size="icon"
-        class="h-8 w-8"
-        onclick={() => (viewMode = 'table')}
-        title="List View"
-      >
-        <List class="h-4 w-4" />
-      </Button>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+            size="icon"
+            class="h-8 w-8"
+            onclick={() => (viewMode = 'grid')}
+          >
+            <LayoutGrid class="h-4 w-4" />
+          </Button>
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          <p>Gallery View</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="icon"
+            class="h-8 w-8"
+            onclick={() => (viewMode = 'table')}
+          >
+            <List class="h-4 w-4" />
+          </Button>
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          <p>List View</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
     </div>
   </div>
 

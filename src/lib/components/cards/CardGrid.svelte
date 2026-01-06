@@ -8,6 +8,7 @@
   interface Filters {
     setCode: string;
     colorIdentity: string[];
+    colorIdentityStrict: boolean;
     priceCategories: string[];
     cardTypes: string[];
     frameTypes: string[];
@@ -47,14 +48,30 @@
 
       // Color identity filter
       if (filters.colorIdentity.length > 0) {
-        const cardColors = card.color_identity?.split(', ') || [];
-        const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));
-        if (!hasMatchingColor) return false;
+        const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
+        if (filters.colorIdentityStrict) {
+          // Strict mode: exact match (same colors, no more, no less)
+          const selectedSorted = [...filters.colorIdentity].sort().join(',');
+          const cardSorted = [...cardColors].sort().join(',');
+          if (selectedSorted !== cardSorted) return false;
+        } else {
+          // Non-strict: card has at least one of the selected colors
+          const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));
+          if (!hasMatchingColor) return false;
+        }
       }
 
-      // Price category filter (card_type column) - filter OUT unchecked categories
-      if (filters.priceCategories.length < 3) {
-        if (!filters.priceCategories.includes(card.card_type)) {
+      // Finish filter (card_type column) - filter OUT unchecked categories
+      if (filters.priceCategories.length < 2) {
+        // Map filter values to actual card_type values
+        const allowedTypes: string[] = [];
+        if (filters.priceCategories.includes('Non-Foil')) {
+          allowedTypes.push('Normal', 'Holo');
+        }
+        if (filters.priceCategories.includes('Foil')) {
+          allowedTypes.push('Foil');
+        }
+        if (!allowedTypes.includes(card.card_type)) {
           return false;
         }
       }

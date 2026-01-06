@@ -8,6 +8,7 @@
   import GroupBuyBanner from '$components/layout/GroupBuyBanner.svelte';
   import { Toaster } from '$components/ui/sonner';
   import * as Tooltip from '$components/ui/tooltip';
+  import { invalidateAll } from '$app/navigation';
 
   let { data, children } = $props();
 
@@ -19,9 +20,9 @@
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((event, _session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        // Refresh the page to update server-side session
-        window.location.reload();
+      // Only invalidate data on sign in/out, don't reload to avoid loops
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        invalidateAll();
       }
     });
 
