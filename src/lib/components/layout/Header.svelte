@@ -17,7 +17,7 @@
   <div class="container flex h-16 items-center justify-between">
     <!-- Logo -->
     <a href="/" class="flex items-center gap-2 text-xl font-bold">
-      <span class="text-2xl">🃏</span>
+      <img src="/favicon.webp" alt="Logo" class="h-7 w-7" />
       Group Buy
     </a>
 
