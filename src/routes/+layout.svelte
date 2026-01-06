@@ -7,6 +7,7 @@
   import Footer from '$components/layout/Footer.svelte';
   import GroupBuyBanner from '$components/layout/GroupBuyBanner.svelte';
   import { Toaster } from '$components/ui/sonner';
+  import * as Tooltip from '$components/ui/tooltip';
 
   let { data, children } = $props();
 
@@ -31,6 +32,7 @@
 <ModeWatcher defaultMode="dark" />
 <Toaster />
 
+<Tooltip.Provider>
 <div class="flex min-h-screen flex-col">
   <GroupBuyBanner config={data.groupBuyConfig} />
   <Header user={data.user} />
@@ -41,3 +43,4 @@
   
   <Footer />
 </div>
+</Tooltip.Provider>

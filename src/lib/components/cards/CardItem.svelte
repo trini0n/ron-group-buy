@@ -4,6 +4,7 @@
   import { Badge } from '$components/ui/badge';
   import * as CardUI from '$components/ui/card';
   import { Input } from '$components/ui/input';
+  import * as Tooltip from '$components/ui/tooltip';
   import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
@@ -154,10 +155,18 @@
               <Plus class="h-3 w-3" />
             </Button>
           </div>
-          <Button size="sm" class="flex-1" onclick={addToCart}>
-            <ShoppingCart class="mr-1 h-3 w-3" />
-            Add
-          </Button>
+          <Tooltip.Root>
+            <Tooltip.Trigger onclick={addToCart}>
+              {#snippet child({ props })}
+                <Button {...props} size="icon" class="h-8 w-8">
+                  <ShoppingCart class="h-4 w-4" />
+                </Button>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              <p>Add to Cart</p>
+            </Tooltip.Content>
+          </Tooltip.Root>
         </div>
       {/if}
     </CardUI.Content>

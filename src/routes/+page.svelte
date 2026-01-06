@@ -4,6 +4,7 @@
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
   import { Button } from '$components/ui/button';
+  import * as Tooltip from '$components/ui/tooltip';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
 
   let { data } = $props();
@@ -47,24 +48,40 @@
       />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
-      <Button
-        variant={viewMode === 'grid' ? 'default' : 'ghost'}
-        size="sm"
-        onclick={() => viewMode = 'grid'}
-        class="gap-2"
-      >
-        <LayoutGrid class="h-4 w-4" />
-        <span class="hidden sm:inline">Gallery</span>
-      </Button>
-      <Button
-        variant={viewMode === 'table' ? 'default' : 'ghost'}
-        size="sm"
-        onclick={() => viewMode = 'table'}
-        class="gap-2"
-      >
-        <List class="h-4 w-4" />
-        <span class="hidden sm:inline">List</span>
-      </Button>
+      <Tooltip.Root>
+        <Tooltip.Trigger onclick={() => viewMode = 'grid'}>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="icon"
+              class="h-8 w-8"
+            >
+              <LayoutGrid class="h-4 w-4" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          <p>Gallery View</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger onclick={() => viewMode = 'table'}>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="icon"
+              class="h-8 w-8"
+            >
+              <List class="h-4 w-4" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          <p>List View</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
     </div>
   </div>
 
