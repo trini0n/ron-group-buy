@@ -1,16 +1,32 @@
 import type { PageServerLoad } from './$types'
+import type { Card } from '$lib/server/types'
 
 export const load: PageServerLoad = async ({ locals }) => {
-  // Fetch ALL cards for client-side filtering/pagination
-  // Supabase default limit is 1000, so we need to use range() to get all ~7000 cards
-  const { data: cards, error } = await locals.supabase
-    .from('cards')
-    .select('*')
-    .order('card_name', { ascending: true })
-    .range(0, 9999) // Override default 1000 limit
+  // Fetch ALL cards in batches (Supabase has a 1000 row limit per request)
+  const batchSize = 1000
+  let allCards: Card[] = []
+  let offset = 0
+  let hasMore = true
 
-  if (error) {
-    console.error('Error fetching cards:', error)
+  while (hasMore) {
+    const { data: batch, error } = await locals.supabase
+      .from('cards')
+      .select('*')
+      .order('card_name', { ascending: true })
+      .range(offset, offset + batchSize - 1)
+
+    if (error) {
+      console.error('Error fetching cards:', error)
+      break
+    }
+
+    if (batch && batch.length > 0) {
+      allCards = [...allCards, ...batch]
+      offset += batchSize
+      hasMore = batch.length === batchSize
+    } else {
+      hasMore = false
+    }
   }
 
   // Fetch unique set codes for filter dropdown
@@ -32,7 +48,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return {
-    cards: cards || [],
+    cards: allCards,
     sets
   }
 }
