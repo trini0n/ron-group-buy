@@ -19,11 +19,6 @@
     inStockOnly: false,
     isNew: false
   });
-
-  function handleViewChange(mode: 'grid' | 'table') {
-    console.log('View mode changing to:', mode);
-    viewMode = mode;
-  }
 </script>
 
 <svelte:head>
@@ -56,7 +51,7 @@
         variant={viewMode === 'grid' ? 'default' : 'ghost'}
         size="icon"
         class="h-8 w-8"
-        onclick={() => handleViewChange('grid')}
+        onclick={() => (viewMode = 'grid')}
         title="Gallery View"
       >
         <LayoutGrid class="h-4 w-4" />
@@ -65,7 +60,7 @@
         variant={viewMode === 'table' ? 'default' : 'ghost'}
         size="icon"
         class="h-8 w-8"
-        onclick={() => handleViewChange('table')}
+        onclick={() => (viewMode = 'table')}
         title="List View"
       >
         <List class="h-4 w-4" />

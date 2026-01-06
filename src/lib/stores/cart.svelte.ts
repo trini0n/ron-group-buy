@@ -23,12 +23,12 @@ function createCartStore() {
     }
   }
 
-  // Persist to localStorage when items change
-  $effect(() => {
+  // Helper to persist to localStorage
+  function persist() {
     if (browser) {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
     }
-  });
+  }
 
   function addItem(card: Card, quantity: number = 1) {
     const existing = items.find((item) => item.card.serial === card.serial);
@@ -38,10 +38,12 @@ function createCartStore() {
     } else {
       items = [...items, { card, quantity }];
     }
+    persist();
   }
 
   function removeItem(serial: string) {
     items = items.filter((item) => item.card.serial !== serial);
+    persist();
   }
 
   function updateQuantity(serial: string, quantity: number) {
@@ -54,10 +56,12 @@ function createCartStore() {
       item.quantity = quantity;
       items = [...items]; // Trigger reactivity
     }
+    persist();
   }
 
   function clear() {
     items = [];
+    persist();
   }
 
   function getTotal(): number {
