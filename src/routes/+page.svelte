@@ -10,8 +10,9 @@
   let filters = $state({
     setCode: '',
     colorIdentity: [] as string[],
-    cardType: '' as '' | 'Normal' | 'Holo' | 'Foil',
-    mtgTypes: [] as string[],
+    priceCategories: ['Normal', 'Holo', 'Foil'] as string[],
+    cardTypes: [] as string[],
+    frameTypes: [] as string[],
     inStockOnly: false,
     isNew: false
   });

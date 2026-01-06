@@ -3,7 +3,7 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as CardUI from '$components/ui/card';
-  import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice } from '$lib/utils';
+  import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
   import { Plus } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
@@ -34,6 +34,21 @@
 
   const price = $derived(getCardPrice(card.card_type));
 
+  // Format card identifier: SET_CODE #COLLECTOR_NUMBER (LANG if not 'en')
+  const cardIdentifier = $derived.by(() => {
+    const parts: string[] = [];
+    if (card.set_code) {
+      parts.push(card.set_code.toUpperCase());
+    }
+    if (card.collector_number) {
+      parts.push(`#${card.collector_number}`);
+    }
+    if (card.language && card.language.toLowerCase() !== 'en') {
+      parts.push(`(${card.language.toUpperCase()})`);
+    }
+    return parts.join(' ') || card.set_name || '';
+  });
+
   function addToCart(e: Event) {
     e.preventDefault();
     e.stopPropagation();
@@ -48,7 +63,7 @@
   }
 </script>
 
-<a href="/cards/{card.serial}" class="card-hover group block">
+<a href={getCardUrl(card)} class="card-hover group block">
   <CardUI.Root class="overflow-hidden">
     <!-- Card Image -->
     <div class="relative aspect-[2.5/3.5] overflow-hidden bg-muted">
@@ -91,7 +106,7 @@
         {card.card_name}
       </h3>
       <p class="mt-1 text-xs text-muted-foreground">
-        {card.set_name}
+        {cardIdentifier}
       </p>
       <div class="mt-2 flex items-center justify-between">
         <span class="font-bold">{formatPrice(price)}</span>

@@ -47,22 +47,6 @@
 
   // Current image with safety check
   const currentImage = $derived(images[currentImageIndex] ?? images[0]);
-
-  // Format card identifier: SET_CODE #COLLECTOR_NUMBER (LANG if not 'en')
-  const cardIdentifier = $derived.by(() => {
-    const c = data.card;
-    const parts: string[] = [];
-    if (c.set_code) {
-      parts.push(c.set_code.toUpperCase());
-    }
-    if (c.collector_number) {
-      parts.push(`#${c.collector_number}`);
-    }
-    if (c.language && c.language.toLowerCase() !== 'en') {
-      parts.push(`(${c.language.toUpperCase()})`);
-    }
-    return parts.join(' ') || c.set_name || '';
-  });
 </script>
 
 <svelte:head>
@@ -133,7 +117,7 @@
     <Card.Root>
       <Card.Header>
         <Card.Title class="text-3xl">{data.card.card_name}</Card.Title>
-        <Card.Description class="text-lg">{cardIdentifier}</Card.Description>
+        <Card.Description class="text-lg">{data.card.set_name}</Card.Description>
       </Card.Header>
 
       <Card.Content class="space-y-6">

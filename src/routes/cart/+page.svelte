@@ -3,7 +3,7 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardImageUrl, getCardPrice, formatPrice } from '$lib/utils';
+  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
   import { Trash2, Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-svelte';
 
   let { data } = $props();
@@ -50,7 +50,7 @@
             <Card.Root>
               <Card.Content class="flex gap-4 p-4">
                 <!-- Card Image -->
-                <a href="/cards/{item.card.serial}" class="shrink-0">
+                <a href={getCardUrl(item.card)} class="shrink-0">
                   <img
                     src={imageUrl}
                     alt={item.card.card_name}
@@ -63,7 +63,7 @@
                 <div class="flex flex-1 flex-col">
                   <div class="flex items-start justify-between">
                     <div>
-                      <a href="/cards/{item.card.serial}" class="font-medium hover:underline">
+                      <a href={getCardUrl(item.card)} class="font-medium hover:underline">
                         {item.card.card_name}
                       </a>
                       <p class="text-sm text-muted-foreground">{item.card.set_name}</p>

@@ -2,7 +2,6 @@
   import { Label } from '$components/ui/label';
   import { Checkbox } from '$components/ui/checkbox';
   import { Button } from '$components/ui/button';
-  import * as Select from '$components/ui/select';
   import * as Popover from '$components/ui/popover';
   import * as Command from '$components/ui/command';
   import ManaIcon from '$lib/components/icons/ManaIcon.svelte';
@@ -16,8 +15,9 @@
   interface Filters {
     setCode: string;
     colorIdentity: string[];
-    cardType: '' | 'Normal' | 'Holo' | 'Foil';
-    mtgTypes: string[];
+    priceCategories: string[];
+    cardTypes: string[];
+    frameTypes: string[];
     inStockOnly: boolean;
     isNew: boolean;
   }
@@ -41,14 +41,13 @@
     { value: 'G', label: 'Green' }
   ];
 
-  const cardTypes = [
-    { value: '', label: 'All Types' },
+  const priceCategories = [
     { value: 'Normal', label: 'Normal ($1.25)' },
     { value: 'Holo', label: 'Holo ($1.25)' },
     { value: 'Foil', label: 'Foil ($1.50)' }
   ];
 
-  const mtgTypes = [
+  const cardTypes = [
     'Land',
     'Creature',
     'Artifact',
@@ -59,11 +58,34 @@
     'Sorcery'
   ];
 
-  function toggleMtgType(type: string) {
-    if (filters.mtgTypes.includes(type)) {
-      filters.mtgTypes = filters.mtgTypes.filter((t) => t !== type);
+  const frameTypes = [
+    { value: 'retro', label: 'Retro' },
+    { value: 'extended', label: 'Extended Art' },
+    { value: 'borderless', label: 'Full Art (Borderless)' },
+    { value: 'showcase', label: 'Showcase' }
+  ];
+
+  function toggleCardType(type: string) {
+    if (filters.cardTypes.includes(type)) {
+      filters.cardTypes = filters.cardTypes.filter((t) => t !== type);
     } else {
-      filters.mtgTypes = [...filters.mtgTypes, type];
+      filters.cardTypes = [...filters.cardTypes, type];
+    }
+  }
+
+  function togglePriceCategory(category: string) {
+    if (filters.priceCategories.includes(category)) {
+      filters.priceCategories = filters.priceCategories.filter((c) => c !== category);
+    } else {
+      filters.priceCategories = [...filters.priceCategories, category];
+    }
+  }
+
+  function toggleFrameType(frameType: string) {
+    if (filters.frameTypes.includes(frameType)) {
+      filters.frameTypes = filters.frameTypes.filter((f) => f !== frameType);
+    } else {
+      filters.frameTypes = [...filters.frameTypes, frameType];
     }
   }
 
@@ -79,8 +101,9 @@
     filters = {
       setCode: '',
       colorIdentity: [],
-      cardType: '',
-      mtgTypes: [],
+      priceCategories: ['Normal', 'Holo', 'Foil'],
+      cardTypes: [],
+      frameTypes: [],
       inStockOnly: false,
       isNew: false
     };
@@ -96,8 +119,9 @@
   const hasActiveFilters = $derived(
     filters.setCode !== '' ||
       filters.colorIdentity.length > 0 ||
-      filters.cardType !== '' ||
-      filters.mtgTypes.length > 0 ||
+      filters.priceCategories.length < 3 ||
+      filters.cardTypes.length > 0 ||
+      filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
       filters.isNew
   );
@@ -105,10 +129,6 @@
   // Get display labels for selects
   const selectedSetLabel = $derived(
     filters.setCode ? sets.find((s) => s.code === filters.setCode)?.name ?? 'All Sets' : 'All Sets'
-  );
-
-  const selectedTypeLabel = $derived(
-    cardTypes.find((t) => t.value === filters.cardType)?.label ?? 'All Types'
   );
 
   // Filter sets based on search
@@ -138,18 +158,21 @@
     <Label>Set</Label>
     <Popover.Root bind:open={setComboboxOpen}>
       <Popover.Trigger>
-        <Button
-          variant="outline"
-          class="w-full justify-between"
-          role="combobox"
-          aria-expanded={setComboboxOpen}
-        >
-          <span class="truncate">{selectedSetLabel}</span>
-          <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="outline"
+            class="w-full justify-between"
+            role="combobox"
+            aria-expanded={setComboboxOpen}
+          >
+            <span class="truncate">{selectedSetLabel}</span>
+            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        {/snippet}
       </Popover.Trigger>
       <Popover.Content class="w-[300px] p-0" align="start">
-        <Command.Root>
+        <Command.Root shouldFilter={false}>
           <Command.Input
             placeholder="Search sets..."
             bind:value={setSearchValue}
@@ -158,7 +181,7 @@
             <Command.Empty>No sets found.</Command.Empty>
             <Command.Group>
               <Command.Item
-                value=""
+                value="all-sets"
                 onSelect={() => selectSet('')}
               >
                 <Check
@@ -168,7 +191,7 @@
               </Command.Item>
               {#each filteredSets as set (set.code)}
                 <Command.Item
-                  value="{set.name} {set.code}"
+                  value={set.code}
                   onSelect={() => selectSet(set.code)}
                 >
                   <Check
@@ -204,50 +227,69 @@
     </div>
   </div>
 
-  <!-- MTG Types (Type Line) -->
+  <!-- Card Types (Type Line) - Multiselect with OR logic -->
   <div class="space-y-2">
-    <Label>MTG Type</Label>
+    <Label>Card Type</Label>
     <div class="grid grid-cols-2 gap-2">
-      {#each mtgTypes as type}
-        <div class="flex items-center space-x-2">
+      {#each cardTypes as type}
+        <label class="flex cursor-pointer items-center space-x-2">
           <Checkbox
-            id="mtgType-{type}"
-            checked={filters.mtgTypes.includes(type)}
-            onCheckedChange={() => toggleMtgType(type)}
+            checked={filters.cardTypes.includes(type)}
+            onCheckedChange={() => toggleCardType(type)}
           />
-          <Label for="mtgType-{type}" class="cursor-pointer text-sm">{type}</Label>
-        </div>
+          <span class="text-sm">{type}</span>
+        </label>
       {/each}
     </div>
   </div>
 
-  <!-- Card Type (Price Category) -->
+  <!-- Price Category (card_type column) - Multiselect, all checked by default -->
   <div class="space-y-2">
     <Label>Price Category</Label>
-    <Select.Root
-      type="single"
-      bind:value={filters.cardType}
-    >
-      <Select.Trigger class="w-full">
-        {selectedTypeLabel}
-      </Select.Trigger>
-      <Select.Content>
-        {#each cardTypes as type}
-          <Select.Item value={type.value} label={type.label}>{type.label}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
+    <div class="space-y-2">
+      {#each priceCategories as category}
+        <label class="flex cursor-pointer items-center space-x-2">
+          <Checkbox
+            checked={filters.priceCategories.includes(category.value)}
+            onCheckedChange={() => togglePriceCategory(category.value)}
+          />
+          <span class="text-sm">{category.label}</span>
+        </label>
+      {/each}
+    </div>
+  </div>
+
+  <!-- Frame Type Filter -->
+  <div class="space-y-2">
+    <Label>Frame Type</Label>
+    <div class="space-y-2">
+      {#each frameTypes as frame}
+        <label class="flex cursor-pointer items-center space-x-2">
+          <Checkbox
+            checked={filters.frameTypes.includes(frame.value)}
+            onCheckedChange={() => toggleFrameType(frame.value)}
+          />
+          <span class="text-sm">{frame.label}</span>
+        </label>
+      {/each}
+    </div>
   </div>
 
   <!-- Toggles -->
   <div class="space-y-3">
-    <div class="flex items-center space-x-2">
-      <Checkbox id="inStock" checked={filters.inStockOnly} onCheckedChange={(v) => filters.inStockOnly = !!v} />
-      <Label for="inStock" class="cursor-pointer">In Stock Only</Label>
-    </div>
-    <div class="flex items-center space-x-2">
-      <Checkbox id="isNew" checked={filters.isNew} onCheckedChange={(v) => filters.isNew = !!v} />
-      <Label for="isNew" class="cursor-pointer">New Cards Only</Label>
-    </div>
+    <label class="flex cursor-pointer items-center space-x-2">
+      <Checkbox
+        checked={filters.inStockOnly}
+        onCheckedChange={(v) => filters.inStockOnly = !!v}
+      />
+      <span>In Stock Only</span>
+    </label>
+    <label class="flex cursor-pointer items-center space-x-2">
+      <Checkbox
+        checked={filters.isNew}
+        onCheckedChange={(v) => filters.isNew = !!v}
+      />
+      <span>New Cards Only</span>
+    </label>
   </div>
 </div>

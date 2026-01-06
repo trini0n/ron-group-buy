@@ -132,3 +132,29 @@ export function getCardImageUrl(
   // Fallback placeholder
   return '/images/card-placeholder.png'
 }
+
+/**
+ * Generate a URL-friendly slug from a card name
+ * Example: "Wan Shi Tong, Librarian" -> "wan-shi-tong-librarian"
+ */
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Generate the URL path for a card detail page
+ * Format: /card/setCode/collectorsNum/card-name-slug/
+ */
+export function getCardUrl(card: {
+  set_code: string | null
+  collector_number: string | null
+  card_name: string
+}): string {
+  const setCode = (card.set_code || 'unknown').toLowerCase()
+  const collectorNum = card.collector_number || '0'
+  const slug = slugify(card.card_name)
+  return `/card/${setCode}/${collectorNum}/${slug}/`
+}

@@ -8,13 +8,14 @@
   interface Filters {
     setCode: string;
     colorIdentity: string[];
-    cardType: '' | 'Normal' | 'Holo' | 'Foil';
-    mtgTypes: string[];
+    priceCategories: string[];
+    cardTypes: string[];
+    frameTypes: string[];
     inStockOnly: boolean;
     isNew: boolean;
   }
 
-  // Supertypes to ignore when matching MTG types
+  // Supertypes to ignore when matching card types
   const SUPERTYPES = ['basic', 'legendary', 'snow', 'world', 'ongoing', 'host'];
 
   interface Props {
@@ -51,25 +52,46 @@
         if (!hasMatchingColor) return false;
       }
 
-      // Card type (price category) filter
-      if (filters.cardType && card.card_type !== filters.cardType) {
-        return false;
+      // Price category filter (card_type column) - filter OUT unchecked categories
+      if (filters.priceCategories.length < 3) {
+        if (!filters.priceCategories.includes(card.card_type)) {
+          return false;
+        }
       }
 
-      // MTG type filter (type line)
-      if (filters.mtgTypes.length > 0) {
+      // Card type filter (type line) - OR logic
+      if (filters.cardTypes.length > 0) {
         if (!card.type_line) return false;
         // Parse type line, removing supertypes
         const typeLine = card.type_line.toLowerCase();
         // Get the types before any em dash (ignoring subtypes)
         const mainTypes = typeLine.split('—')[0].trim();
         // Split into words and filter out supertypes
-        const cardTypes = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
-        // Check if any selected type matches
-        const hasMatchingType = filters.mtgTypes.some((selectedType) =>
-          cardTypes.includes(selectedType.toLowerCase())
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
+        // Check if any selected type matches (OR logic)
+        const hasMatchingType = filters.cardTypes.some((selectedType) =>
+          cardTypeWords.includes(selectedType.toLowerCase())
         );
         if (!hasMatchingType) return false;
+      }
+
+      // Frame type filter - OR logic (show cards matching ANY selected frame type)
+      if (filters.frameTypes.length > 0) {
+        const matchesFrameType = filters.frameTypes.some((frameType) => {
+          switch (frameType) {
+            case 'retro':
+              return card.is_retro === true;
+            case 'extended':
+              return card.is_extended === true;
+            case 'borderless':
+              return card.is_borderless === true;
+            case 'showcase':
+              return card.is_showcase === true;
+            default:
+              return false;
+          }
+        });
+        if (!matchesFrameType) return false;
       }
 
       // In stock filter
