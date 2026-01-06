@@ -6,16 +6,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   const { setCode, collectorNum, slug } = params
 
   // Query by set_code and collector_number (case-insensitive for set_code)
-  const { data: card, error: dbError } = await locals.supabase
+  // Use .limit(1) instead of .single() to handle multiple variants (foil, languages, etc.)
+  const { data: cards, error: dbError } = await locals.supabase
     .from('cards')
     .select('*')
     .ilike('set_code', setCode)
     .eq('collector_number', collectorNum)
-    .single()
+    .limit(1)
 
-  if (dbError || !card) {
+  if (dbError || !cards || cards.length === 0) {
     throw error(404, 'Card not found')
   }
+
+  const card = cards[0]
 
   // Verify slug matches (redirect if wrong for SEO)
   const expectedSlug = slugify(card.card_name)
