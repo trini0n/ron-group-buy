@@ -4,7 +4,6 @@
   import { Badge } from '$components/ui/badge';
   import * as CardUI from '$components/ui/card';
   import { Input } from '$components/ui/input';
-  import * as Tooltip from '$components/ui/tooltip';
   import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
@@ -126,7 +125,7 @@
 
       <!-- Quantity & Add to Cart -->
       {#if card.is_in_stock}
-        <div class="mt-3 flex items-center gap-2" role="group">
+        <div class="mt-3 flex items-center justify-between gap-2" role="group">
           <div class="flex items-center rounded-md border">
             <Button
               variant="ghost"
@@ -155,18 +154,9 @@
               <Plus class="h-3 w-3" />
             </Button>
           </div>
-          <Tooltip.Root>
-            <Tooltip.Trigger onclick={addToCart}>
-              {#snippet child({ props })}
-                <Button {...props} size="icon" class="h-8 w-8">
-                  <ShoppingCart class="h-4 w-4" />
-                </Button>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-              <p>Add to Cart</p>
-            </Tooltip.Content>
-          </Tooltip.Root>
+          <Button size="icon" class="h-8 w-8" onclick={addToCart} title="Add to Cart">
+            <ShoppingCart class="h-4 w-4" />
+          </Button>
         </div>
       {/if}
     </CardUI.Content>

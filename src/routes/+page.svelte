@@ -4,7 +4,6 @@
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
   import { Button } from '$components/ui/button';
-  import * as Tooltip from '$components/ui/tooltip';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
 
   let { data } = $props();
@@ -20,6 +19,11 @@
     inStockOnly: false,
     isNew: false
   });
+
+  function handleViewChange(mode: 'grid' | 'table') {
+    console.log('View mode changing to:', mode);
+    viewMode = mode;
+  }
 </script>
 
 <svelte:head>
@@ -48,40 +52,24 @@
       />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
-      <Tooltip.Root>
-        <Tooltip.Trigger onclick={() => viewMode = 'grid'}>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="icon"
-              class="h-8 w-8"
-            >
-              <LayoutGrid class="h-4 w-4" />
-            </Button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>
-          <p>Gallery View</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
-      <Tooltip.Root>
-        <Tooltip.Trigger onclick={() => viewMode = 'table'}>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="icon"
-              class="h-8 w-8"
-            >
-              <List class="h-4 w-4" />
-            </Button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content>
-          <p>List View</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <Button
+        variant={viewMode === 'grid' ? 'default' : 'ghost'}
+        size="icon"
+        class="h-8 w-8"
+        onclick={() => handleViewChange('grid')}
+        title="Gallery View"
+      >
+        <LayoutGrid class="h-4 w-4" />
+      </Button>
+      <Button
+        variant={viewMode === 'table' ? 'default' : 'ghost'}
+        size="icon"
+        class="h-8 w-8"
+        onclick={() => handleViewChange('table')}
+        title="List View"
+      >
+        <List class="h-4 w-4" />
+      </Button>
     </div>
   </div>
 
