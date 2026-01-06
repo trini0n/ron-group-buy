@@ -5,7 +5,7 @@
   import * as CardUI from '$components/ui/card';
   import { Input } from '$components/ui/input';
   import * as Tooltip from '$components/ui/tooltip';
-  import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
+  import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
@@ -55,7 +55,8 @@
   });
 
   // Get display label for card finish (Normal, Holo, Foil, or Surge Foil)
-  const finishLabel = $derived(card.foil_type || card.card_type);
+  const finishLabel = $derived(getFinishLabel(card));
+  const finishClasses = $derived(getFinishBadgeClasses(finishLabel));
 
   function addToCart(e: Event) {
     e.preventDefault();
@@ -124,7 +125,7 @@
       </p>
       <div class="mt-2 flex items-center justify-between">
         <span class="font-bold">{formatPrice(price)}</span>
-        <Badge variant="secondary" class="text-xs">{finishLabel}</Badge>
+        <Badge class="text-xs {finishClasses}">{finishLabel}</Badge>
       </div>
 
       <!-- Quantity & Add to Cart -->

@@ -158,3 +158,34 @@ export function getCardUrl(card: {
   const slug = slugify(card.card_name)
   return `/card/${setCode}/${collectorNum}/${slug}/`
 }
+
+/**
+ * Get the display label for a card's finish type
+ */
+export function getFinishLabel(card: { foil_type?: string | null; card_type: string }): string {
+  return card.foil_type || card.card_type
+}
+
+/**
+ * Get Tailwind CSS classes for finish badge styling
+ * Works in both light and dark mode
+ */
+export function getFinishBadgeClasses(finish: string): string {
+  switch (finish) {
+    case 'Normal':
+      // Gray - neutral, understated
+      return 'bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200'
+    case 'Holo':
+      // Purple/Violet - represents holographic
+      return 'bg-violet-200 text-violet-800 dark:bg-violet-800 dark:text-violet-200'
+    case 'Foil':
+      // Amber/Gold - represents premium foil
+      return 'bg-amber-200 text-amber-800 dark:bg-amber-700 dark:text-amber-100'
+    case 'Surge Foil':
+      // Cyan/Electric blue - represents special/surge effect
+      return 'bg-cyan-200 text-cyan-800 dark:bg-cyan-700 dark:text-cyan-100'
+    default:
+      // Fallback to secondary
+      return 'bg-secondary text-secondary-foreground'
+  }
+}

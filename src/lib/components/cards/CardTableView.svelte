@@ -8,7 +8,7 @@
   import { ChevronUp, ChevronDown, ShoppingCart, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-svelte';
   import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
   import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
+  import { getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
 
   interface Filters {
     setCode: string;
@@ -512,7 +512,8 @@
               onmousemove={(e) => handleRowMouseMove(e, card)}
               onmouseleave={handleRowMouseLeave}
             >
-              <Badge variant="secondary" class="text-xs">{card.card_type}</Badge>
+              {@const finish = getFinishLabel(card)}
+              <Badge class="text-xs {getFinishBadgeClasses(finish)}">{finish}</Badge>
             </Table.Cell>
             <Table.Cell 
               class="font-medium"

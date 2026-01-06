@@ -3,7 +3,7 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
+  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle } from 'lucide-svelte';
   import { onMount } from 'svelte';
 
@@ -106,7 +106,7 @@
                       </a>
                       <p class="text-sm text-muted-foreground">{item.card.set_name}</p>
                       <div class="mt-1 flex gap-2">
-                        <Badge variant="secondary" class="text-xs">{item.card.card_type}</Badge>
+                        <Badge class="text-xs {getFinishBadgeClasses(getFinishLabel(item.card))}">{getFinishLabel(item.card)}</Badge>
                         {#if !item.card.is_in_stock}
                           <Badge variant="destructive" class="text-xs">Out of Stock</Badge>
                         {/if}

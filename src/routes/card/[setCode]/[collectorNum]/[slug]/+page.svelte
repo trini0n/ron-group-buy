@@ -3,7 +3,7 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import { Separator } from '$components/ui/separator';
-  import { getCardImages, getCardPrice, formatPrice } from '$lib/utils';
+  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { ShoppingCart, ExternalLink, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
@@ -125,7 +125,7 @@
           <Badge variant={data.card.is_in_stock ? 'default' : 'destructive'}>
             {data.card.is_in_stock ? 'In Stock' : 'Out of Stock'}
           </Badge>
-          <Badge variant="secondary">{data.card.card_type}</Badge>
+          <Badge class={getFinishBadgeClasses(getFinishLabel(data.card))}>{getFinishLabel(data.card)}</Badge>
           {#if data.card.is_new}
             <Badge variant="outline" class="border-green-500 text-green-500">New</Badge>
           {/if}
