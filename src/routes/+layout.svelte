@@ -9,25 +9,62 @@
   import { Toaster } from '$components/ui/sonner';
   import * as Tooltip from '$components/ui/tooltip';
   import { invalidateAll } from '$app/navigation';
+  import { cartStore } from '$lib/stores/cart.svelte';
+  import CartMergeModal from '$components/cart/CartMergeModal.svelte';
 
   let { data, children } = $props();
 
   // Create browser-side Supabase client
   const supabase = createSupabaseClient();
 
+  // Track if merge modal should be shown
+  let showMergeModal = $state(false);
+
   // Track auth state changes
   onMount(() => {
+    // Initial cart sync
+    cartStore.syncFromServer();
+
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((event, _session) => {
+    } = supabase.auth.onAuthStateChange(async (event, _session) => {
       // Only invalidate data on sign in/out, don't reload to avoid loops
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
         invalidateAll();
+        
+        // Handle cart sync on auth change
+        if (event === 'SIGNED_IN') {
+          // Check for merge after login
+          const mergeStatus = await cartStore.checkMergeStatus();
+          if (mergeStatus?.merge_needed) {
+            if (mergeStatus.requires_confirmation) {
+              showMergeModal = true;
+            } else {
+              // Auto-merge without confirmation
+              await cartStore.executeMerge();
+            }
+          } else {
+            // Just sync the cart
+            await cartStore.syncFromServer();
+          }
+        } else if (event === 'SIGNED_OUT') {
+          await cartStore.onAuthChange(false);
+        }
       }
     });
 
     return () => subscription.unsubscribe();
   });
+
+  function handleMergeConfirm() {
+    cartStore.executeMerge(true);
+    showMergeModal = false;
+  }
+
+  function handleMergeSkip() {
+    cartStore.skipMerge();
+    showMergeModal = false;
+  }
 </script>
 
 <ModeWatcher defaultMode="dark" />
@@ -45,3 +82,11 @@
   <Footer />
 </div>
 </Tooltip.Provider>
+
+<!-- Cart Merge Modal -->
+<CartMergeModal
+  open={showMergeModal}
+  mergeStatus={cartStore.pendingMerge}
+  onConfirm={handleMergeConfirm}
+  onSkip={handleMergeSkip}
+/>

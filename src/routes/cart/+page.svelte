@@ -4,9 +4,15 @@
   import * as Card from '$components/ui/card';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl } from '$lib/utils';
-  import { Trash2, Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-svelte';
+  import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle } from 'lucide-svelte';
+  import { onMount } from 'svelte';
 
   let { data } = $props();
+
+  // Sync cart from server on mount
+  onMount(() => {
+    cartStore.syncFromServer();
+  });
 
   const isGroupBuyOpen = $derived.by(() => {
     if (!data.groupBuyConfig) return false;
@@ -39,11 +45,43 @@
       </Button>
     </div>
   {:else}
+    <!-- Loading/Syncing indicator -->
+    {#if cartStore.isSyncing}
+      <div class="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 class="h-4 w-4 animate-spin" />
+        Syncing cart...
+      </div>
+    {/if}
+
+    <!-- Validation warnings -->
+    {#if cartStore.validation?.invalid_items?.length || cartStore.validation?.price_changes?.length}
+      <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+        <div class="flex items-start gap-3">
+          <AlertTriangle class="mt-0.5 h-5 w-5 text-amber-600" />
+          <div class="flex-1">
+            <h3 class="font-medium text-amber-800 dark:text-amber-200">Cart Changes Detected</h3>
+            <ul class="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
+              {#each cartStore.validation?.invalid_items || [] as item}
+                <li>
+                  <strong>{item.card_name}</strong>: {item.reason === 'sold_out' ? 'Sold out' : item.reason === 'listing_removed' ? 'No longer available' : 'Quantity reduced'}
+                </li>
+              {/each}
+              {#each cartStore.validation?.price_changes || [] as change}
+                <li>
+                  <strong>{change.card_name}</strong>: Price changed from {formatPrice(change.old_price)} to {formatPrice(change.new_price)}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        </div>
+      </div>
+    {/if}
+
     <div class="grid gap-8 lg:grid-cols-3">
       <!-- Cart Items -->
       <div class="lg:col-span-2">
         <div class="space-y-4">
-          {#each cartStore.items as item (item.card.serial)}
+          {#each cartStore.items as item (item.id)}
             {@const price = getCardPrice(item.card.card_type)}
             {@const imageUrl = getCardImageUrl(item.card.ron_image_url, item.card.scryfall_id, 'small')}
 
@@ -84,7 +122,7 @@
                         variant="outline"
                         size="icon"
                         class="h-8 w-8"
-                        onclick={() => cartStore.updateQuantity(item.card.serial, item.quantity - 1)}
+                        onclick={() => cartStore.updateQuantity(item.id, item.quantity - 1)}
                       >
                         <Minus class="h-3 w-3" />
                       </Button>
@@ -93,7 +131,7 @@
                         variant="outline"
                         size="icon"
                         class="h-8 w-8"
-                        onclick={() => cartStore.updateQuantity(item.card.serial, item.quantity + 1)}
+                        onclick={() => cartStore.updateQuantity(item.id, item.quantity + 1)}
                       >
                         <Plus class="h-3 w-3" />
                       </Button>
@@ -104,7 +142,7 @@
                       variant="ghost"
                       size="sm"
                       class="text-destructive hover:text-destructive"
-                      onclick={() => cartStore.removeItem(item.card.serial)}
+                      onclick={() => cartStore.removeItem(item.id)}
                     >
                       <Trash2 class="mr-1 h-4 w-4" />
                       Remove

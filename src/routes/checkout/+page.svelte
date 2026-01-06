@@ -58,12 +58,37 @@
     isSubmitting = true;
 
     try {
+      // Validate cart before submitting order
+      const validation = await cartStore.validate();
+      if (validation) {
+        const hasInvalidItems = validation.invalid_items?.length > 0;
+        const hasPriceChanges = validation.price_changes?.length > 0;
+        
+        if (hasInvalidItems) {
+          alert('Some items in your cart are no longer available. Please review your cart.');
+          isSubmitting = false;
+          return;
+        }
+        
+        if (hasPriceChanges) {
+          const confirm = window.confirm(
+            'Some prices have changed since you added items to your cart. Continue with checkout?'
+          );
+          if (!confirm) {
+            isSubmitting = false;
+            return;
+          }
+        }
+      }
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           addressId: useNewAddress ? null : selectedAddressId,
           newAddress: useNewAddress ? newAddress : null,
+          cartId: cartStore.cartId,
+          cartVersion: cartStore.version,
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -227,7 +252,7 @@
         <Card.Root>
           <Card.Content class="pt-6">
             <div class="max-h-64 space-y-2 overflow-auto">
-              {#each cartStore.items as item (item.card.serial)}
+              {#each cartStore.items as item (item.id)}
                 {@const price = getCardPrice(item.card.card_type)}
                 <div class="flex justify-between text-sm">
                   <span class="truncate">

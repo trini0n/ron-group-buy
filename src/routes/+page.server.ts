@@ -3,9 +3,9 @@ import type { Card } from '$lib/server/types'
 
 // Define finish order for sorting: Normal → Holo → Foil → Surge Foil
 const FINISH_ORDER: Record<string, number> = {
-  'Normal': 0,
-  'Holo': 1,
-  'Foil': 2,
+  Normal: 0,
+  Holo: 1,
+  Foil: 2,
   'Surge Foil': 3
 }
 
