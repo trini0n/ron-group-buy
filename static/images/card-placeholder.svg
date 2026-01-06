@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="280" viewBox="0 0 200 280">
+  <rect width="200" height="280" fill="#1a1a2e" rx="10"/>
+  <rect x="10" y="10" width="180" height="260" fill="#16213e" rx="8" stroke="#0f3460" stroke-width="2"/>
+  <circle cx="100" cy="100" r="40" fill="#0f3460"/>
+  <text x="100" y="180" text-anchor="middle" fill="#e94560" font-family="system-ui" font-size="14" font-weight="bold">Card Image</text>
+  <text x="100" y="200" text-anchor="middle" fill="#666" font-family="system-ui" font-size="12">Not Available</text>
+</svg>

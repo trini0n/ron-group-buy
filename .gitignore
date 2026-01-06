@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.svelte-kit/
+build/
+.vercel/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Type generation
+src/lib/server/database.types.ts
