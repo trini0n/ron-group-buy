@@ -1,16 +1,16 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-  const page = parseInt(url.searchParams.get('page') || '1');
-  const pageSize = 48;
-  const offset = (page - 1) * pageSize;
-
-  // Fetch cards with pagination
-  const { data: cards, count } = await locals.supabase
+export const load: PageServerLoad = async ({ locals }) => {
+  // Fetch ALL cards for client-side filtering/pagination
+  // For ~7000 cards, this is acceptable. For larger catalogs, use server-side filtering.
+  const { data: cards, error } = await locals.supabase
     .from('cards')
-    .select('*', { count: 'exact' })
-    .order('card_name', { ascending: true })
-    .range(offset, offset + pageSize - 1);
+    .select('*')
+    .order('card_name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching cards:', error);
+  }
 
   // Fetch unique set codes for filter dropdown
   const { data: setsData } = await locals.supabase
@@ -32,12 +32,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   return {
     cards: cards || [],
-    sets,
-    pagination: {
-      page,
-      pageSize,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / pageSize)
-    }
+    sets
   };
 };

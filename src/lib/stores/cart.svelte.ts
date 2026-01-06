@@ -1,24 +1,24 @@
-import type { Card } from '$lib/server/types';
-import { browser } from '$app/environment';
+import type { Card } from '$lib/server/types'
+import { browser } from '$app/environment'
 
-const CART_STORAGE_KEY = 'group-buy-cart';
+const CART_STORAGE_KEY = 'group-buy-cart'
 
 interface CartItem {
-  card: Card;
-  quantity: number;
+  card: Card
+  quantity: number
 }
 
 function createCartStore() {
-  let items = $state<CartItem[]>([]);
+  let items = $state<CartItem[]>([])
 
   // Load from localStorage on init
   if (browser) {
-    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    const stored = localStorage.getItem(CART_STORAGE_KEY)
     if (stored) {
       try {
-        items = JSON.parse(stored);
+        items = JSON.parse(stored)
       } catch {
-        items = [];
+        items = []
       }
     }
   }
@@ -26,70 +26,70 @@ function createCartStore() {
   // Helper to persist to localStorage
   function persist() {
     if (browser) {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
     }
   }
 
   function addItem(card: Card, quantity: number = 1) {
-    const existing = items.find((item) => item.card.serial === card.serial);
+    const existing = items.find((item) => item.card.serial === card.serial)
     if (existing) {
-      existing.quantity += quantity;
-      items = [...items]; // Trigger reactivity
+      existing.quantity += quantity
+      items = [...items] // Trigger reactivity
     } else {
-      items = [...items, { card, quantity }];
+      items = [...items, { card, quantity }]
     }
-    persist();
+    persist()
   }
 
   function removeItem(serial: string) {
-    items = items.filter((item) => item.card.serial !== serial);
-    persist();
+    items = items.filter((item) => item.card.serial !== serial)
+    persist()
   }
 
   function updateQuantity(serial: string, quantity: number) {
     if (quantity <= 0) {
-      removeItem(serial);
-      return;
+      removeItem(serial)
+      return
     }
-    const item = items.find((i) => i.card.serial === serial);
+    const item = items.find((i) => i.card.serial === serial)
     if (item) {
-      item.quantity = quantity;
-      items = [...items]; // Trigger reactivity
+      item.quantity = quantity
+      items = [...items] // Trigger reactivity
     }
-    persist();
+    persist()
   }
 
   function clear() {
-    items = [];
-    persist();
+    items = []
+    persist()
   }
 
   function getTotal(): number {
     return items.reduce((total, item) => {
-      const price = item.card.card_type === 'Foil' ? 1.5 : 1.25;
-      return total + price * item.quantity;
-    }, 0);
+      const price = item.card.card_type === 'Foil' ? 1.5 : 1.25
+      return total + price * item.quantity
+    }, 0)
   }
 
   function getItemCount(): number {
-    return items.reduce((count, item) => count + item.quantity, 0);
+    return items.reduce((count, item) => count + item.quantity, 0)
   }
 
   return {
     get items() {
-      return items;
+      return items
     },
     get total() {
-      return getTotal();
+      return getTotal()
     },
     get itemCount() {
-      return getItemCount();
+      return getItemCount()
     },
     addItem,
     removeItem,
     updateQuantity,
     clear
-  };
+  }
 }
 
-export const cartStore = createCartStore();
+export const cartStore = createCartStore()

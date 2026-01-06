@@ -31,7 +31,7 @@
   <div class="mb-8 text-center">
     <h1 class="text-4xl font-bold tracking-tight">Card Catalog</h1>
     <p class="mt-2 text-muted-foreground">
-      Browse our selection of Magic: The Gathering cards
+      Browse Ron's selection of Magic: The Gathering cards
     </p>
   </div>
 
