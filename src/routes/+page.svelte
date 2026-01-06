@@ -11,6 +11,7 @@
     setCode: '',
     colorIdentity: [] as string[],
     cardType: '' as '' | 'Normal' | 'Holo' | 'Foil',
+    mtgTypes: [] as string[],
     inStockOnly: false,
     isNew: false
   });

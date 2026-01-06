@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
+  import * as Card from '$components/ui/card';
   import { formatPrice, getTrackingUrl } from '$lib/utils';
   import { Package, ExternalLink } from 'lucide-svelte';
 
@@ -35,55 +36,53 @@
       <p class="mt-2 text-muted-foreground">
         When you place an order, it will appear here.
       </p>
-      <Button href="/" class="mt-4">
-        Start Shopping
-      </Button>
+      <Button href="/" class="mt-4">Start Shopping</Button>
     </div>
   {:else}
     <div class="space-y-4">
       {#each data.orders as order (order.id)}
         {@const total = calculateOrderTotal(order.order_items)}
-        
-        <div class="rounded-lg border bg-card">
-          <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+
+        <Card.Root>
+          <Card.Header class="flex flex-row items-center justify-between space-y-0">
             <div>
               <div class="flex items-center gap-2">
-                <span class="font-mono font-bold">{order.order_number}</span>
-                <Badge class={statusColors[order.status]}>
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                <Card.Title class="font-mono">{order.order_number}</Card.Title>
+                <Badge class={statusColors[order.status ?? 'pending']}>
+                  {(order.status ?? 'pending').charAt(0).toUpperCase() + (order.status ?? 'pending').slice(1)}
                 </Badge>
               </div>
-              <p class="mt-1 text-sm text-muted-foreground">
-                Placed {new Date(order.created_at).toLocaleDateString('en-US', {
+              <Card.Description>
+                Placed {new Date(order.created_at ?? Date.now()).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
                 })}
-              </p>
+              </Card.Description>
             </div>
 
             <div class="flex items-center gap-4">
               <span class="text-lg font-bold">{formatPrice(total)}</span>
-              <Button variant="outline" href="/orders/{order.id}">
-                View Details
-              </Button>
+              <Button variant="outline" href="/orders/{order.id}">View Details</Button>
             </div>
-          </div>
+          </Card.Header>
 
-          <!-- Order Items Preview -->
-          <div class="border-t px-4 py-3">
+          <Card.Content class="border-t pt-4">
             <p class="text-sm text-muted-foreground">
               {order.order_items.length} item{order.order_items.length !== 1 ? 's' : ''}:
-              {order.order_items.slice(0, 3).map((i) => i.card_name).join(', ')}
+              {order.order_items
+                .slice(0, 3)
+                .map((i: { card_name: string }) => i.card_name)
+                .join(', ')}
               {#if order.order_items.length > 3}
                 and {order.order_items.length - 3} more
               {/if}
             </p>
-          </div>
+          </Card.Content>
 
           <!-- Tracking Info -->
           {#if order.tracking_number}
-            <div class="border-t bg-muted/50 px-4 py-3">
+            <Card.Footer class="border-t bg-muted/50">
               <a
                 href={getTrackingUrl(order.tracking_number)}
                 target="_blank"
@@ -92,12 +91,12 @@
                 <ExternalLink class="h-4 w-4" />
                 Track Package: {order.tracking_number}
               </a>
-            </div>
+            </Card.Footer>
           {/if}
 
           <!-- PayPal Invoice Link -->
           {#if order.paypal_invoice_url && order.status === 'invoiced'}
-            <div class="border-t bg-yellow-50 px-4 py-3 dark:bg-yellow-900/20">
+            <Card.Footer class="border-t bg-yellow-50 dark:bg-yellow-900/20">
               <a
                 href={order.paypal_invoice_url}
                 target="_blank"
@@ -106,9 +105,9 @@
                 <ExternalLink class="h-4 w-4" />
                 Pay Invoice via PayPal
               </a>
-            </div>
+            </Card.Footer>
           {/if}
-        </div>
+        </Card.Root>
       {/each}
     </div>
   {/if}

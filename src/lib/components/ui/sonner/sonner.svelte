@@ -1,7 +1,20 @@
 <script lang="ts">
-  // Placeholder for sonner toaster
-  // In production, install sonner: npm i svelte-sonner
+	import { Toaster as Sonner, type ToasterProps as SonnerProps } from "svelte-sonner";
+	import { mode } from "mode-watcher";
+
+	let { ...restProps }: SonnerProps = $props();
 </script>
 
-<!-- Toast container placeholder -->
-<div id="toast-container" class="fixed bottom-4 right-4 z-50"></div>
+<Sonner
+	theme={mode.current}
+	class="toaster group"
+	toastOptions={{
+		classes: {
+			toast: "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+			description: "group-[.toast]:text-muted-foreground",
+			actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+			cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+		},
+	}}
+	{...restProps}
+/>

@@ -1,23 +1,29 @@
-import { json, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getCardPrice } from '$lib/utils';
+import { json, error } from '@sveltejs/kit'
+import type { RequestHandler } from './$types'
+import { getCardPrice } from '$lib/utils'
+
+function generateOrderNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase()
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `ORD-${timestamp}-${random}`
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Require authentication
   if (!locals.user) {
-    throw error(401, 'Authentication required');
+    throw error(401, 'Authentication required')
   }
 
-  const body = await request.json();
-  const { addressId, newAddress, items } = body;
+  const body = await request.json()
+  const { addressId, newAddress, items } = body
 
   if (!items || items.length === 0) {
-    throw error(400, 'Cart is empty');
+    throw error(400, 'Cart is empty')
   }
 
   // Validate address
-  let shippingAddress;
-  
+  let shippingAddress
+
   if (addressId) {
     // Use existing address
     const { data: address, error: addressError } = await locals.supabase
@@ -25,16 +31,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .select('*')
       .eq('id', addressId)
       .eq('user_id', locals.user.id)
-      .single();
+      .single()
 
     if (addressError || !address) {
-      throw error(400, 'Invalid address');
+      throw error(400, 'Invalid address')
     }
-    shippingAddress = address;
+    shippingAddress = address
   } else if (newAddress) {
     // Validate new address fields
     if (!newAddress.name || !newAddress.line1 || !newAddress.city || !newAddress.postal_code || !newAddress.country) {
-      throw error(400, 'Missing required address fields');
+      throw error(400, 'Missing required address fields')
     }
 
     // Save the new address
@@ -46,14 +52,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         is_default: true
       })
       .select()
-      .single();
+      .single()
 
     if (saveError) {
-      throw error(500, 'Failed to save address');
+      throw error(500, 'Failed to save address')
     }
-    shippingAddress = savedAddress;
+    shippingAddress = savedAddress
   } else {
-    throw error(400, 'No address provided');
+    throw error(400, 'No address provided')
   }
 
   // Create order
@@ -61,6 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .from('orders')
     .insert({
       user_id: locals.user.id,
+      order_number: generateOrderNumber(),
       status: 'pending',
       shipping_name: shippingAddress.name,
       shipping_line1: shippingAddress.line1,
@@ -71,11 +78,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       shipping_country: shippingAddress.country
     })
     .select()
-    .single();
+    .single()
 
   if (orderError || !order) {
-    console.error('Order creation error:', orderError);
-    throw error(500, 'Failed to create order');
+    console.error('Order creation error:', orderError)
+    throw error(500, 'Failed to create order')
   }
 
   // Create order items
@@ -87,21 +94,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     card_type: item.cardType,
     quantity: item.quantity,
     unit_price: item.unitPrice
-  }));
+  }))
 
-  const { error: itemsError } = await locals.supabase
-    .from('order_items')
-    .insert(orderItems);
+  const { error: itemsError } = await locals.supabase.from('order_items').insert(orderItems)
 
   if (itemsError) {
-    console.error('Order items error:', itemsError);
+    console.error('Order items error:', itemsError)
     // Rollback order
-    await locals.supabase.from('orders').delete().eq('id', order.id);
-    throw error(500, 'Failed to create order items');
+    await locals.supabase.from('orders').delete().eq('id', order.id)
+    throw error(500, 'Failed to create order items')
   }
 
   return json({
     orderId: order.id,
     orderNumber: order.order_number
-  });
-};
+  })
+}

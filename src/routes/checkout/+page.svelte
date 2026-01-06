@@ -2,6 +2,8 @@
   import { Button } from '$components/ui/button';
   import { Input } from '$components/ui/input';
   import { Label } from '$components/ui/label';
+  import * as Card from '$components/ui/card';
+  import { Separator } from '$components/ui/separator';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { formatPrice, getCardPrice } from '$lib/utils';
   import { ArrowLeft, Check } from 'lucide-svelte';
@@ -164,43 +166,45 @@
       <div>
         <h2 class="mb-4 text-xl font-semibold">Order Summary</h2>
 
-        <div class="rounded-lg border bg-card p-4">
-          <div class="max-h-64 space-y-2 overflow-auto">
-            {#each cartStore.items as item (item.card.serial)}
-              {@const price = getCardPrice(item.card.card_type)}
+        <Card.Root>
+          <Card.Content class="pt-6">
+            <div class="max-h-64 space-y-2 overflow-auto">
+              {#each cartStore.items as item (item.card.serial)}
+                {@const price = getCardPrice(item.card.card_type)}
+                <div class="flex justify-between text-sm">
+                  <span class="truncate">
+                    {item.card.card_name} × {item.quantity}
+                  </span>
+                  <span class="shrink-0">{formatPrice(price * item.quantity)}</span>
+                </div>
+              {/each}
+            </div>
+
+            <Separator class="my-4" />
+
+            <div class="space-y-2">
               <div class="flex justify-between text-sm">
-                <span class="truncate">
-                  {item.card.card_name} × {item.quantity}
-                </span>
-                <span class="shrink-0">{formatPrice(price * item.quantity)}</span>
+                <span>Subtotal ({cartStore.itemCount} items)</span>
+                <span>{formatPrice(cartStore.total)}</span>
               </div>
-            {/each}
-          </div>
+              <div class="flex justify-between text-sm text-muted-foreground">
+                <span>Shipping</span>
+                <span>To be calculated</span>
+              </div>
+            </div>
 
-          <div class="my-4 border-t"></div>
+            <Separator class="my-4" />
 
-          <div class="space-y-2">
-            <div class="flex justify-between text-sm">
-              <span>Subtotal ({cartStore.itemCount} items)</span>
+            <div class="flex justify-between text-lg font-bold">
+              <span>Total</span>
               <span>{formatPrice(cartStore.total)}</span>
             </div>
-            <div class="flex justify-between text-sm text-muted-foreground">
-              <span>Shipping</span>
-              <span>To be calculated</span>
-            </div>
-          </div>
 
-          <div class="my-4 border-t"></div>
-
-          <div class="flex justify-between text-lg font-bold">
-            <span>Total</span>
-            <span>{formatPrice(cartStore.total)}</span>
-          </div>
-
-          <p class="mt-2 text-xs text-muted-foreground">
-            * A PayPal invoice will be sent with final shipping costs.
-          </p>
-        </div>
+            <p class="mt-2 text-xs text-muted-foreground">
+              * A PayPal invoice will be sent with final shipping costs.
+            </p>
+          </Card.Content>
+        </Card.Root>
 
         <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting}>
           {#if isSubmitting}

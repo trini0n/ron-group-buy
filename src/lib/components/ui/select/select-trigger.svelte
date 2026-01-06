@@ -1,23 +1,24 @@
 <script lang="ts">
-  import { cn } from '$lib/utils';
-  import { ChevronDown } from 'lucide-svelte';
-  import type { Snippet } from 'svelte';
+	import { Select as SelectPrimitive, type WithoutChild } from "bits-ui";
+	import ChevronDown from "@lucide/svelte/icons/chevron-down";
+	import { cn } from "$lib/utils.js";
 
-  interface Props {
-    class?: string;
-    children: Snippet;
-  }
-
-  let { class: className, children }: Props = $props();
+	let {
+		ref = $bindable(null),
+		class: className,
+		children,
+		...restProps
+	}: WithoutChild<SelectPrimitive.TriggerProps> = $props();
 </script>
 
-<button
-  type="button"
-  class={cn(
-    'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-    className
-  )}
+<SelectPrimitive.Trigger
+	bind:ref
+	class={cn(
+		"border-input bg-background ring-offset-background data-[placeholder]:text-muted-foreground focus:ring-ring flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+		className
+	)}
+	{...restProps}
 >
-  {@render children()}
-  <ChevronDown class="h-4 w-4 opacity-50" />
-</button>
+	{@render children?.()}
+	<ChevronDown class="size-4 opacity-50" />
+</SelectPrimitive.Trigger>

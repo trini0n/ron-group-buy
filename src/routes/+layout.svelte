@@ -17,7 +17,7 @@
   onMount(() => {
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((event, _session) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         // Refresh the page to update server-side session
         window.location.reload();
