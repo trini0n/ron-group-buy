@@ -7,7 +7,8 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
 
-  const supabase = createSupabaseClient();
+  // Lazy-create client to avoid SSR fetch warning
+  const getSupabase = () => createSupabaseClient();
 
   let email = $state('');
   let password = $state('');
@@ -22,7 +23,7 @@
     isLoading = true;
     error = '';
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await getSupabase().auth.signInWithPassword({
       email,
       password
     });
@@ -36,7 +37,7 @@
   }
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
@@ -45,7 +46,7 @@
   }
 
   async function signInWithDiscord() {
-    await supabase.auth.signInWithOAuth({
+    await getSupabase().auth.signInWithOAuth({
       provider: 'discord',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`

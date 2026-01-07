@@ -7,11 +7,10 @@
   import { cartStore } from '$lib/stores/cart.svelte';
   import { formatPrice, getCardPrice } from '$lib/utils';
   import { createSupabaseClient } from '$lib/supabase';
+  import { browser } from '$app/environment';
   import { ArrowLeft, Check, AlertTriangle, Mail } from 'lucide-svelte';
 
   let { data } = $props();
-
-  const supabase = createSupabaseClient();
 
   // Email verification
   let isResendingVerification = $state(false);
@@ -40,7 +39,10 @@
   });
 
   async function resendVerificationEmail() {
+    if (!browser) return;
+    
     isResendingVerification = true;
+    const supabase = createSupabaseClient();
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: data.userEmail || ''

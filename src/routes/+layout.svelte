@@ -2,6 +2,7 @@
   import '../app.css';
   import { ModeWatcher } from 'mode-watcher';
   import { createSupabaseClient } from '$lib/supabase';
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import Header from '$components/layout/Header.svelte';
   import Footer from '$components/layout/Footer.svelte';
@@ -14,14 +15,14 @@
 
   let { data, children } = $props();
 
-  // Create browser-side Supabase client
-  const supabase = createSupabaseClient();
-
   // Track if merge modal should be shown
   let showMergeModal = $state(false);
 
   // Track auth state changes
   onMount(() => {
+    // Create browser-side Supabase client only in browser
+    const supabase = createSupabaseClient();
+    
     // Initial cart sync
     cartStore.syncFromServer();
 

@@ -6,7 +6,8 @@
   import { createSupabaseClient } from '$lib/supabase';
   import { ArrowLeft, Check, Mail } from 'lucide-svelte';
 
-  const supabase = createSupabaseClient();
+  // Lazy-create client to avoid SSR fetch warning
+  const getSupabase = () => createSupabaseClient();
 
   let email = $state('');
   let isLoading = $state(false);
@@ -18,7 +19,7 @@
     isLoading = true;
     error = '';
 
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: authError } = await getSupabase().auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`
     });
 

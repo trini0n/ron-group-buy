@@ -8,7 +8,8 @@
   import { page } from '$app/stores';
   import { Check, X, Info } from 'lucide-svelte';
 
-  const supabase = createSupabaseClient();
+  // Lazy-create client to avoid SSR fetch warning
+  const getSupabase = () => createSupabaseClient();
 
   let email = $state('');
   let password = $state('');
@@ -39,7 +40,7 @@
     isLoading = true;
     error = '';
 
-    const { error: authError } = await supabase.auth.signUp({
+    const { error: authError } = await getSupabase().auth.signUp({
       email,
       password,
       options: {
@@ -56,7 +57,7 @@
   }
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
@@ -65,7 +66,7 @@
   }
 
   async function signInWithDiscord() {
-    await supabase.auth.signInWithOAuth({
+    await getSupabase().auth.signInWithOAuth({
       provider: 'discord',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`

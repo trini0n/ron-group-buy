@@ -9,7 +9,8 @@
 
   let { data } = $props();
   
-  const supabase = createSupabaseClient();
+  // Lazy-create client to avoid SSR fetch warning
+  const getSupabase = () => createSupabaseClient();
   
   // Check which providers are linked
   const hasGoogle = $derived(data.linkedProviders.includes('google'));
@@ -42,7 +43,7 @@
   const isPasswordValid = $derived(isMinLength && passwordsMatch);
 
   async function linkGoogle() {
-    const { data, error } = await supabase.auth.linkIdentity({
+    const { data, error } = await getSupabase().auth.linkIdentity({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/account`
@@ -60,7 +61,7 @@
   }
 
   async function linkDiscord() {
-    const { data, error } = await supabase.auth.linkIdentity({
+    const { data, error } = await getSupabase().auth.linkIdentity({
       provider: 'discord',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/account`
@@ -94,7 +95,7 @@
     isUnlinking = provider;
     unlinkError = '';
 
-    const { error } = await supabase.auth.unlinkIdentity(identity as any);
+    const { error } = await getSupabase().auth.unlinkIdentity(identity as any);
 
     if (error) {
       unlinkError = error.message;
@@ -114,7 +115,7 @@
     isUpdatingPassword = true;
     passwordError = '';
 
-    const { error } = await supabase.auth.updateUser({
+    const { error } = await getSupabase().auth.updateUser({
       password: newPassword
     });
 

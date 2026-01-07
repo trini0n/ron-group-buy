@@ -8,7 +8,8 @@
   import { onMount } from 'svelte';
   import { Check, X, Info } from 'lucide-svelte';
 
-  const supabase = createSupabaseClient();
+  // Lazy-create client to avoid SSR fetch warning
+  const getSupabase = () => createSupabaseClient();
 
   let password = $state('');
   let confirmPassword = $state('');
@@ -28,7 +29,7 @@
   onMount(async () => {
     // Check if we have a valid session from the reset link
     // Supabase automatically handles the token from the URL hash
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSupabase().auth.getSession();
     hasValidSession = !!session;
     isCheckingSession = false;
   });
@@ -44,7 +45,7 @@
     isLoading = true;
     error = '';
 
-    const { error: authError } = await supabase.auth.updateUser({
+    const { error: authError } = await getSupabase().auth.updateUser({
       password
     });
 
