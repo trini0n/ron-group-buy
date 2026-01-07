@@ -132,7 +132,8 @@
   // Get display labels for selects
   const selectedSetLabel = $derived.by(() => {
     if (!filters.setCode) return 'All Sets';
-    const set = sets.find((s) => s.code === filters.setCode);
+    const filterCode = filters.setCode.toLowerCase();
+    const set = sets.find((s) => s.code.toLowerCase() === filterCode);
     return set ? `${set.name} (${set.code.toUpperCase()})` : 'All Sets';
   });
 
@@ -200,7 +201,7 @@
                   onSelect={() => selectSet(set.code)}
                 >
                   <Check
-                    class="mr-2 h-4 w-4 {filters.setCode === set.code ? 'opacity-100' : 'opacity-0'}"
+                    class="mr-2 h-4 w-4 {filters.setCode.toLowerCase() === set.code.toLowerCase() ? 'opacity-100' : 'opacity-0'}"
                   />
                   <span class="truncate">{set.name}</span>
                   <span class="ml-2 text-xs text-muted-foreground">({set.code})</span>

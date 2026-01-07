@@ -94,7 +94,7 @@
       
       <Breadcrumb.Item>
         <Breadcrumb.Link href={setFilterUrl}>
-          {data.card.set_code?.toUpperCase()}
+          {data.card.set_name} ({data.card.set_code?.toUpperCase()})
         </Breadcrumb.Link>
       </Breadcrumb.Item>
       

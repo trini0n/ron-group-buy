@@ -94,8 +94,8 @@
         if (!nameMatch && !setMatch && !typeMatch) return false;
       }
 
-      // Set filter
-      if (filters.setCode && card.set_code !== filters.setCode) {
+      // Set filter (case-insensitive)
+      if (filters.setCode && card.set_code?.toLowerCase() !== filters.setCode.toLowerCase()) {
         return false;
       }
 

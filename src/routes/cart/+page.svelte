@@ -2,10 +2,13 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
+  import * as AlertDialog from '$components/ui/alert-dialog';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle } from 'lucide-svelte';
   import { onMount } from 'svelte';
+
+  let clearCartDialogOpen = $state(false);
 
   let { data } = $props();
 
@@ -156,7 +159,25 @@
 
         <div class="mt-4 flex justify-between">
           <Button variant="outline" href="/">Continue Shopping</Button>
-          <Button variant="ghost" onclick={() => cartStore.clear()}>Clear Cart</Button>
+          <AlertDialog.Root bind:open={clearCartDialogOpen}>
+            <AlertDialog.Trigger>
+              {#snippet child({ props })}
+                <Button variant="ghost" {...props}>Clear Cart</Button>
+              {/snippet}
+            </AlertDialog.Trigger>
+            <AlertDialog.Content>
+              <AlertDialog.Header>
+                <AlertDialog.Title>Clear Cart?</AlertDialog.Title>
+                <AlertDialog.Description>
+                  Are you sure you want to clear your cart completely? This will remove all {cartStore.itemCount} item{cartStore.itemCount === 1 ? '' : 's'} from your cart. This action cannot be undone.
+                </AlertDialog.Description>
+              </AlertDialog.Header>
+              <AlertDialog.Footer>
+                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                <AlertDialog.Action onclick={() => cartStore.clear()}>Clear Cart</AlertDialog.Action>
+              </AlertDialog.Footer>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
         </div>
       </div>
 
