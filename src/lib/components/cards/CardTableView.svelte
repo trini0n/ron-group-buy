@@ -11,7 +11,7 @@
   import { getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
 
   interface Filters {
-    setCode: string;
+    setCodes: string[];
     colorIdentity: string[];
     colorIdentityStrict: boolean;
     priceCategories: string[];
@@ -94,9 +94,12 @@
         if (!nameMatch && !setMatch && !typeMatch) return false;
       }
 
-      // Set filter (case-insensitive)
-      if (filters.setCode && card.set_code?.toLowerCase() !== filters.setCode.toLowerCase()) {
-        return false;
+      // Set filter (case-insensitive, multi-select - OR logic)
+      if (filters.setCodes.length > 0) {
+        const cardSetCode = card.set_code?.toLowerCase() || '';
+        if (!filters.setCodes.includes(cardSetCode)) {
+          return false;
+        }
       }
 
       // Color identity filter

@@ -8,6 +8,7 @@
   import * as Table from '$components/ui/table';
   import * as Select from '$components/ui/select';
   import * as Dialog from '$components/ui/dialog';
+  import * as AlertDialog from '$components/ui/alert-dialog';
   import { Separator } from '$components/ui/separator';
   import { 
     ORDER_STATUS_CONFIG, 
@@ -23,9 +24,10 @@
     MapPin, 
     Clock,
     ExternalLink,
-    Truck
+    Truck,
+    Trash2
   } from 'lucide-svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
 
   let { data } = $props();
@@ -51,6 +53,10 @@
   let statusDialogOpen = $state(false);
   let newStatus = $state<OrderStatus | ''>('');
   let statusChangeNotes = $state('');
+  
+  // Delete confirmation dialog
+  let deleteDialogOpen = $state(false);
+  let isDeleting = $state(false);
 
   let isSaving = $state(false);
   let isChangingStatus = $state(false);
@@ -131,6 +137,29 @@
       isChangingStatus = false;
     }
   }
+
+  async function deleteOrder() {
+    isDeleting = true;
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success('Order deleted successfully');
+        goto('/admin/orders');
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to delete order');
+        deleteDialogOpen = false;
+      }
+    } catch (err) {
+      toast.error('Failed to delete order');
+      deleteDialogOpen = false;
+    } finally {
+      isDeleting = false;
+    }
+  }
 </script>
 
 <div class="p-8">
@@ -148,6 +177,10 @@
     <Badge class="{statusConfig?.color} text-lg px-4 py-1">
       {statusConfig?.label || order.status}
     </Badge>
+    <Button variant="destructive" size="sm" onclick={() => deleteDialogOpen = true}>
+      <Trash2 class="h-4 w-4 mr-2" />
+      Delete Order
+    </Button>
   </div>
 
   <div class="grid gap-6 lg:grid-cols-3">
@@ -422,3 +455,27 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
+
+<!-- Delete Order Confirmation Dialog -->
+<AlertDialog.Root bind:open={deleteDialogOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Delete Order</AlertDialog.Title>
+      <AlertDialog.Description>
+        Are you sure you want to delete order <strong>{order.order_number}</strong>? 
+        This will permanently remove the order and all its items from the database. 
+        This action cannot be undone.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={isDeleting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action 
+        class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        onclick={deleteOrder}
+        disabled={isDeleting}
+      >
+        {isDeleting ? 'Deleting...' : 'Delete Order'}
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>

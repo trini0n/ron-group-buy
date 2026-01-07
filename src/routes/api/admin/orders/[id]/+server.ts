@@ -43,3 +43,25 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
   return json({ success: true })
 }
+
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+  const { adminClient } = await verifyAdmin(locals)
+
+  // First, delete all order items associated with this order
+  const { error: itemsError } = await adminClient.from('order_items').delete().eq('order_id', params.id)
+
+  if (itemsError) {
+    console.error('Error deleting order items:', itemsError)
+    throw error(500, 'Failed to delete order items')
+  }
+
+  // Then delete the order itself
+  const { error: orderError } = await adminClient.from('orders').delete().eq('id', params.id)
+
+  if (orderError) {
+    console.error('Error deleting order:', orderError)
+    throw error(500, 'Failed to delete order')
+  }
+
+  return json({ success: true })
+}

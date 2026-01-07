@@ -19,13 +19,20 @@
 
   const isGroupBuyOpen = $derived.by(() => {
     if (!data.groupBuyConfig) return false;
+    // If not active, it's closed
+    if (!data.groupBuyConfig.is_active) return false;
+    
     const now = new Date();
     const opens = data.groupBuyConfig.opens_at ? new Date(data.groupBuyConfig.opens_at) : null;
     const closes = data.groupBuyConfig.closes_at ? new Date(data.groupBuyConfig.closes_at) : null;
 
+    // If opens_at is set and we haven't reached it yet, it's not open
     if (opens && now < opens) return false;
+    // If closes_at is set and we've passed it, it's not open
     if (closes && now > closes) return false;
-    return data.groupBuyConfig.is_active;
+    
+    // Active and within date range (or no date constraints)
+    return true;
   });
 </script>
 

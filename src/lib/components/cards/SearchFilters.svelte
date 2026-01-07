@@ -13,7 +13,7 @@
   }
 
   interface Filters {
-    setCode: string;
+    setCodes: string[];
     colorIdentity: string[];
     colorIdentityStrict: boolean;
     priceCategories: string[];
@@ -100,7 +100,7 @@
 
   function clearFilters() {
     filters = {
-      setCode: '',
+      setCodes: [],
       colorIdentity: [],
       colorIdentityStrict: false,
       priceCategories: ['Non-Foil', 'Foil'],
@@ -113,14 +113,24 @@
     onClearAll?.();
   }
 
-  function selectSet(code: string) {
-    filters.setCode = code;
-    setComboboxOpen = false;
+  function toggleSet(code: string) {
+    if (code === '') {
+      // Clear all selections
+      filters.setCodes = [];
+    } else if (filters.setCodes.includes(code.toLowerCase())) {
+      filters.setCodes = filters.setCodes.filter(c => c !== code.toLowerCase());
+    } else {
+      filters.setCodes = [...filters.setCodes, code.toLowerCase()];
+    }
+  }
+
+  function clearSetSelection() {
+    filters.setCodes = [];
     setSearchValue = '';
   }
 
   const hasActiveFilters = $derived(
-    filters.setCode !== '' ||
+    filters.setCodes.length > 0 ||
       filters.colorIdentity.length > 0 ||
       filters.priceCategories.length < 2 ||
       filters.cardTypes.length > 0 ||
@@ -131,10 +141,12 @@
 
   // Get display labels for selects
   const selectedSetLabel = $derived.by(() => {
-    if (!filters.setCode) return 'All Sets';
-    const filterCode = filters.setCode.toLowerCase();
-    const set = sets.find((s) => s.code.toLowerCase() === filterCode);
-    return set ? `${set.name} (${set.code.toUpperCase()})` : 'All Sets';
+    if (filters.setCodes.length === 0) return 'All Sets';
+    if (filters.setCodes.length === 1) {
+      const set = sets.find((s) => s.code.toLowerCase() === filters.setCodes[0]);
+      return set ? `${set.name}` : 'All Sets';
+    }
+    return `${filters.setCodes.length} sets selected`;
   });
 
   // Filter sets based on search
@@ -159,9 +171,16 @@
     {/if}
   </div>
 
-  <!-- Set Filter - Combobox -->
+  <!-- Set Filter - Multiselect Combobox -->
   <div class="space-y-2">
-    <Label>Set</Label>
+    <div class="flex items-center justify-between">
+      <Label>Set</Label>
+      {#if filters.setCodes.length > 0}
+        <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearSetSelection}>
+          Clear
+        </Button>
+      {/if}
+    </div>
     <Popover.Root bind:open={setComboboxOpen}>
       <Popover.Trigger>
         {#snippet child({ props })}
@@ -186,25 +205,16 @@
           <Command.List>
             <Command.Empty>No sets found.</Command.Empty>
             <Command.Group>
-              <Command.Item
-                value="all-sets"
-                onSelect={() => selectSet('')}
-              >
-                <Check
-                  class="mr-2 h-4 w-4 {filters.setCode === '' ? 'opacity-100' : 'opacity-0'}"
-                />
-                All Sets
-              </Command.Item>
               {#each filteredSets as set (set.code)}
                 <Command.Item
                   value={set.code}
-                  onSelect={() => selectSet(set.code)}
+                  onSelect={() => toggleSet(set.code)}
                 >
                   <Check
-                    class="mr-2 h-4 w-4 {filters.setCode.toLowerCase() === set.code.toLowerCase() ? 'opacity-100' : 'opacity-0'}"
+                    class="mr-2 h-4 w-4 {filters.setCodes.includes(set.code.toLowerCase()) ? 'opacity-100' : 'opacity-0'}"
                   />
                   <span class="truncate">{set.name}</span>
-                  <span class="ml-2 text-xs text-muted-foreground">({set.code})</span>
+                  <span class="ml-2 text-xs text-muted-foreground">({set.code.toUpperCase()})</span>
                 </Command.Item>
               {/each}
             </Command.Group>

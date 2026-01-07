@@ -17,7 +17,7 @@
   let searchQuery = $state(initialFilters.search);
   let viewMode = $state<'grid' | 'table'>(initialFilters.view);
   let filters = $state({
-    setCode: initialFilters.setCode,
+    setCodes: initialFilters.setCodes,
     colorIdentity: initialFilters.colorIdentity as string[],
     colorIdentityStrict: initialFilters.colorIdentityStrict,
     priceCategories: initialFilters.priceCategories as string[],
@@ -39,7 +39,7 @@
     const params = new URLSearchParams();
     
     if (searchQuery) params.set('q', searchQuery);
-    if (filters.setCode) params.set('set', filters.setCode);
+    if (filters.setCodes.length > 0) params.set('sets', filters.setCodes.join(','));
     if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','));
     if (filters.colorIdentityStrict) params.set('strict', '1');
     if (filters.priceCategories.length > 0 && 
@@ -84,7 +84,7 @@
   $effect(() => {
     // Track all filter values to trigger on changes
     const _ = [
-      filters.setCode,
+      filters.setCodes.join(','),
       filters.colorIdentity.join(','),
       filters.colorIdentityStrict,
       filters.priceCategories.join(','),

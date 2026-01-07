@@ -21,6 +21,21 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
   // If activating this config, deactivate all others first
   if (updates.is_active === true) {
     await adminClient.from('group_buy_config').update({ is_active: false }).neq('id', params.id)
+
+    // Get current config to check if closes_at is in the past
+    const { data: currentConfig } = await adminClient
+      .from('group_buy_config')
+      .select('closes_at')
+      .eq('id', params.id)
+      .single()
+
+    // If closes_at is in the past and not being updated, clear it
+    if (currentConfig?.closes_at && !updates.closes_at) {
+      const closesAt = new Date(currentConfig.closes_at)
+      if (closesAt < new Date()) {
+        updates.closes_at = null
+      }
+    }
   }
 
   const { data: config, error: updateError } = await adminClient

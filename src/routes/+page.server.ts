@@ -21,7 +21,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const searchParams = url.searchParams
   const initialFilters = {
     search: searchParams.get('q') || '',
-    setCode: searchParams.get('set') || '',
+    setCodes:
+      searchParams
+        .get('sets')
+        ?.split(',')
+        .filter(Boolean)
+        .map((s) => s.toLowerCase()) || [],
     colorIdentity: searchParams.get('colors')?.split(',').filter(Boolean) || [],
     colorIdentityStrict: searchParams.get('strict') === '1',
     priceCategories: searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil'],
@@ -80,9 +85,30 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     return collNumA - collNumB
   })
 
+  // Helper to extract numeric part from serial (e.g., "F-1323" -> 1323)
+  function getSerialNumber(serial: string | null): number {
+    if (!serial) return 0
+    const match = serial.match(/(\d+)$/)
+    return match ? parseInt(match[1], 10) : 0
+  }
+
+  // Deduplicate cards by visual identity (name + set + collector number + finish + language)
+  // Keep the card with the highest serial number
+  const cardsByKey = new Map<string, Card>()
+  allCards.forEach((card) => {
+    const finish = card.foil_type || card.card_type
+    const key = `${card.card_name}|${card.set_code}|${card.collector_number}|${finish}|${card.language || 'en'}`
+
+    const existing = cardsByKey.get(key)
+    if (!existing || getSerialNumber(card.serial) > getSerialNumber(existing.serial)) {
+      cardsByKey.set(key, card)
+    }
+  })
+  const uniqueCards = Array.from(cardsByKey.values())
+
   // Derive unique sets from the cards data (more reliable than separate query)
   const setsMap = new Map<string, string>()
-  allCards.forEach((card) => {
+  uniqueCards.forEach((card) => {
     if (card.set_code && card.set_name && !setsMap.has(card.set_code)) {
       setsMap.set(card.set_code, card.set_name)
     }
@@ -93,7 +119,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return {
-    cards: allCards,
+    cards: uniqueCards,
     sets,
     initialFilters
   }

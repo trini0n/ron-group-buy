@@ -177,6 +177,8 @@
 
   <!-- Active Config Highlight -->
   {#each data.configs.filter((c: GroupBuyConfig) => c.is_active) as config}
+    {@const closesInPast = config.closes_at && new Date(config.closes_at) < new Date()}
+    {@const opensInFuture = config.opens_at && new Date(config.opens_at) > new Date()}
     <Card.Root class="mb-8 border-green-500 bg-green-500/10">
       <Card.Header>
         <div class="flex items-center justify-between">
@@ -185,7 +187,15 @@
               <Power class="h-5 w-5 text-green-500" />
               Active Group Buy
             </Card.Title>
-            <Card.Description>Currently accepting orders</Card.Description>
+            <Card.Description>
+              {#if closesInPast}
+                <span class="text-amber-500">⚠️ Closed date is in the past - checkout is disabled!</span>
+              {:else if opensInFuture}
+                <span class="text-blue-500">📅 Opens {formatDate(config.opens_at)} - checkout is disabled until then</span>
+              {:else}
+                Currently accepting orders
+              {/if}
+            </Card.Description>
           </div>
           <Badge class="bg-green-500">Active</Badge>
         </div>

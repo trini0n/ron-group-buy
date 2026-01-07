@@ -5,27 +5,59 @@
   import { Checkbox } from '$components/ui/checkbox';
   import * as Table from '$components/ui/table';
   import * as Select from '$components/ui/select';
+  import * as Popover from '$components/ui/popover';
+  import * as Command from '$components/ui/command';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
+  import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
   import { 
     Search, 
     ChevronLeft, 
     ChevronRight, 
     Package,
     PackageX,
-    RefreshCw
+    RefreshCw,
+    ChevronsUpDown,
+    Check
   } from 'lucide-svelte';
+
+  interface InventoryCard {
+    id: string;
+    serial: string;
+    card_name: string;
+    set_name: string | null;
+    set_code: string | null;
+    collector_number: string | null;
+    card_type: string;
+    is_in_stock: boolean;
+    is_new: boolean;
+    foil_type: string | null;
+    language: string | null;
+    scryfall_id: string | null;
+    ron_image_url: string | null;
+    isDuplicate: boolean;
+  }
 
   let { data } = $props();
 
   let searchInput = $state('');
   let selectedStock = $state('');
-  let selectedSet = $state('');
+  let selectedSets = $state<string[]>([]);
+  let showDuplicatesOnly = $state(false);
+  
+  // Hover state for card image popup
+  let hoveredCard = $state<InventoryCard | null>(null);
+  let hoverPosition = $state({ x: 0, y: 0 });
+  
+  // Set filter combobox state
+  let setComboboxOpen = $state(false);
+  let setSearchValue = $state('');
   
   $effect(() => {
     searchInput = data.searchQuery || '';
     selectedStock = data.stockFilter || '';
-    selectedSet = data.setFilter || '';
+    selectedSets = data.setFilter ? data.setFilter.split(',').filter(Boolean) : [];
+    showDuplicatesOnly = data.duplicatesOnly || false;
   });
   
   // Track selected cards for bulk actions
@@ -33,12 +65,48 @@
   let isUpdating = $state(false);
 
   const totalPages = $derived(Math.ceil(data.totalCount / data.perPage));
+  
+  // Filter sets based on search
+  const filteredSets = $derived.by(() => {
+    if (!setSearchValue) return data.sets;
+    const query = setSearchValue.toLowerCase();
+    return data.sets.filter(
+      (set: { code: string; name: string }) =>
+        set.name.toLowerCase().includes(query) || set.code.toLowerCase().includes(query)
+    );
+  });
+  
+  // Get display label for sets
+  const selectedSetsLabel = $derived.by(() => {
+    if (selectedSets.length === 0) return 'All Sets';
+    if (selectedSets.length === 1) {
+      const set = data.sets.find((s: { code: string; name: string }) => s.code === selectedSets[0]);
+      return set ? set.name : 'All Sets';
+    }
+    return `${selectedSets.length} sets selected`;
+  });
+
+  function toggleSet(code: string) {
+    if (selectedSets.includes(code)) {
+      selectedSets = selectedSets.filter(c => c !== code);
+    } else {
+      selectedSets = [...selectedSets, code];
+    }
+    applyFilters();
+  }
+  
+  function clearSetSelection() {
+    selectedSets = [];
+    setSearchValue = '';
+    applyFilters();
+  }
 
   function applyFilters() {
     const params = new URLSearchParams();
     if (searchInput) params.set('q', searchInput);
     if (selectedStock) params.set('stock', selectedStock);
-    if (selectedSet) params.set('set', selectedSet);
+    if (selectedSets.length > 0) params.set('sets', selectedSets.join(','));
+    if (showDuplicatesOnly) params.set('duplicates', '1');
     params.set('page', '1');
     goto(`/admin/inventory?${params.toString()}`);
   }
@@ -47,7 +115,8 @@
     const params = new URLSearchParams();
     if (searchInput) params.set('q', searchInput);
     if (selectedStock) params.set('stock', selectedStock);
-    if (selectedSet) params.set('set', selectedSet);
+    if (selectedSets.length > 0) params.set('sets', selectedSets.join(','));
+    if (showDuplicatesOnly) params.set('duplicates', '1');
     params.set('page', newPage.toString());
     goto(`/admin/inventory?${params.toString()}`);
   }
@@ -55,7 +124,9 @@
   function clearFilters() {
     searchInput = '';
     selectedStock = '';
-    selectedSet = '';
+    selectedSets = [];
+    setSearchValue = '';
+    showDuplicatesOnly = false;
     goto('/admin/inventory');
   }
 
@@ -113,6 +184,25 @@
     if (card.foil_type) return card.foil_type;
     return card.card_type;
   }
+
+  // Handle mouse move for card image popup
+  function handleRowMouseMove(e: MouseEvent, card: InventoryCard) {
+    hoveredCard = card;
+    hoverPosition = { x: e.clientX, y: e.clientY };
+  }
+
+  function handleRowMouseLeave() {
+    hoveredCard = null;
+  }
+
+  // Get image URL for hover popup
+  function getCardImageUrl(card: InventoryCard): string {
+    const ronUrl = getRonImageUrl(card.ron_image_url);
+    if (ronUrl) return ronUrl;
+    return card.scryfall_id 
+      ? getScryfallImageUrl(card.scryfall_id, 'normal') 
+      : '/images/card-placeholder.png';
+  }
 </script>
 
 <div class="p-8">
@@ -149,25 +239,70 @@
       </Select.Content>
     </Select.Root>
 
-    <Select.Root 
-      type="single"
-      value={selectedSet}
-      onValueChange={(v) => { selectedSet = v || ''; applyFilters(); }}
-    >
-      <Select.Trigger class="w-[200px]">
-        {selectedSet ? data.sets.find(s => s.code === selectedSet)?.name || selectedSet : 'All Sets'}
-      </Select.Trigger>
-      <Select.Content class="max-h-[300px]">
-        <Select.Item value="">All Sets</Select.Item>
-        {#each data.sets as set}
-          <Select.Item value={set.code}>{set.name}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
+    <!-- Set Filter - Searchable Multiselect -->
+    <Popover.Root bind:open={setComboboxOpen}>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="outline"
+            class="w-[200px] justify-between"
+            role="combobox"
+            aria-expanded={setComboboxOpen}
+          >
+            <span class="truncate">{selectedSetsLabel}</span>
+            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content class="w-[300px] p-0" align="start">
+        <Command.Root shouldFilter={false}>
+          <Command.Input
+            placeholder="Search sets..."
+            bind:value={setSearchValue}
+          />
+          <Command.List>
+            <Command.Empty>No sets found.</Command.Empty>
+            {#if selectedSets.length > 0}
+              <div class="flex items-center justify-between px-2 py-1.5 border-b">
+                <span class="text-xs text-muted-foreground">{selectedSets.length} selected</span>
+                <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearSetSelection}>
+                  Clear
+                </Button>
+              </div>
+            {/if}
+            <Command.Group>
+              {#each filteredSets as set (set.code)}
+                <Command.Item
+                  value={set.code}
+                  onSelect={() => toggleSet(set.code)}
+                >
+                  <Check
+                    class="mr-2 h-4 w-4 {selectedSets.includes(set.code) ? 'opacity-100' : 'opacity-0'}"
+                  />
+                  <span class="truncate">{set.name}</span>
+                  <span class="ml-2 text-xs text-muted-foreground">({set.code.toUpperCase()})</span>
+                </Command.Item>
+              {/each}
+            </Command.Group>
+          </Command.List>
+        </Command.Root>
+      </Popover.Content>
+    </Popover.Root>
 
     <Button variant="outline" onclick={applyFilters}>Search</Button>
     
-    {#if data.searchQuery || data.stockFilter || data.setFilter}
+    <!-- Duplicates filter toggle -->
+    <Button 
+      variant={showDuplicatesOnly ? "default" : "outline"} 
+      onclick={() => { showDuplicatesOnly = !showDuplicatesOnly; applyFilters(); }}
+      class="gap-2"
+    >
+      <span class="h-2 w-2 rounded-full bg-orange-500"></span>
+      Duplicates {#if data.totalDuplicates}({data.totalDuplicates}){/if}
+    </Button>
+    
+    {#if data.searchQuery || data.stockFilter || data.setFilter || data.duplicatesOnly}
       <Button variant="ghost" onclick={clearFilters}>Clear</Button>
     {/if}
   </div>
@@ -230,27 +365,44 @@
       </Table.Header>
       <Table.Body>
         {#each data.cards as card}
-          <Table.Row class={selectedCards.has(card.id) ? 'bg-muted/50' : ''}>
+          <Table.Row 
+            class="{selectedCards.has(card.id) ? 'bg-muted/50' : ''} {card.isDuplicate ? 'border-l-4 border-l-orange-500' : ''}"
+            onmouseleave={handleRowMouseLeave}
+          >
             <Table.Cell>
               <Checkbox 
                 checked={selectedCards.has(card.id)}
                 onCheckedChange={() => toggleCardSelection(card.id)}
               />
             </Table.Cell>
-            <Table.Cell class="font-medium">
+            <Table.Cell 
+              class="font-medium"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
               {card.card_name}
               {#if card.is_new}
                 <Badge variant="outline" class="ml-2 border-green-500 text-green-500">New</Badge>
               {/if}
+              {#if card.isDuplicate}
+                <Badge variant="outline" class="ml-2 border-orange-500 text-orange-500">Duplicate</Badge>
+              {/if}
             </Table.Cell>
-            <Table.Cell class="font-mono text-sm">{card.serial}</Table.Cell>
-            <Table.Cell class="text-sm">
+            <Table.Cell 
+              class="font-mono text-sm"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
+              {card.serial}
+            </Table.Cell>
+            <Table.Cell 
+              class="text-sm"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
               {card.set_name || card.set_code}
             </Table.Cell>
-            <Table.Cell>
+            <Table.Cell onmousemove={(e) => handleRowMouseMove(e, card)}>
               <Badge variant="outline">{getFinishLabel(card)}</Badge>
             </Table.Cell>
-            <Table.Cell>
+            <Table.Cell onmousemove={(e) => handleRowMouseMove(e, card)}>
               {#if card.is_in_stock}
                 <Badge class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                   In Stock
@@ -312,3 +464,18 @@
     </div>
   {/if}
 </div>
+
+<!-- Card image popup on hover -->
+{#if hoveredCard}
+  <div
+    class="pointer-events-none fixed z-50 rounded-lg border bg-background shadow-xl"
+    style="left: {hoverPosition.x + 20}px; top: {Math.max(10, hoverPosition.y - 150)}px;"
+  >
+    <img
+      src={getCardImageUrl(hoveredCard)}
+      alt={hoveredCard.card_name}
+      class="h-[300px] w-auto rounded-lg object-contain"
+      referrerpolicy="no-referrer"
+    />
+  </div>
+{/if}
