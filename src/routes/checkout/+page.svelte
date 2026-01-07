@@ -233,8 +233,8 @@
                 <Input id="city" bind:value={newAddress.city} required />
               </div>
               <div>
-                <Label for="state">State</Label>
-                <Input id="state" bind:value={newAddress.state} />
+                <Label for="state">State / Province / Region</Label>
+                <Input id="state" bind:value={newAddress.state} placeholder="Optional" />
               </div>
             </div>
             <div class="grid gap-4 sm:grid-cols-2">

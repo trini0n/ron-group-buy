@@ -1,16 +1,17 @@
 <script lang="ts">
   import * as DropdownMenu from '$components/ui/dropdown-menu';
   import { Button } from '$components/ui/button';
-  import { ShoppingCart, User, Menu, Sun, Moon, LogOut } from 'lucide-svelte';
+  import { ShoppingCart, User, Menu, Sun, Moon, LogOut, Shield } from 'lucide-svelte';
   import { toggleMode, mode } from 'mode-watcher';
   import { cartStore } from '$lib/stores/cart.svelte';
   import type { User as SupabaseUser } from '@supabase/supabase-js';
 
   interface Props {
     user: SupabaseUser | null;
+    isAdmin?: boolean;
   }
 
-  let { user }: Props = $props();
+  let { user, isAdmin = false }: Props = $props();
 </script>
 
 <header class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -80,6 +81,15 @@
             <DropdownMenu.Item>
               <a href="/orders" class="flex w-full items-center">Order History</a>
             </DropdownMenu.Item>
+            {#if isAdmin}
+              <DropdownMenu.Separator />
+              <DropdownMenu.Item>
+                <a href="/admin" class="flex w-full items-center gap-2">
+                  <Shield class="h-4 w-4" />
+                  Admin Dashboard
+                </a>
+              </DropdownMenu.Item>
+            {/if}
             <DropdownMenu.Separator />
             <DropdownMenu.Item>
               <a href="/auth/logout" class="flex w-full items-center gap-2">

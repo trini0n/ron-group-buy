@@ -86,12 +86,17 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
 
   const response = await fetch(apiUrl, {
     headers: {
-      'User-Agent': 'GroupBuy/1.0',
-      Accept: 'application/json'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'application/json',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: 'https://www.moxfield.com/',
+      Origin: 'https://www.moxfield.com'
     }
   })
 
   if (!response.ok) {
+    const text = await response.text()
+    console.error('Moxfield API error:', response.status, text.substring(0, 500))
     throw new Error(`Moxfield API returned ${response.status}`)
   }
 
@@ -129,12 +134,17 @@ async function fetchArchidektDeck(url: string): Promise<{ name: string; cards: D
 
   const response = await fetch(apiUrl, {
     headers: {
-      'User-Agent': 'GroupBuy/1.0',
-      Accept: 'application/json'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'application/json',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: 'https://archidekt.com/',
+      Origin: 'https://archidekt.com'
     }
   })
 
   if (!response.ok) {
+    const text = await response.text()
+    console.error('Archidekt API error:', response.status, text.substring(0, 500))
     throw new Error(`Archidekt API returned ${response.status}`)
   }
 

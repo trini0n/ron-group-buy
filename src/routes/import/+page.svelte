@@ -29,6 +29,43 @@
     collectorNumber?: string;
   }
 
+  // Moxfield types
+  interface MoxfieldCard {
+    quantity: number;
+    card: {
+      name: string;
+      set: string;
+      cn: string;
+    };
+  }
+
+  interface MoxfieldDeck {
+    name: string;
+    mainboard: Record<string, MoxfieldCard>;
+    sideboard: Record<string, MoxfieldCard>;
+    commanders: Record<string, MoxfieldCard>;
+    companions: Record<string, MoxfieldCard>;
+  }
+
+  // Archidekt types
+  interface ArchidektCard {
+    quantity: number;
+    card: {
+      oracleCard: {
+        name: string;
+      };
+      edition: {
+        editioncode: string;
+      };
+      collectorNumber: string;
+    };
+  }
+
+  interface ArchidektDeck {
+    name: string;
+    cards: ArchidektCard[];
+  }
+
   interface CardMatch {
     id: string;
     serial: string;
@@ -71,6 +108,71 @@
     return null;
   }
 
+  // Client-side fetch functions to bypass Cloudflare blocking
+  async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
+    const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/);
+    if (!match) throw new Error('Invalid Moxfield URL');
+
+    const deckId = match[1];
+    const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`;
+
+    const response = await fetch(apiUrl, {
+      headers: { Accept: 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Moxfield API returned ${response.status}`);
+    }
+
+    const deck: MoxfieldDeck = await response.json();
+    const cards: DeckCard[] = [];
+
+    const zones = [deck.mainboard, deck.sideboard, deck.commanders, deck.companions];
+    for (const zone of zones) {
+      if (!zone) continue;
+      for (const [, entry] of Object.entries(zone)) {
+        cards.push({
+          quantity: entry.quantity,
+          name: entry.card.name,
+          set: entry.card.set?.toUpperCase(),
+          collectorNumber: entry.card.cn
+        });
+      }
+    }
+
+    return { name: deck.name, cards };
+  }
+
+  async function fetchArchidektDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
+    const match = url.match(/archidekt\.com\/decks\/(\d+)/);
+    if (!match) throw new Error('Invalid Archidekt URL');
+
+    const deckId = match[1];
+    const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
+
+    const response = await fetch(apiUrl, {
+      headers: { Accept: 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Archidekt API returned ${response.status}`);
+    }
+
+    const deck: ArchidektDeck = await response.json();
+    const cards: DeckCard[] = [];
+
+    for (const entry of deck.cards || []) {
+      cards.push({
+        quantity: entry.quantity,
+        name: entry.card.oracleCard.name,
+        set: entry.card.edition?.editioncode?.toUpperCase(),
+        collectorNumber: entry.card.collectorNumber
+      });
+    }
+
+    return { name: deck.name, cards };
+  }
+
   async function fetchDeck() {
     if (!deckUrl.trim()) {
       toast.error('Please enter a deck URL');
@@ -89,19 +191,15 @@
     selectedCards = new Map();
 
     try {
-      // Fetch deck from our API
-      const response = await fetch('/api/import/deck', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: deckUrl, source })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch deck');
+      // Fetch deck directly from the source API (client-side to bypass Cloudflare)
+      let data: { name: string; cards: DeckCard[] };
+      
+      if (source === 'moxfield') {
+        data = await fetchMoxfieldDeckClient(deckUrl);
+      } else {
+        data = await fetchArchidektDeckClient(deckUrl);
       }
 
-      const data = await response.json();
       deckName = data.name || 'Imported Deck';
       
       // Now search for each card in our database

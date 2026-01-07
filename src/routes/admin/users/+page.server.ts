@@ -39,10 +39,21 @@ export const load = async ({ url }) => {
     ordersPerUser.set(order.user_id, count + 1)
   })
 
+  // Get admin status for users with discord_id
+  const discordIds = users?.filter((u) => u.discord_id).map((u) => u.discord_id) || []
+  const { data: admins } = await adminClient.from('admins').select('discord_id, role').in('discord_id', discordIds)
+
+  const adminByDiscordId = new Map<string, string>()
+  admins?.forEach((admin) => {
+    adminByDiscordId.set(admin.discord_id, admin.role)
+  })
+
   const usersWithStats =
     users?.map((user) => ({
       ...user,
-      orderCount: ordersPerUser.get(user.id) || 0
+      orderCount: ordersPerUser.get(user.id) || 0,
+      isAdmin: user.discord_id ? adminByDiscordId.has(user.discord_id) : false,
+      adminRole: user.discord_id ? adminByDiscordId.get(user.discord_id) || null : null
     })) || []
 
   return {

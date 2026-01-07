@@ -2,14 +2,18 @@
   import { Button } from '$components/ui/button';
   import { Input } from '$components/ui/input';
   import { Badge } from '$components/ui/badge';
+  import { Switch } from '$components/ui/switch';
   import * as Table from '$components/ui/table';
   import * as Avatar from '$components/ui/avatar';
-  import { goto } from '$app/navigation';
-  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag } from 'lucide-svelte';
+  import * as Tooltip from '$components/ui/tooltip';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { toast } from 'svelte-sonner';
+  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag, Shield, Crown } from 'lucide-svelte';
 
   let { data } = $props();
 
   let searchInput = $state('');
+  let togglingAdminFor = $state<string | null>(null);
   
   // Initialize searchInput when data changes
   $effect(() => {
@@ -53,6 +57,29 @@
     }
     return email.slice(0, 2).toUpperCase();
   }
+
+  async function toggleAdmin(userId: string, currentlyAdmin: boolean) {
+    togglingAdminFor = userId;
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: !currentlyAdmin })
+      });
+
+      if (response.ok) {
+        toast.success(currentlyAdmin ? 'Admin access removed' : 'Admin access granted');
+        invalidateAll();
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to update admin status');
+      }
+    } catch (err) {
+      toast.error('Failed to update admin status');
+    } finally {
+      togglingAdminFor = null;
+    }
+  }
 </script>
 
 <div class="p-8">
@@ -95,6 +122,7 @@
           <Table.Head>Discord</Table.Head>
           <Table.Head class="text-right">Orders</Table.Head>
           <Table.Head>Status</Table.Head>
+          <Table.Head>Admin</Table.Head>
           <Table.Head>Joined</Table.Head>
           <Table.Head></Table.Head>
         </Table.Row>
@@ -137,6 +165,41 @@
                 <Badge variant="outline">Active</Badge>
               {/if}
             </Table.Cell>
+            <Table.Cell>
+              {#if user.adminRole === 'super_admin'}
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    <Badge class="flex items-center gap-1 bg-amber-500 text-white">
+                      <Crown class="h-3 w-3" />
+                      Super
+                    </Badge>
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>
+                    <p>Super Admin (cannot be changed)</p>
+                  </Tooltip.Content>
+                </Tooltip.Root>
+              {:else if user.discord_id}
+                <div class="flex items-center gap-2">
+                  <Switch 
+                    checked={user.isAdmin}
+                    disabled={togglingAdminFor === user.id}
+                    onCheckedChange={() => toggleAdmin(user.id, user.isAdmin)}
+                  />
+                  {#if user.isAdmin}
+                    <Shield class="h-4 w-4 text-primary" />
+                  {/if}
+                </div>
+              {:else}
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    <span class="text-xs text-muted-foreground">No Discord</span>
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>
+                    <p>User must link Discord to become admin</p>
+                  </Tooltip.Content>
+                </Tooltip.Root>
+              {/if}
+            </Table.Cell>
             <Table.Cell class="text-sm text-muted-foreground">
               {formatDate(user.created_at)}
             </Table.Cell>
@@ -148,7 +211,7 @@
           </Table.Row>
         {:else}
           <Table.Row>
-            <Table.Cell colspan={6} class="py-8 text-center text-muted-foreground">
+            <Table.Cell colspan={7} class="py-8 text-center text-muted-foreground">
               No users found
             </Table.Cell>
           </Table.Row>
