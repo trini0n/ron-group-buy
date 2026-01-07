@@ -62,7 +62,13 @@
 
   function formatDateTimeLocal(isoString: string): string {
     const date = new Date(isoString);
-    return date.toISOString().slice(0, 16);
+    // Format as local time for datetime-local input (YYYY-MM-DDTHH:MM)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
   function formatDate(dateString: string | null): string {
@@ -190,8 +196,6 @@
             <Card.Description>
               {#if closesInPast}
                 <span class="text-amber-500">⚠️ Closed date is in the past - checkout is disabled!</span>
-              {:else if opensInFuture}
-                <span class="text-blue-500">📅 Opens {formatDate(config.opens_at)} - checkout is disabled until then</span>
               {:else}
                 Currently accepting orders
               {/if}
