@@ -30,6 +30,7 @@
   const CARDS_PER_PAGE = 25;
   let currentPage = $state(1);
 
+  // Filter individual cards first
   const filteredCards = $derived.by(() => {
     return cards.filter((card) => {
       // Search query filter
@@ -128,7 +129,61 @@
     });
   });
 
-  const totalPages = $derived(Math.ceil(filteredCards.length / CARDS_PER_PAGE));
+  // Group filtered cards by set_code + collector_number + language
+  // Dedupe by finish type (card_type) and sort: Normal → Holo → Foil
+  interface CardGroup {
+    primary: Card;
+    finishVariants: Card[];
+  }
+
+  const FINISH_ORDER: Record<string, number> = {
+    'Normal': 0,
+    'Holo': 1,
+    'Foil': 2,
+    'Surge Foil': 3
+  };
+
+  const groupedCards = $derived.by(() => {
+    const groups = new Map<string, CardGroup>();
+    
+    for (const card of filteredCards) {
+      const groupKey = `${card.set_code?.toLowerCase() || ''}|${card.collector_number || ''}|${card.language?.toLowerCase() || 'en'}`;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, { primary: card, finishVariants: [] });
+      }
+      
+      const group = groups.get(groupKey)!;
+      
+      // Dedupe by card_type (finish) - only keep one per finish type, prefer in-stock
+      const existingFinishIdx = group.finishVariants.findIndex(v => v.card_type === card.card_type);
+      if (existingFinishIdx === -1) {
+        // No existing card with this finish type, add it
+        group.finishVariants.push(card);
+      } else if (card.is_in_stock && !group.finishVariants[existingFinishIdx].is_in_stock) {
+        // Replace out-of-stock with in-stock version
+        group.finishVariants[existingFinishIdx] = card;
+      }
+    }
+    
+    // Sort finish variants and set primary
+    for (const group of groups.values()) {
+      group.finishVariants.sort((a, b) => {
+        // Sort by finish order
+        const orderA = FINISH_ORDER[a.card_type] ?? 99;
+        const orderB = FINISH_ORDER[b.card_type] ?? 99;
+        return orderA - orderB;
+      });
+      
+      // Set primary to first in-stock variant, or first overall
+      const inStock = group.finishVariants.find(v => v.is_in_stock);
+      group.primary = inStock || group.finishVariants[0];
+    }
+    
+    return Array.from(groups.values());
+  });
+
+  const totalPages = $derived(Math.ceil(groupedCards.length / CARDS_PER_PAGE));
 
   // Reset to page 1 when filters change
   $effect(() => {
@@ -138,10 +193,10 @@
     currentPage = 1;
   });
 
-  const paginatedCards = $derived.by(() => {
+  const paginatedGroups = $derived.by(() => {
     const start = (currentPage - 1) * CARDS_PER_PAGE;
     const end = start + CARDS_PER_PAGE;
-    return filteredCards.slice(start, end);
+    return groupedCards.slice(start, end);
   });
 
   function goToPage(page: number) {
@@ -151,7 +206,7 @@
   }
 </script>
 
-{#if filteredCards.length === 0}
+{#if groupedCards.length === 0}
   <div class="flex flex-col items-center justify-center py-16 text-center">
     <p class="text-xl font-medium">No cards found</p>
     <p class="mt-2 text-muted-foreground">Try adjusting your search or filters</p>
@@ -160,7 +215,7 @@
   <!-- Results count and page info -->
   <div class="mb-4 flex items-center justify-between text-sm text-muted-foreground">
     <span>
-      Showing {(currentPage - 1) * CARDS_PER_PAGE + 1}–{Math.min(currentPage * CARDS_PER_PAGE, filteredCards.length)} of {filteredCards.length} cards
+      Showing {(currentPage - 1) * CARDS_PER_PAGE + 1}–{Math.min(currentPage * CARDS_PER_PAGE, groupedCards.length)} of {groupedCards.length} cards
     </span>
     {#if totalPages > 1}
       <span>Page {currentPage} of {totalPages}</span>
@@ -168,8 +223,8 @@
   </div>
 
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-    {#each paginatedCards as card (card.serial)}
-      <CardItem {card} />
+    {#each paginatedGroups as group (group.primary.serial)}
+      <CardItem card={group.primary} finishVariants={group.finishVariants} />
     {/each}
   </div>
 

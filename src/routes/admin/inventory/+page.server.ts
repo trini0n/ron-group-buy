@@ -13,9 +13,36 @@ export const load = async ({ url }) => {
   const perPage = 50
 
   // First, identify all duplicate card keys (name + set + collector number + finish + language)
-  const { data: allCardsForDupes } = await adminClient
-    .from('cards')
-    .select('id, serial, card_name, set_code, collector_number, card_type, foil_type, language')
+  // Note: Supabase has a default 1000 row limit, so we need to fetch all cards with pagination
+  const allCardsForDupes: Array<{
+    id: string
+    serial: string
+    card_name: string
+    set_code: string
+    collector_number: string
+    card_type: string
+    foil_type: string | null
+    language: string | null
+  }> = []
+
+  const batchSize = 1000
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data: batch } = await adminClient
+      .from('cards')
+      .select('id, serial, card_name, set_code, collector_number, card_type, foil_type, language')
+      .range(offset, offset + batchSize - 1)
+
+    if (batch && batch.length > 0) {
+      allCardsForDupes.push(...batch)
+      offset += batchSize
+      hasMore = batch.length === batchSize
+    } else {
+      hasMore = false
+    }
+  }
 
   // Build a map of card keys to their serials
   const cardKeyToSerials = new Map<string, string[]>()
@@ -62,17 +89,86 @@ export const load = async ({ url }) => {
     query = query.in('set_code', setFilter)
   }
 
-  // Filter to only duplicates if requested
+  // For duplicates filtering, we need to fetch all matching cards first and then filter client-side
+  // because Supabase's .in() filter has limitations with large arrays
+  let cards: Array<{
+    id: string
+    serial: string
+    card_name: string
+    set_name: string
+    set_code: string
+    collector_number: string
+    card_type: string
+    is_in_stock: boolean
+    is_new: boolean
+    foil_type: string | null
+    language: string | null
+    scryfall_id: string
+    ron_image_url: string | null
+  }> | null = null
+  let count: number | null = null
+  let error: Error | null = null
+
   if (duplicatesOnly) {
-    query = query.in('id', Array.from(duplicateIds))
+    // Fetch all cards that match filters (without pagination) so we can filter by duplicates client-side
+    const allMatchingCards: typeof cards = []
+    let fetchOffset = 0
+    const fetchBatchSize = 1000
+    let fetchHasMore = true
+
+    while (fetchHasMore) {
+      let batchQuery = adminClient
+        .from('cards')
+        .select('id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, foil_type, language, scryfall_id, ron_image_url')
+        .order('card_name', { ascending: true })
+        .range(fetchOffset, fetchOffset + fetchBatchSize - 1)
+
+      // Apply same filters
+      if (searchQuery) {
+        batchQuery = batchQuery.or(`card_name.ilike.%${searchQuery}%,serial.ilike.%${searchQuery}%`)
+      }
+      if (stockFilter === 'in') {
+        batchQuery = batchQuery.eq('is_in_stock', true)
+      } else if (stockFilter === 'out') {
+        batchQuery = batchQuery.eq('is_in_stock', false)
+      }
+      if (setFilter.length > 0) {
+        batchQuery = batchQuery.in('set_code', setFilter)
+      }
+
+      const { data: batch, error: batchError } = await batchQuery
+
+      if (batchError) {
+        error = batchError as unknown as Error
+        fetchHasMore = false
+      } else if (batch && batch.length > 0) {
+        allMatchingCards.push(...batch)
+        fetchOffset += fetchBatchSize
+        fetchHasMore = batch.length === fetchBatchSize
+      } else {
+        fetchHasMore = false
+      }
+    }
+
+    // Filter to only duplicates
+    const duplicateCards = allMatchingCards.filter(card => duplicateIds.has(card.id))
+    count = duplicateCards.length
+
+    // Apply pagination to the filtered results
+    const from = (page - 1) * perPage
+    const to = from + perPage
+    cards = duplicateCards.slice(from, to)
+  } else {
+    // Normal pagination - use Supabase's built-in pagination
+    const from = (page - 1) * perPage
+    const to = from + perPage - 1
+    query = query.range(from, to)
+
+    const result = await query
+    cards = result.data
+    count = result.count
+    error = result.error as Error | null
   }
-
-  // Pagination
-  const from = (page - 1) * perPage
-  const to = from + perPage - 1
-  query = query.range(from, to)
-
-  const { data: cards, count, error } = await query
 
   if (error) {
     console.error('Error fetching cards:', error)

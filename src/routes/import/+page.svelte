@@ -18,6 +18,8 @@
   } from 'lucide-svelte';
   import { Textarea } from '$components/ui/textarea';
   import * as Accordion from '$components/ui/accordion';
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
 
   // Types
   interface DeckCard {
@@ -133,6 +135,8 @@
   };
 
   // State
+  const SESSION_CACHE_KEY = 'import-deck-state';
+
   let deckUrl = $state('');
   let pasteContent = $state('');
   let isLoading = $state(false);
@@ -588,33 +592,96 @@
 
   function nextOption(idx: number, result: SearchResult) {
     const options = getAllOptions(result);
-    if (options.length <= 1) return;
+    const uniqueOptions = getUniqueSetCollectorOptions(options);
+    if (uniqueOptions.length <= 1) return;
     const current = getCarouselIndex(idx);
-    const next = (current + 1) % options.length;
+    const next = (current + 1) % uniqueOptions.length;
     carouselIndices = new Map(carouselIndices).set(idx, next);
-    // Update selection if the card was selected
+    // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      selectedCards = new Map(selectedCards).set(idx, options[next]);
+      const newOption = uniqueOptions[next];
+      const finishVariants = getFinishVariants(options, newOption);
+      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
+      selectedCards = new Map(selectedCards).set(idx, inStockVariant);
     }
   }
 
   function prevOption(idx: number, result: SearchResult) {
     const options = getAllOptions(result);
-    if (options.length <= 1) return;
+    const uniqueOptions = getUniqueSetCollectorOptions(options);
+    if (uniqueOptions.length <= 1) return;
     const current = getCarouselIndex(idx);
-    const prev = (current - 1 + options.length) % options.length;
+    const prev = (current - 1 + uniqueOptions.length) % uniqueOptions.length;
     carouselIndices = new Map(carouselIndices).set(idx, prev);
-    // Update selection if the card was selected
+    // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      selectedCards = new Map(selectedCards).set(idx, options[prev]);
+      const newOption = uniqueOptions[prev];
+      const finishVariants = getFinishVariants(options, newOption);
+      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
+      selectedCards = new Map(selectedCards).set(idx, inStockVariant);
     }
   }
 
   function getCurrentOption(idx: number, result: SearchResult): CardMatch | null {
     const options = getAllOptions(result);
-    if (options.length === 0) return null;
+    const uniqueOptions = getUniqueSetCollectorOptions(options);
+    if (uniqueOptions.length === 0) return null;
     const carouselIdx = getCarouselIndex(idx);
-    return options[carouselIdx] || options[0];
+    return uniqueOptions[carouselIdx] || uniqueOptions[0];
+  }
+
+  // Finish order for sorting
+  const FINISH_ORDER: Record<string, number> = {
+    'Normal': 0,
+    'Holo': 1,
+    'Foil': 2,
+    'Surge Foil': 3
+  };
+
+  // Get finish variants for the current option (same set_code + collector_number)
+  // Deduped by card_type and sorted: Normal → Holo → Foil
+  function getFinishVariants(options: CardMatch[], currentOption: CardMatch | null): CardMatch[] {
+    if (!currentOption) return [];
+    
+    // Filter to same set+collector
+    const sameSetCollector = options.filter(
+      (opt) =>
+        opt.set_code === currentOption.set_code &&
+        opt.collector_number === currentOption.collector_number
+    );
+    
+    // Dedupe by card_type (finish), prefer in-stock
+    const finishMap = new Map<string, CardMatch>();
+    for (const card of sameSetCollector) {
+      const existing = finishMap.get(card.card_type);
+      if (!existing || (card.is_in_stock && !existing.is_in_stock)) {
+        finishMap.set(card.card_type, card);
+      }
+    }
+    
+    // Sort by finish order
+    return Array.from(finishMap.values()).sort((a, b) => {
+      const orderA = FINISH_ORDER[a.card_type] ?? 99;
+      const orderB = FINISH_ORDER[b.card_type] ?? 99;
+      return orderA - orderB;
+    });
+  }
+
+  // Get unique set+collector combinations for carousel navigation (deduped by finish)
+  function getUniqueSetCollectorOptions(options: CardMatch[]): CardMatch[] {
+    const seen = new Set<string>();
+    return options.filter((opt) => {
+      const key = `${opt.set_code}|${opt.collector_number}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  // Select a specific finish variant
+  function selectFinish(idx: number, finishVariant: CardMatch) {
+    if (!finishVariant.is_in_stock) return;
+    selectedCards = new Map(selectedCards).set(idx, finishVariant);
   }
 
   function toggleCardSelection(idx: number, card: CardMatch | null) {
@@ -672,6 +739,84 @@
     const parts = card.serial?.split('_') || [];
     return parts[0] || 'Unknown';
   }
+
+  // Session Caching
+  function saveStateToCache() {
+    if (!browser) return;
+
+    const cacheData = {
+      deckUrl,
+      deckName,
+      deckSource,
+      searchResults,
+      selectedCards: Array.from(selectedCards.entries()),
+      carouselIndices: Array.from(carouselIndices.entries()),
+      timestamp: Date.now()
+    };
+
+    try {
+      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (e) {
+      console.error('Failed to save to session cache', e);
+    }
+  }
+
+  function loadStateFromCache() {
+    if (!browser) return;
+
+    try {
+      const cached = sessionStorage.getItem(SESSION_CACHE_KEY);
+      if (!cached) return;
+
+      const data = JSON.parse(cached);
+      
+      // Restore state
+      deckUrl = data.deckUrl || '';
+      deckName = data.deckName || '';
+      deckSource = data.deckSource || null;
+      searchResults = data.searchResults || [];
+      
+      // Restore Maps
+      if (data.selectedCards) {
+        selectedCards = new Map(data.selectedCards);
+      }
+      if (data.carouselIndices) {
+        carouselIndices = new Map(data.carouselIndices);
+      }
+
+      if (searchResults.length > 0) {
+        toast.success('Restored previous search results');
+      }
+    } catch (e) {
+      console.error('Failed to load from session cache', e);
+      sessionStorage.removeItem(SESSION_CACHE_KEY);
+    }
+  }
+
+  function clearCache() {
+    if (!browser) return;
+    sessionStorage.removeItem(SESSION_CACHE_KEY);
+  }
+
+  // Load from cache on mount
+  onMount(() => {
+    loadStateFromCache();
+  });
+
+  // Auto-save when relevant state changes (only if not loading)
+  $effect(() => {
+    if (!isLoading && searchResults.length > 0) {
+      // Track dependencies
+      deckUrl;
+      deckName;
+      deckSource;
+      searchResults;
+      selectedCards;
+      carouselIndices;
+      
+      saveStateToCache();
+    }
+  });
 </script>
 
 <svelte:head>
@@ -721,7 +866,7 @@
         <Accordion.Root type="single" collapsible>
           <Accordion.Item value="paste">
             <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
-              Or paste a decklist below instead...
+              Or click here to paste a decklist instead.
             </Accordion.Trigger>
             <Accordion.Content>
               <div class="space-y-4 pt-2">
@@ -793,11 +938,11 @@
     <div class="mb-6 flex flex-wrap gap-6 text-sm">
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-green-500"></div>
-        <span>In stock</span>
+        <span>Exact match</span>
       </div>
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
-        <span>Out of stock</span>
+        <span>Alternative</span>
       </div>
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-red-500"></div>
@@ -819,10 +964,14 @@
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {#each cardTypeGroup.cards as { result, originalIdx }}
                 {@const options = getAllOptions(result)}
+                {@const uniqueOptions = getUniqueSetCollectorOptions(options)}
                 {@const hasOptions = options.length > 0}
                 {@const currentOption = getCurrentOption(originalIdx, result)}
+                {@const finishVariants = getFinishVariants(options, currentOption)}
+                {@const selectedCard = selectedCards.get(originalIdx)}
                 {@const isSelected = selectedCards.has(originalIdx)}
                 {@const carouselIdx = getCarouselIndex(originalIdx)}
+                {@const isExactMatch = currentOption?.id === result.exactMatch?.id}
 
                 <div
                   class="relative rounded-lg border-2 transition-all {isSelected
@@ -840,11 +989,11 @@
                       />
                       
                       <!-- Left carousel click zone (15% width) -->
-                      {#if options.length > 1}
+                      {#if uniqueOptions.length > 1}
                         <button
                           onclick={(e) => { e.stopPropagation(); prevOption(originalIdx, result); }}
                           class="absolute left-0 top-0 h-full w-[15%] flex items-center justify-start pl-1 hover:bg-black/30 transition-all cursor-pointer"
-                          aria-label="Previous card option"
+                          aria-label="Previous card printing"
                         >
                           <ChevronLeft class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
                         </button>
@@ -859,19 +1008,19 @@
                       ></button>
                       
                       <!-- Right carousel click zone (15% width) -->
-                      {#if options.length > 1}
+                      {#if uniqueOptions.length > 1}
                         <button
                           onclick={(e) => { e.stopPropagation(); nextOption(originalIdx, result); }}
                           class="absolute right-0 top-0 h-full w-[15%] flex items-center justify-end pr-1 hover:bg-black/30 transition-all cursor-pointer"
-                          aria-label="Next card option"
+                          aria-label="Next card printing"
                         >
                           <ChevronRight class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
                         </button>
                       {/if}
                       
-                      <!-- Stock indicator -->
+                      <!-- Match type indicator -->
                       <div
-                        class="absolute top-2 right-2 h-3 w-3 rounded-full {currentOption.is_in_stock
+                        class="absolute top-2 right-2 h-3 w-3 rounded-full {isExactMatch
                           ? 'bg-green-500'
                           : 'bg-yellow-500'}"
                       ></div>
@@ -881,10 +1030,10 @@
                         <Badge variant="secondary" class="absolute top-2 left-2 text-xs">x{result.requestedCard.quantity}</Badge>
                       {/if}
                       
-                      <!-- Carousel position indicator -->
-                      {#if options.length > 1}
+                      <!-- Carousel position indicator (shows different printings, not finishes) -->
+                      {#if uniqueOptions.length > 1}
                         <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
-                          {carouselIdx + 1} / {options.length}
+                          {carouselIdx + 1} / {uniqueOptions.length}
                         </div>
                       {/if}
                     {:else}
@@ -897,26 +1046,51 @@
                     {/if}
                   </div>
 
-                  <!-- Card Info (clickable for selection) -->
-                  <button
-                    onclick={() => hasOptions && currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
-                    class="w-full p-2 space-y-1 text-left {hasOptions && currentOption?.is_in_stock ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'}"
-                    disabled={!hasOptions || !currentOption?.is_in_stock}
-                  >
-                    <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
-                      {result.requestedCard.name}
-                    </p>
-                    {#if hasOptions && currentOption}
-                      <div class="flex items-center gap-1 flex-wrap">
-                        <span class="text-xs text-muted-foreground">
+                  <!-- Card Info -->
+                  <div class="p-2 space-y-1.5">
+                    <button
+                      onclick={() => hasOptions && currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
+                      class="w-full text-left {hasOptions && currentOption?.is_in_stock ? 'cursor-pointer' : 'cursor-default'}"
+                      disabled={!hasOptions || !currentOption?.is_in_stock}
+                    >
+                      <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
+                        {result.requestedCard.name}
+                      </p>
+                      {#if hasOptions && currentOption}
+                        <p class="text-xs text-muted-foreground">
                           [{currentOption.set_code} #{currentOption.collector_number}]
-                        </span>
-                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(currentOption))}">
-                          {getFinishLabel(currentOption)}
+                        </p>
+                      {/if}
+                    </button>
+                    
+                    <!-- Finish Segment Control -->
+                    {#if finishVariants.length > 1}
+                      <div class="flex rounded-md border overflow-hidden">
+                        {#each finishVariants as variant}
+                          {@const isActiveFinish = selectedCard?.id === variant.id || (!selectedCard && variant.id === finishVariants[0].id)}
+                          <button
+                            onclick={(e) => { e.stopPropagation(); selectFinish(originalIdx, variant); }}
+                            disabled={!variant.is_in_stock}
+                            class="flex-1 py-1 px-1 text-center transition-all text-[10px] leading-tight
+                              {isActiveFinish 
+                                ? 'bg-primary text-primary-foreground font-medium' 
+                                : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                              {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
+                          >
+                            <div>{getFinishLabel(variant)}</div>
+                            <div class="font-semibold">{formatPrice(getCardPrice(variant.card_type))}</div>
+                          </button>
+                        {/each}
+                      </div>
+                    {:else if finishVariants.length === 1}
+                      <div class="flex items-center justify-between gap-1">
+                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]))}">
+                          {getFinishLabel(finishVariants[0])}
                         </Badge>
+                        <span class="text-xs font-semibold">{formatPrice(getCardPrice(finishVariants[0].card_type))}</span>
                       </div>
                     {/if}
-                  </button>
+                  </div>
                 </div>
               {/each}
             </div>

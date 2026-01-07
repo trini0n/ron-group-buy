@@ -124,7 +124,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
   }
 
   // Search for alternatives (same card name, different sets)
-  if (alternatives.length < 10) {
+  if (alternatives.length < 30) {
     const { data: altData } = await supabase
       .from('cards')
       .select(
@@ -133,7 +133,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
       .ilike('card_name', primaryName)
       .order('is_in_stock', { ascending: false })
       .order('set_code', { ascending: false })
-      .limit(20)
+      .limit(50)
 
     if (altData) {
       // Filter out the exact match
@@ -146,7 +146,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
   alternatives = Array.from(new Map(alternatives.map(item => [item.id, item])).values())
   
   // Cap alternatives
-  alternatives = alternatives.slice(0, 10)
+  alternatives = alternatives.slice(0, 30)
 
   // If we still don't have an exact match but have alternatives, check if the first one matches closely
   if (!exactMatch && alternatives.length > 0) {
