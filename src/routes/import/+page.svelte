@@ -3,10 +3,7 @@
   import { Input } from '$components/ui/input';
   import { Label } from '$components/ui/label';
   import { Badge } from '$components/ui/badge';
-  import { Checkbox } from '$components/ui/checkbox';
   import * as Card from '$components/ui/card';
-  import * as Table from '$components/ui/table';
-  import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { formatPrice, getCardPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
@@ -14,51 +11,70 @@
   import {
     Search,
     Loader2,
-    Check,
-    X,
-    AlertTriangle,
     ShoppingCart,
     ExternalLink,
-    HelpCircle
+    ChevronLeft,
+    ChevronRight
   } from 'lucide-svelte';
 
+  // Types
   interface DeckCard {
     quantity: number;
     name: string;
     set?: string;
     collectorNumber?: string;
+    boardType?: 'commanders' | 'companions' | 'mainboard' | 'sideboard';
+    typeLine?: string;
   }
 
-  // Moxfield types
   interface MoxfieldCard {
     quantity: number;
+    boardType: string;
     card: {
       name: string;
       set: string;
       cn: string;
+      type_line?: string;
     };
+  }
+
+  interface MoxfieldBoard {
+    count: number;
+    cards: Record<string, MoxfieldCard>;
+  }
+
+  interface MoxfieldBoards {
+    mainboard: MoxfieldBoard;
+    sideboard: MoxfieldBoard;
+    commanders: MoxfieldBoard;
+    companions: MoxfieldBoard;
   }
 
   interface MoxfieldDeck {
     name: string;
-    mainboard: Record<string, MoxfieldCard>;
-    sideboard: Record<string, MoxfieldCard>;
-    commanders: Record<string, MoxfieldCard>;
-    companions: Record<string, MoxfieldCard>;
+    boards: MoxfieldBoards;
+    mainboard?: Record<string, MoxfieldCard>;
+    sideboard?: Record<string, MoxfieldCard>;
+    commanders?: Record<string, MoxfieldCard>;
+    companions?: Record<string, MoxfieldCard>;
   }
 
-  // Archidekt types
   interface ArchidektCard {
     quantity: number;
     card: {
       oracleCard: {
         name: string;
+        type?: string;
+        typeLine?: string;
+        types?: string[];
       };
       edition: {
         editioncode: string;
       };
       collectorNumber: string;
+      typeLine?: string;
     };
+    categories?: string[];
   }
 
   interface ArchidektDeck {
@@ -74,6 +90,7 @@
     set_name: string;
     collector_number: string | null;
     card_type: string;
+    foil_type: string | null;
     is_in_stock: boolean;
     scryfall_id: string | null;
   }
@@ -85,12 +102,48 @@
     selected: CardMatch | null;
   }
 
+  // Board type ordering
+  const BOARD_ORDER: Record<string, number> = {
+    commanders: 0,
+    companions: 1,
+    mainboard: 2,
+    sideboard: 3
+  };
+
+  const BOARD_LABELS: Record<string, string> = {
+    commanders: 'Commander',
+    companions: 'Companion',
+    mainboard: 'Mainboard',
+    sideboard: 'Sideboard'
+  };
+
+  // Card type ordering (primary types extracted from type_line)
+  const TYPE_ORDER: Record<string, number> = {
+    Creature: 0,
+    Planeswalker: 1,
+    Artifact: 2,
+    Enchantment: 3,
+    Instant: 4,
+    Sorcery: 5,
+    Land: 6,
+    Other: 7
+  };
+
+  // State
   let deckUrl = $state('');
   let isLoading = $state(false);
   let isParsing = $state(false);
   let searchResults = $state<SearchResult[]>([]);
   let deckName = $state('');
   let deckSource = $state<'moxfield' | 'archidekt' | null>(null);
+  
+  // Progress tracking
+  let totalCardsToSearch = $state(0);
+  let cardsSearched = $state(0);
+  const searchProgress = $derived(totalCardsToSearch > 0 ? Math.round((cardsSearched / totalCardsToSearch) * 100) : 0);
+
+  // Track carousel index for each card
+  let carouselIndices = $state<Map<number, number>>(new Map());
 
   // Track which cards are selected for adding to cart
   let selectedCards = $state<Map<number, CardMatch>>(new Map());
@@ -102,40 +155,146 @@
     }, 0)
   );
 
+  // Group and sort results
+  const groupedResults = $derived.by(() => {
+    if (searchResults.length === 0) return [];
+
+    // Group by board type
+    const boards = new Map<string, { results: Array<{ result: SearchResult; originalIdx: number }>; cardTypes: Map<string, Array<{ result: SearchResult; originalIdx: number }>> }>();
+
+    searchResults.forEach((result, originalIdx) => {
+      const boardType = result.requestedCard.boardType || 'mainboard';
+      const typeLine = result.requestedCard.typeLine || '';
+      const cardType = extractPrimaryType(typeLine);
+
+      if (!boards.has(boardType)) {
+        boards.set(boardType, { results: [], cardTypes: new Map() });
+      }
+
+      const board = boards.get(boardType)!;
+      board.results.push({ result, originalIdx });
+
+      if (!board.cardTypes.has(cardType)) {
+        board.cardTypes.set(cardType, []);
+      }
+      board.cardTypes.get(cardType)!.push({ result, originalIdx });
+    });
+
+    // Sort boards by order and card types within each board
+    const sortedBoards: Array<{
+      boardType: string;
+      label: string;
+      cardTypes: Array<{
+        type: string;
+        cards: Array<{ result: SearchResult; originalIdx: number }>;
+      }>;
+    }> = [];
+
+    const boardKeys = Array.from(boards.keys()).sort((a, b) => (BOARD_ORDER[a] ?? 99) - (BOARD_ORDER[b] ?? 99));
+
+    for (const boardType of boardKeys) {
+      const board = boards.get(boardType)!;
+      const sortedTypes: Array<{ type: string; cards: Array<{ result: SearchResult; originalIdx: number }> }> = [];
+
+      const typeKeys = Array.from(board.cardTypes.keys()).sort((a, b) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
+
+      for (const type of typeKeys) {
+        const cards = board.cardTypes.get(type)!;
+        // Sort alphabetically by card name
+        cards.sort((a, b) => a.result.requestedCard.name.localeCompare(b.result.requestedCard.name));
+        sortedTypes.push({ type, cards });
+      }
+
+      sortedBoards.push({
+        boardType,
+        label: BOARD_LABELS[boardType] || boardType,
+        cardTypes: sortedTypes
+      });
+    }
+
+    return sortedBoards;
+  });
+
+  function extractPrimaryType(typeLine: string): string {
+    if (!typeLine) return 'Other';
+
+    // Remove everything after the em dash (subtypes)
+    const mainPart = typeLine.split('—')[0].trim();
+    // Remove supertypes
+    const types = mainPart.replace(/\b(Legendary|Basic|Snow|World|Tribal)\b/gi, '').trim();
+
+    // Check for primary types
+    if (types.includes('Creature')) return 'Creature';
+    if (types.includes('Planeswalker')) return 'Planeswalker';
+    if (types.includes('Artifact')) return 'Artifact';
+    if (types.includes('Enchantment')) return 'Enchantment';
+    if (types.includes('Instant')) return 'Instant';
+    if (types.includes('Sorcery')) return 'Sorcery';
+    if (types.includes('Land')) return 'Land';
+
+    return 'Other';
+  }
+
   function detectDeckSource(url: string): 'moxfield' | 'archidekt' | null {
     if (url.includes('moxfield.com')) return 'moxfield';
     if (url.includes('archidekt.com')) return 'archidekt';
     return null;
   }
 
-  // Client-side fetch functions to bypass Cloudflare blocking
   async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
     const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/);
     if (!match) throw new Error('Invalid Moxfield URL');
 
     const deckId = match[1];
     const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
 
-    const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/json' }
+    const response = await fetch(proxyUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
 
     if (!response.ok) {
-      throw new Error(`Moxfield API returned ${response.status}`);
+      throw new Error(`Failed to fetch deck (status ${response.status})`);
     }
 
     const deck: MoxfieldDeck = await response.json();
     const cards: DeckCard[] = [];
 
-    const zones = [deck.mainboard, deck.sideboard, deck.commanders, deck.companions];
-    for (const zone of zones) {
-      if (!zone) continue;
-      for (const [, entry] of Object.entries(zone)) {
+    const hasBoards = deck.boards && deck.boards.mainboard;
+
+    const getCards = (zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined): Record<string, MoxfieldCard> => {
+      if (!zone) return {};
+      if ('cards' in zone && typeof zone.cards === 'object') {
+        return zone.cards as Record<string, MoxfieldCard>;
+      }
+      return zone as Record<string, MoxfieldCard>;
+    };
+
+    const boardTypes: Array<{ zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined; type: DeckCard['boardType'] }> = hasBoards
+      ? [
+          { zone: deck.boards.commanders, type: 'commanders' },
+          { zone: deck.boards.companions, type: 'companions' },
+          { zone: deck.boards.mainboard, type: 'mainboard' },
+          { zone: deck.boards.sideboard, type: 'sideboard' }
+        ]
+      : [
+          { zone: deck.commanders, type: 'commanders' },
+          { zone: deck.companions, type: 'companions' },
+          { zone: deck.mainboard, type: 'mainboard' },
+          { zone: deck.sideboard, type: 'sideboard' }
+        ];
+
+    for (const { zone, type } of boardTypes) {
+      const cardsMap = getCards(zone);
+      for (const [, entry] of Object.entries(cardsMap)) {
+        if (!entry.card) continue;
         cards.push({
           quantity: entry.quantity,
           name: entry.card.name,
           set: entry.card.set?.toUpperCase(),
-          collectorNumber: entry.card.cn
+          collectorNumber: entry.card.cn,
+          boardType: type,
+          typeLine: entry.card.type_line
         });
       }
     }
@@ -149,24 +308,58 @@
 
     const deckId = match[1];
     const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
 
-    const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/json' }
+    const response = await fetch(proxyUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
 
     if (!response.ok) {
-      throw new Error(`Archidekt API returned ${response.status}`);
+      throw new Error(`Failed to fetch deck (status ${response.status})`);
     }
 
     const deck: ArchidektDeck = await response.json();
     const cards: DeckCard[] = [];
+    const seenCards = new Set<string>();
 
     for (const entry of deck.cards || []) {
+      const cardName = entry.card.oracleCard.name;
+      
+      // Deduplicate - Archidekt lists the same card in multiple categories
+      if (seenCards.has(cardName)) continue;
+      seenCards.add(cardName);
+      
+      // Archidekt uses categories for board type
+      const categories = entry.categories || [];
+      let boardType: DeckCard['boardType'] = 'mainboard';
+      if (categories.includes('Commander')) boardType = 'commanders';
+      else if (categories.includes('Companion')) boardType = 'companions';
+      else if (categories.includes('Sideboard') || categories.includes('Maybeboard')) boardType = 'sideboard';
+
+      // Get type line from various possible sources
+      let typeLine = entry.card.typeLine 
+        || entry.card.oracleCard.typeLine 
+        || entry.card.oracleCard.type 
+        || '';
+      
+      // If still empty, try to infer from categories
+      if (!typeLine) {
+        if (categories.includes('Creature') || categories.includes('Creatures')) typeLine = 'Creature';
+        else if (categories.includes('Instant') || categories.includes('Instants')) typeLine = 'Instant';
+        else if (categories.includes('Sorcery') || categories.includes('Sorceries')) typeLine = 'Sorcery';
+        else if (categories.includes('Artifact') || categories.includes('Artifacts')) typeLine = 'Artifact';
+        else if (categories.includes('Enchantment') || categories.includes('Enchantments')) typeLine = 'Enchantment';
+        else if (categories.includes('Planeswalker') || categories.includes('Planeswalkers')) typeLine = 'Planeswalker';
+        else if (categories.includes('Land') || categories.includes('Lands')) typeLine = 'Land';
+      }
+
       cards.push({
         quantity: entry.quantity,
-        name: entry.card.oracleCard.name,
+        name: cardName,
         set: entry.card.edition?.editioncode?.toUpperCase(),
-        collectorNumber: entry.card.collectorNumber
+        collectorNumber: entry.card.collectorNumber,
+        boardType,
+        typeLine
       });
     }
 
@@ -189,11 +382,13 @@
     isLoading = true;
     searchResults = [];
     selectedCards = new Map();
+    carouselIndices = new Map();
+    totalCardsToSearch = 0;
+    cardsSearched = 0;
 
     try {
-      // Fetch deck directly from the source API (client-side to bypass Cloudflare)
       let data: { name: string; cards: DeckCard[] };
-      
+
       if (source === 'moxfield') {
         data = await fetchMoxfieldDeckClient(deckUrl);
       } else {
@@ -201,47 +396,105 @@
       }
 
       deckName = data.name || 'Imported Deck';
-      
-      // Now search for each card in our database
       isParsing = true;
-      const cards: DeckCard[] = data.cards;
-
-      const searchResponse = await fetch('/api/import/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cards })
-      });
-
-      if (!searchResponse.ok) {
-        throw new Error('Failed to search for cards');
+      totalCardsToSearch = data.cards.length;
+      
+      // Batch cards for progress tracking (batches of 10)
+      const BATCH_SIZE = 10;
+      const batches: DeckCard[][] = [];
+      for (let i = 0; i < data.cards.length; i += BATCH_SIZE) {
+        batches.push(data.cards.slice(i, i + BATCH_SIZE));
       }
+      
+      const allResults: SearchResult[] = [];
+      
+      for (const batch of batches) {
+        const searchResponse = await fetch('/api/import/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cards: batch })
+        });
 
-      const results: SearchResult[] = await searchResponse.json();
-      searchResults = results;
+        if (!searchResponse.ok) {
+          throw new Error('Failed to search for cards');
+        }
+
+        const batchResults: SearchResult[] = await searchResponse.json();
+        allResults.push(...batchResults);
+        cardsSearched = allResults.length;
+      }
+      
+      searchResults = allResults;
 
       // Auto-select exact matches that are in stock
       const newSelected = new Map<number, CardMatch>();
-      results.forEach((result, idx) => {
+      const newCarouselIndices = new Map<number, number>();
+      allResults.forEach((result, idx) => {
+        newCarouselIndices.set(idx, 0);
         if (result.exactMatch && result.exactMatch.is_in_stock) {
           newSelected.set(idx, result.exactMatch);
         }
       });
       selectedCards = newSelected;
+      carouselIndices = newCarouselIndices;
 
-      const exactMatches = results.filter((r) => r.exactMatch).length;
-      const inStock = results.filter((r) => r.exactMatch?.is_in_stock).length;
-      toast.success(`Found ${exactMatches} exact matches (${inStock} in stock) out of ${results.length} cards`);
+      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
+      const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
+      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to import deck');
     } finally {
       isLoading = false;
       isParsing = false;
+      totalCardsToSearch = 0;
+      cardsSearched = 0;
     }
+  }
+
+  function getAllOptions(result: SearchResult): CardMatch[] {
+    const options: CardMatch[] = [];
+    if (result.exactMatch) options.push(result.exactMatch);
+    options.push(...result.alternatives.filter((a) => a.id !== result.exactMatch?.id));
+    return options;
+  }
+
+  function getCarouselIndex(idx: number): number {
+    return carouselIndices.get(idx) || 0;
+  }
+
+  function nextOption(idx: number, result: SearchResult) {
+    const options = getAllOptions(result);
+    if (options.length <= 1) return;
+    const current = getCarouselIndex(idx);
+    const next = (current + 1) % options.length;
+    carouselIndices = new Map(carouselIndices).set(idx, next);
+    // Update selection if the card was selected
+    if (selectedCards.has(idx)) {
+      selectedCards = new Map(selectedCards).set(idx, options[next]);
+    }
+  }
+
+  function prevOption(idx: number, result: SearchResult) {
+    const options = getAllOptions(result);
+    if (options.length <= 1) return;
+    const current = getCarouselIndex(idx);
+    const prev = (current - 1 + options.length) % options.length;
+    carouselIndices = new Map(carouselIndices).set(idx, prev);
+    // Update selection if the card was selected
+    if (selectedCards.has(idx)) {
+      selectedCards = new Map(selectedCards).set(idx, options[prev]);
+    }
+  }
+
+  function getCurrentOption(idx: number, result: SearchResult): CardMatch | null {
+    const options = getAllOptions(result);
+    if (options.length === 0) return null;
+    const carouselIdx = getCarouselIndex(idx);
+    return options[carouselIdx] || options[0];
   }
 
   function toggleCardSelection(idx: number, card: CardMatch | null) {
     if (!card) return;
-
     const newSelected = new Map(selectedCards);
     if (newSelected.has(idx)) {
       newSelected.delete(idx);
@@ -251,34 +504,13 @@
     selectedCards = newSelected;
   }
 
-  function selectAlternative(idx: number, card: CardMatch) {
-    const newSelected = new Map(selectedCards);
-    newSelected.set(idx, card);
-    selectedCards = newSelected;
-  }
-
-  function selectAllExactMatches() {
-    const newSelected = new Map<number, CardMatch>();
-    searchResults.forEach((result, idx) => {
-      if (result.exactMatch && result.exactMatch.is_in_stock) {
-        newSelected.set(idx, result.exactMatch);
-      }
-    });
-    selectedCards = newSelected;
-    toast.success(`Selected ${newSelected.size} exact matches`);
-  }
-
   function selectAllInStock() {
     const newSelected = new Map<number, CardMatch>();
     searchResults.forEach((result, idx) => {
-      // Prefer exact match if in stock, otherwise first in-stock alternative
-      if (result.exactMatch?.is_in_stock) {
-        newSelected.set(idx, result.exactMatch);
-      } else {
-        const inStockAlt = result.alternatives.find((a) => a.is_in_stock);
-        if (inStockAlt) {
-          newSelected.set(idx, inStockAlt);
-        }
+      const options = getAllOptions(result);
+      const inStockOption = options.find((o) => o.is_in_stock);
+      if (inStockOption) {
+        newSelected.set(idx, inStockOption);
       }
     });
     selectedCards = newSelected;
@@ -303,14 +535,18 @@
     }
 
     toast.success(`Added ${added} cards to cart`);
-    
-    // Clear selection after adding
     selectedCards = new Map();
   }
 
-  function getCardImageUrl(scryfallId: string | null): string {
+  function getCardImageUrl(scryfallId: string | null, size: 'small' | 'normal' = 'normal'): string {
     if (!scryfallId) return '/placeholder-card.png';
-    return `https://cards.scryfall.io/small/front/${scryfallId.charAt(0)}/${scryfallId.charAt(1)}/${scryfallId}.jpg`;
+    return `https://cards.scryfall.io/${size}/front/${scryfallId.charAt(0)}/${scryfallId.charAt(1)}/${scryfallId}.jpg`;
+  }
+
+  function getSellerInfo(card: CardMatch): string {
+    // Extract seller info from serial if available
+    const parts = card.serial?.split('_') || [];
+    return parts[0] || 'Unknown';
   }
 </script>
 
@@ -318,7 +554,7 @@
   <title>Import Deck - Group Buy</title>
 </svelte:head>
 
-<div class="container max-w-6xl py-8">
+<div class="container max-w-7xl py-8">
   <div class="mb-8">
     <h1 class="text-3xl font-bold">Import Deck</h1>
     <p class="text-muted-foreground">
@@ -354,12 +590,28 @@
       <p class="mt-2 text-sm text-muted-foreground">
         Supports Moxfield and Archidekt deck URLs. We'll search our inventory for matching cards.
       </p>
+      
+      <!-- Progress bar during search -->
+      {#if isParsing && totalCardsToSearch > 0}
+        <div class="mt-4 space-y-2">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">Searching inventory...</span>
+            <span class="font-medium">{cardsSearched} / {totalCardsToSearch} cards</span>
+          </div>
+          <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div 
+              class="h-full bg-primary transition-all duration-300 ease-out"
+              style="width: {searchProgress}%"
+            ></div>
+          </div>
+        </div>
+      {/if}
     </Card.Content>
   </Card.Root>
 
   <!-- Results -->
   {#if searchResults.length > 0}
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold">{deckName}</h2>
         <p class="text-sm text-muted-foreground">
@@ -367,9 +619,6 @@
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onclick={selectAllExactMatches}>
-          Select Exact Matches
-        </Button>
         <Button variant="outline" size="sm" onclick={selectAllInStock}>
           Select All In Stock
         </Button>
@@ -380,160 +629,144 @@
     </div>
 
     <!-- Legend -->
-    <div class="mb-4 flex flex-wrap gap-4 text-sm">
+    <div class="mb-6 flex flex-wrap gap-6 text-sm">
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-green-500"></div>
-        <span>Exact match (in stock)</span>
+        <span>In stock</span>
       </div>
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-yellow-500"></div>
-        <span>Alternative available</span>
+        <span>Out of stock</span>
       </div>
       <div class="flex items-center gap-2">
         <div class="h-3 w-3 rounded-full bg-red-500"></div>
-        <span>Not found / Out of stock</span>
+        <span>Not found</span>
       </div>
     </div>
 
-    <!-- Results Table -->
-    <div class="rounded-md border">
-      <Table.Root>
-        <Table.Header>
-          <Table.Row>
-            <Table.Head class="w-12">Qty</Table.Head>
-            <Table.Head>Requested Card</Table.Head>
-            <Table.Head>Match</Table.Head>
-            <Table.Head>Set</Table.Head>
-            <Table.Head>Type</Table.Head>
-            <Table.Head class="text-right">Price</Table.Head>
-            <Table.Head class="w-12">Add</Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {#each searchResults as result, idx (idx)}
-            {@const selectedCard = selectedCards.get(idx)}
-            {@const hasMatch = result.exactMatch || result.alternatives.length > 0}
-            {@const displayCard = selectedCard || result.exactMatch}
-            <Table.Row class={!hasMatch ? 'bg-red-500/10' : ''}>
-              <Table.Cell class="font-mono">{result.requestedCard.quantity}</Table.Cell>
-              <Table.Cell>
-                <div>
-                  <p class="font-medium">{result.requestedCard.name}</p>
-                  {#if result.requestedCard.set}
-                    <p class="text-xs text-muted-foreground">
-                      {result.requestedCard.set}
-                      {#if result.requestedCard.collectorNumber}
-                        #{result.requestedCard.collectorNumber}
-                      {/if}
-                    </p>
-                  {/if}
-                </div>
-              </Table.Cell>
-              <Table.Cell>
-                {#if displayCard}
-                  <div class="flex items-center gap-2">
-                    {#if result.exactMatch && displayCard.id === result.exactMatch.id}
-                      <div class="h-2 w-2 rounded-full bg-green-500" title="Exact match"></div>
-                    {:else}
-                      <div class="h-2 w-2 rounded-full bg-yellow-500" title="Alternative"></div>
-                    {/if}
-                    <span class="font-medium">{displayCard.card_name}</span>
-                    {#if !displayCard.is_in_stock}
-                      <Badge variant="outline" class="text-red-500">Out of stock</Badge>
-                    {/if}
-                  </div>
-                {:else if result.alternatives.length > 0}
-                  <div class="flex items-center gap-2">
-                    <div class="h-2 w-2 rounded-full bg-yellow-500"></div>
-                    <span class="text-muted-foreground">
-                      {result.alternatives.length} alternative{result.alternatives.length > 1 ? 's' : ''} available
-                    </span>
-                  </div>
-                {:else}
-                  <div class="flex items-center gap-2 text-red-500">
-                    <X class="h-4 w-4" />
-                    <span>Not found</span>
-                  </div>
-                {/if}
+    <!-- Grouped Results -->
+    {#each groupedResults as board}
+      <div class="mb-8">
+        <h3 class="mb-4 text-lg font-semibold border-b pb-2">{board.label}</h3>
 
-                <!-- Alternatives dropdown -->
-                {#if result.alternatives.length > 0}
-                  <div class="mt-1">
-                    <select
-                      class="w-full rounded border bg-background px-2 py-1 text-sm"
-                      onchange={(e) => {
-                        const target = e.target as HTMLSelectElement;
-                        const card = result.alternatives.find((a) => a.id === target.value);
-                        if (card) selectAlternative(idx, card);
-                      }}
-                    >
-                      {#if result.exactMatch}
-                        <option value={result.exactMatch.id} selected={selectedCard?.id === result.exactMatch.id}>
-                          {result.exactMatch.set_code} - {result.exactMatch.card_type}
-                          {result.exactMatch.is_in_stock ? '' : '(Out of stock)'}
-                        </option>
-                      {:else}
-                        <option value="">Select a version...</option>
+        {#each board.cardTypes as cardTypeGroup}
+          <div class="mb-6">
+            <h4 class="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              {cardTypeGroup.type} ({cardTypeGroup.cards.length})
+            </h4>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {#each cardTypeGroup.cards as { result, originalIdx }}
+                {@const options = getAllOptions(result)}
+                {@const hasOptions = options.length > 0}
+                {@const currentOption = getCurrentOption(originalIdx, result)}
+                {@const isSelected = selectedCards.has(originalIdx)}
+                {@const carouselIdx = getCarouselIndex(originalIdx)}
+
+                <div
+                  class="relative rounded-lg border-2 transition-all {isSelected
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-muted-foreground/50'}"
+                >
+                  <!-- Card Image Container -->
+                  <div class="relative aspect-[488/680] overflow-hidden rounded-t-md bg-muted group">
+                    {#if hasOptions && currentOption}
+                      <img
+                        src={getCardImageUrl(currentOption.scryfall_id)}
+                        alt={currentOption.card_name}
+                        class="h-full w-full object-cover {!currentOption.is_in_stock ? 'opacity-50 grayscale' : ''}"
+                        loading="lazy"
+                      />
+                      
+                      <!-- Left carousel click zone (15% width) -->
+                      {#if options.length > 1}
+                        <button
+                          onclick={(e) => { e.stopPropagation(); prevOption(originalIdx, result); }}
+                          class="absolute left-0 top-0 h-full w-[15%] flex items-center justify-start pl-1 hover:bg-black/30 transition-all cursor-pointer"
+                          aria-label="Previous card option"
+                        >
+                          <ChevronLeft class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
+                        </button>
                       {/if}
-                      {#each result.alternatives as alt}
-                        <option value={alt.id} selected={selectedCard?.id === alt.id}>
-                          {alt.set_code} #{alt.collector_number} - {alt.card_type}
-                          {alt.is_in_stock ? '' : '(Out of stock)'}
-                        </option>
-                      {/each}
-                    </select>
+                      
+                      <!-- Center click zone for selection -->
+                      <button
+                        onclick={() => currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
+                        class="absolute left-[15%] top-0 h-full w-[70%] cursor-pointer"
+                        disabled={!currentOption?.is_in_stock}
+                        aria-label="Select card"
+                      ></button>
+                      
+                      <!-- Right carousel click zone (15% width) -->
+                      {#if options.length > 1}
+                        <button
+                          onclick={(e) => { e.stopPropagation(); nextOption(originalIdx, result); }}
+                          class="absolute right-0 top-0 h-full w-[15%] flex items-center justify-end pr-1 hover:bg-black/30 transition-all cursor-pointer"
+                          aria-label="Next card option"
+                        >
+                          <ChevronRight class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
+                        </button>
+                      {/if}
+                      
+                      <!-- Stock indicator -->
+                      <div
+                        class="absolute top-2 right-2 h-3 w-3 rounded-full {currentOption.is_in_stock
+                          ? 'bg-green-500'
+                          : 'bg-yellow-500'}"
+                      ></div>
+                      
+                      <!-- Quantity badge -->
+                      {#if result.requestedCard.quantity > 1}
+                        <Badge variant="secondary" class="absolute top-2 left-2 text-xs">x{result.requestedCard.quantity}</Badge>
+                      {/if}
+                      
+                      <!-- Carousel position indicator -->
+                      {#if options.length > 1}
+                        <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          {carouselIdx + 1} / {options.length}
+                        </div>
+                      {/if}
+                    {:else}
+                      <div class="flex h-full items-center justify-center text-muted-foreground">
+                        <div class="text-center p-4">
+                          <span class="text-2xl">✕</span>
+                          <p class="text-xs mt-2">Not found</p>
+                        </div>
+                      </div>
+                    {/if}
                   </div>
-                {/if}
-              </Table.Cell>
-              <Table.Cell>
-                {#if displayCard}
-                  <span class="text-sm">{displayCard.set_code}</span>
-                {:else}
-                  <span class="text-muted-foreground">—</span>
-                {/if}
-              </Table.Cell>
-              <Table.Cell>
-                {#if displayCard}
-                  <Badge class={getFinishBadgeClasses(displayCard.card_type)}>
-                    {getFinishLabel({ card_type: displayCard.card_type })}
-                  </Badge>
-                {:else}
-                  <span class="text-muted-foreground">—</span>
-                {/if}
-              </Table.Cell>
-              <Table.Cell class="text-right">
-                {#if displayCard}
-                  <span class="font-medium">
-                    {formatPrice(getCardPrice(displayCard.card_type) * result.requestedCard.quantity)}
-                  </span>
-                {:else}
-                  <span class="text-muted-foreground">—</span>
-                {/if}
-              </Table.Cell>
-              <Table.Cell>
-                {#if displayCard && displayCard.is_in_stock}
-                  <Checkbox
-                    checked={selectedCards.has(idx)}
-                    onCheckedChange={() => toggleCardSelection(idx, displayCard)}
-                  />
-                {:else if displayCard}
-                  <Tooltip.Root>
-                    <Tooltip.Trigger>
-                      <AlertTriangle class="h-4 w-4 text-yellow-500" />
-                    </Tooltip.Trigger>
-                    <Tooltip.Content>Out of stock</Tooltip.Content>
-                  </Tooltip.Root>
-                {/if}
-              </Table.Cell>
-            </Table.Row>
-          {/each}
-        </Table.Body>
-      </Table.Root>
-    </div>
+
+                  <!-- Card Info (clickable for selection) -->
+                  <button
+                    onclick={() => hasOptions && currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
+                    class="w-full p-2 space-y-1 text-left {hasOptions && currentOption?.is_in_stock ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'}"
+                    disabled={!hasOptions || !currentOption?.is_in_stock}
+                  >
+                    <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
+                      {result.requestedCard.name}
+                    </p>
+                    {#if hasOptions && currentOption}
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <span class="text-xs text-muted-foreground">
+                          [{currentOption.set_code} #{currentOption.collector_number}]
+                        </span>
+                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel({ card_type: currentOption.card_type }))}">
+                          {getFinishLabel({ card_type: currentOption.card_type })}
+                        </Badge>
+                      </div>
+                    {/if}
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/each}
 
     <!-- Add to Cart Button -->
-    <div class="mt-6 flex justify-end">
-      <Button size="lg" onclick={addSelectedToCart} disabled={totalSelected === 0}>
+    <div class="sticky bottom-4 flex justify-center">
+      <Button size="lg" onclick={addSelectedToCart} disabled={totalSelected === 0} class="shadow-lg">
         <ShoppingCart class="mr-2 h-4 w-4" />
         Add {totalSelected} Cards to Cart
         {#if totalQuantity > 0}

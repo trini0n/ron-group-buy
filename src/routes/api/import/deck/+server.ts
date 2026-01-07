@@ -10,12 +10,26 @@ interface MoxfieldCard {
   }
 }
 
+interface MoxfieldBoard {
+  count: number
+  cards: Record<string, MoxfieldCard>
+}
+
+interface MoxfieldBoards {
+  mainboard: MoxfieldBoard
+  sideboard: MoxfieldBoard
+  commanders: MoxfieldBoard
+  companions: MoxfieldBoard
+}
+
 interface MoxfieldDeck {
   name: string
-  mainboard: Record<string, MoxfieldCard>
-  sideboard: Record<string, MoxfieldCard>
-  commanders: Record<string, MoxfieldCard>
-  companions: Record<string, MoxfieldCard>
+  boards: MoxfieldBoards
+  // Legacy structure (older API versions)
+  mainboard?: Record<string, MoxfieldCard>
+  sideboard?: Record<string, MoxfieldCard>
+  commanders?: Record<string, MoxfieldCard>
+  companions?: Record<string, MoxfieldCard>
 }
 
 interface ArchidektCard {
@@ -104,12 +118,28 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
   const deck: MoxfieldDeck = await response.json()
   const cards: DeckCard[] = []
 
+  // Handle both old API structure (direct properties) and new v3 structure (boards object with nested cards)
+  const hasBoards = deck.boards && deck.boards.mainboard
+
+  // Get card records from either new or old structure
+  const getCards = (zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined): Record<string, MoxfieldCard> => {
+    if (!zone) return {}
+    // New structure has cards property, old structure is the cards directly
+    if ('cards' in zone && typeof zone.cards === 'object') {
+      return zone.cards as Record<string, MoxfieldCard>
+    }
+    return zone as Record<string, MoxfieldCard>
+  }
+
   // Collect cards from all zones
-  const zones = [deck.mainboard, deck.sideboard, deck.commanders, deck.companions]
+  const zones = hasBoards
+    ? [deck.boards.mainboard, deck.boards.sideboard, deck.boards.commanders, deck.boards.companions]
+    : [deck.mainboard, deck.sideboard, deck.commanders, deck.companions]
 
   for (const zone of zones) {
-    if (!zone) continue
-    for (const [, entry] of Object.entries(zone)) {
+    const cards_map = getCards(zone)
+    for (const [, entry] of Object.entries(cards_map)) {
+      if (!entry.card) continue
       cards.push({
         quantity: entry.quantity,
         name: entry.card.name,
