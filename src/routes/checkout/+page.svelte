@@ -17,12 +17,16 @@
   let isResendingVerification = $state(false);
   let verificationSent = $state(false);
 
-  // Form state
-  let selectedAddressId = $state<string | null>(
-    data.addresses.find((a) => a.is_default)?.id || data.addresses[0]?.id || null
-  );
-  let useNewAddress = $state(data.addresses.length === 0);
+  // Form state - use $derived for data-dependent values
+  let selectedAddressId = $state<string | null>(null);
+  let useNewAddress = $state(false);
   let isSubmitting = $state(false);
+  
+  // Initialize from data
+  $effect(() => {
+    selectedAddressId = data.addresses.find((a) => a.is_default)?.id || data.addresses[0]?.id || null;
+    useNewAddress = data.addresses.length === 0;
+  });
 
   // New address form
   let newAddress = $state({
@@ -39,7 +43,7 @@
     isResendingVerification = true;
     const { error } = await supabase.auth.resend({
       type: 'signup',
-      email: data.userEmail
+      email: data.userEmail || ''
     });
     isResendingVerification = false;
     if (!error) {
@@ -289,10 +293,10 @@
           </Card.Content>
         </Card.Root>
 
-        <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting || !isEmailVerified}>
+        <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting || !data.isEmailVerified}>
           {#if isSubmitting}
             Submitting...
-          {:else if !isEmailVerified}
+          {:else if !data.isEmailVerified}
             <AlertTriangle class="mr-2 h-4 w-4" />
             Verify Email to Order
           {:else}

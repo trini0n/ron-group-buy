@@ -26,7 +26,7 @@
       <a href="/" class="text-sm font-medium transition-colors hover:text-primary">
         Cards
       </a>
-      <a href="/deck-import" class="text-sm font-medium transition-colors hover:text-primary">
+      <a href="/import" class="text-sm font-medium transition-colors hover:text-primary">
         Deck Import
       </a>
       {#if user}
@@ -75,7 +75,7 @@
             <DropdownMenu.Label>{user.email}</DropdownMenu.Label>
             <DropdownMenu.Separator />
             <DropdownMenu.Item>
-              <a href="/account" class="flex w-full items-center">Account</a>
+              <a href="/profile" class="flex w-full items-center">Profile</a>
             </DropdownMenu.Item>
             <DropdownMenu.Item>
               <a href="/orders" class="flex w-full items-center">Order History</a>
@@ -103,7 +103,7 @@
             <a href="/" class="flex w-full items-center">Cards</a>
           </DropdownMenu.Item>
           <DropdownMenu.Item>
-            <a href="/deck-import" class="flex w-full items-center">Deck Import</a>
+            <a href="/import" class="flex w-full items-center">Deck Import</a>
           </DropdownMenu.Item>
           {#if user}
             <DropdownMenu.Item>
