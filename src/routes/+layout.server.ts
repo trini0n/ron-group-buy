@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types'
 import { isAdminDiscordId } from '$lib/admin-shared'
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+export const load: LayoutServerLoad = async ({ locals, url }) => {
   // Get current group buy config
   const { data: groupBuyConfig } = await locals.supabase
     .from('group_buy_config')
@@ -24,6 +24,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
   return {
     user: locals.user,
     isAdmin,
-    groupBuyConfig
+    groupBuyConfig,
+    url: { pathname: url.pathname }
   }
 }

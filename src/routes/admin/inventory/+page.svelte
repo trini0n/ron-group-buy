@@ -395,7 +395,8 @@
           <Table.Head>Serial</Table.Head>
           <Table.Head>Set</Table.Head>
           <Table.Head>Set Code</Table.Head>
-          <Table.Head>Collector #</Table.Head>
+          <Table.Head>№</Table.Head>
+          <Table.Head>LA</Table.Head>
           <Table.Head>Finish</Table.Head>
           <Table.Head>Stock</Table.Head>
           <Table.Head></Table.Head>
@@ -449,6 +450,12 @@
             >
               {card.collector_number || '—'}
             </Table.Cell>
+            <Table.Cell 
+              class="text-sm"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
+              {card.language || 'en'}
+            </Table.Cell>
             <Table.Cell onmousemove={(e) => handleRowMouseMove(e, card)}>
               {@const finish = getFinishLabel(card)}
               <Badge class={getFinishBadgeClasses(finish)}>{finish}</Badge>
@@ -477,7 +484,7 @@
           </Table.Row>
         {:else}
           <Table.Row>
-            <Table.Cell colspan={9} class="py-8 text-center text-muted-foreground">
+            <Table.Cell colspan={10} class="py-8 text-center text-muted-foreground">
               No cards found
             </Table.Cell>
           </Table.Row>

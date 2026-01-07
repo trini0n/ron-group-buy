@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { Button } from '$components/ui/button';
-  import { Separator } from '$components/ui/separator';
+  import * as Sidebar from '$components/ui/sidebar';
   import { 
     LayoutDashboard, 
     ShoppingCart, 
     Users, 
     Package, 
-    ArrowLeft,
     Settings
   } from 'lucide-svelte';
   import { page } from '$app/stores';
@@ -33,41 +31,52 @@
   <title>Admin - Group Buy</title>
 </svelte:head>
 
-<div class="flex min-h-screen">
-  <!-- Sidebar -->
-  <aside class="w-64 border-r bg-muted/30">
-    <div class="flex h-16 items-center gap-2 border-b px-6">
-      <a href="/" class="text-muted-foreground hover:text-foreground">
-        <ArrowLeft class="h-4 w-4" />
-      </a>
-      <span class="font-semibold">Admin Panel</span>
-    </div>
+<div class="h-[calc(100vh-4rem)]" style="--sidebar-height: calc(100vh - 4rem);">
+  <Sidebar.Provider class="!min-h-[var(--sidebar-height)]">
+    <Sidebar.Root collapsible="icon" class="!h-[var(--sidebar-height)] top-16">
+      <Sidebar.Content>
+        <Sidebar.Group>
+          <Sidebar.GroupContent>
+            <Sidebar.Menu><bos>
+              {#each navItems as item}
+                <Sidebar.MenuItem>
+                  <Sidebar.MenuButton isActive={isActive(item.href)} tooltip={item.label}>
+                    {#snippet child({ props })}
+                      <a href={item.href} {...props}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </a>
+                    {/snippet}
+                  </Sidebar.MenuButton>
+                </Sidebar.MenuItem>
+              {/each}
+            </Sidebar.Menu>
+          </Sidebar.GroupContent>
+        </Sidebar.Group>
+      </Sidebar.Content>
 
-    <nav class="space-y-1 p-4">
-      {#each navItems as item}
-        <a
-          href={item.href}
-          class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors
-            {isActive(item.href) 
-              ? 'bg-primary text-primary-foreground' 
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
-        >
-          <item.icon class="h-4 w-4" />
-          {item.label}
-        </a>
-      {/each}
-    </nav>
+      <Sidebar.Footer>
+        <Sidebar.Menu>
+          <Sidebar.MenuItem>
+            <div class="flex flex-col gap-0.5 px-2 py-1.5 text-left text-sm">
+              <span class="text-xs text-sidebar-foreground/70">Logged in as</span>
+              <span class="truncate font-medium">{data.admin.name || data.admin.email}</span>
+            </div>
+          </Sidebar.MenuItem>
+        </Sidebar.Menu>
+      </Sidebar.Footer>
 
-    <Separator class="my-4" />
+      <Sidebar.Rail />
+    </Sidebar.Root>
 
-    <div class="px-4">
-      <p class="px-3 text-xs text-muted-foreground">Logged in as</p>
-      <p class="truncate px-3 text-sm font-medium">{data.admin.name || data.admin.email}</p>
-    </div>
-  </aside>
-
-  <!-- Main content -->
-  <main class="flex-1 overflow-auto">
-    {@render children()}
-  </main>
+    <Sidebar.Inset>
+      <header class="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <Sidebar.Trigger class="-ml-1" />
+        <span class="text-sm text-muted-foreground">Admin</span>
+      </header>
+      <main class="flex-1 overflow-auto">
+        {@render children()}
+      </main>
+    </Sidebar.Inset>
+  </Sidebar.Provider>
 </div>

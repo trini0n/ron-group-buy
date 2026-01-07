@@ -80,7 +80,9 @@
     {@render children()}
   </main>
   
-  <Footer />
+  {#if !data.url?.pathname?.startsWith('/admin')}
+    <Footer />
+  {/if}
 </div>
 </Tooltip.Provider>
 
