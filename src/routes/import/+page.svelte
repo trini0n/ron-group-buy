@@ -16,6 +16,8 @@
     ChevronLeft,
     ChevronRight
   } from 'lucide-svelte';
+  import { Textarea } from '$components/ui/textarea';
+  import * as Accordion from '$components/ui/accordion';
 
   // Types
   interface DeckCard {
@@ -25,6 +27,7 @@
     collectorNumber?: string;
     boardType?: 'commanders' | 'companions' | 'mainboard' | 'sideboard';
     typeLine?: string;
+    foil?: boolean;
   }
 
   interface MoxfieldCard {
@@ -131,6 +134,7 @@
 
   // State
   let deckUrl = $state('');
+  let pasteContent = $state('');
   let isLoading = $state(false);
   let isParsing = $state(false);
   let searchResults = $state<SearchResult[]>([]);
@@ -451,6 +455,126 @@
     }
   }
 
+  function parseDeckList(text: string): DeckCard[] {
+    const cards: DeckCard[] = [];
+    const lines = text.split('\n');
+    
+    // Regex logic: Priority for strictly formatted lines
+    // ^(\d+) -> Quantity
+    // \s+(.+?) -> Name (non-greedy)
+    // (?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)? -> Optional Set group: (set) followed optionally by CN
+    // (?:\s+\*(.+?)\*)? -> Optional Foil group
+    // $ -> End of line check
+    const regex = /^(\d+)\s+(.+?)(?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)?(?:\s+\*(.+?)\*)?$/;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const match = trimmed.match(regex);
+      if (match) {
+        const [, qty, name, set, cn, foil] = match;
+        cards.push({
+          quantity: parseInt(qty),
+          name: name.trim(),
+          set: set?.toUpperCase(),
+          collectorNumber: cn,
+          boardType: 'mainboard',
+          foil: !!foil
+        });
+      } else {
+        // Fallback for simple "1 Card Name"
+        // Try to match simpler pattern "Qty Name"
+        const simpleRegex = /^(\d+)\s+(.+)$/;
+        const simpleMatch = trimmed.match(simpleRegex);
+        if (simpleMatch) {
+            cards.push({
+                quantity: parseInt(simpleMatch[1]),
+                name: simpleMatch[2].trim(),
+                boardType: 'mainboard'
+            });
+        }
+      }
+    }
+    return cards;
+  }
+
+  async function importPastedDeck() {
+    if (!pasteContent.trim()) {
+      toast.error('Please paste a decklist');
+      return;
+    }
+
+    isLoading = true;
+    searchResults = [];
+    selectedCards = new Map();
+    carouselIndices = new Map();
+    totalCardsToSearch = 0;
+    cardsSearched = 0;
+    deckName = 'Pasted Deck';
+    deckSource = null;
+
+    try {
+      const cards = parseDeckList(pasteContent);
+      if (cards.length === 0) {
+        toast.error('No valid cards found in text');
+        isLoading = false;
+        return;
+      }
+
+      isParsing = true;
+      totalCardsToSearch = cards.length;
+      
+      const BATCH_SIZE = 10;
+      const batches: DeckCard[][] = [];
+      for (let i = 0; i < cards.length; i += BATCH_SIZE) {
+        batches.push(cards.slice(i, i + BATCH_SIZE));
+      }
+      
+      const allResults: SearchResult[] = [];
+      
+      for (const batch of batches) {
+        const searchResponse = await fetch('/api/import/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cards: batch })
+        });
+
+        if (!searchResponse.ok) {
+          throw new Error('Failed to search for cards');
+        }
+
+        const batchResults: SearchResult[] = await searchResponse.json();
+        allResults.push(...batchResults);
+        cardsSearched = allResults.length;
+      }
+      
+      searchResults = allResults;
+
+      // Auto-select exact matches that are in stock
+      const newSelected = new Map<number, CardMatch>();
+      const newCarouselIndices = new Map<number, number>();
+      allResults.forEach((result, idx) => {
+        newCarouselIndices.set(idx, 0);
+        if (result.exactMatch && result.exactMatch.is_in_stock) {
+          newSelected.set(idx, result.exactMatch);
+        }
+      });
+      selectedCards = newSelected;
+      carouselIndices = newCarouselIndices;
+
+      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
+      const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
+      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
+
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to import deck');
+    } finally {
+      isLoading = false;
+      isParsing = false;
+    }
+  }
+
   function getAllOptions(result: SearchResult): CardMatch[] {
     const options: CardMatch[] = [];
     if (result.exactMatch) options.push(result.exactMatch);
@@ -578,18 +702,55 @@
           />
         </div>
         <Button onclick={fetchDeck} disabled={isLoading || !deckUrl.trim()}>
-          {#if isLoading}
+          {#if isLoading && deckUrl}
             <Loader2 class="mr-2 h-4 w-4 animate-spin" />
             {isParsing ? 'Searching...' : 'Fetching...'}
           {:else}
             <Search class="mr-2 h-4 w-4" />
-            Import Deck
+            Import URL
           {/if}
         </Button>
       </div>
+
       <p class="mt-2 text-sm text-muted-foreground">
-        Supports Moxfield and Archidekt deck URLs. We'll search our inventory for matching cards.
+        Import a deck from Moxfield or Archidekt above
       </p>
+
+      <!-- Paste Decklist Option -->
+      <div class="mt-4">
+        <Accordion.Root type="single" collapsible>
+          <Accordion.Item value="paste">
+            <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
+              Or paste a decklist below instead...
+            </Accordion.Trigger>
+            <Accordion.Content>
+              <div class="space-y-4 pt-2">
+                <div class="space-y-2">
+                  <Label for="decklist">Decklist</Label>
+                  <p class="text-xs text-muted-foreground">
+                    Format: <code>[qty] [name] ([set]) [cn] *[foil]*</code>. Set, CN, and Foil are optional.
+                  </p>
+                  <Textarea
+                    id="decklist"
+                    placeholder={'1 Ancient Copper Dragon (clb) 161 *F*\n1 Sol Ring'}
+                    class="h-[200px] font-mono"
+                    bind:value={pasteContent}
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button onclick={importPastedDeck} disabled={isLoading || !pasteContent.trim()}>
+                  {#if isLoading && !deckUrl}
+                    <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                    Searching...
+                  {:else}
+                    Import List
+                  {/if}
+                </Button>
+              </div>
+            </Accordion.Content>
+          </Accordion.Item>
+        </Accordion.Root>
+      </div>
       
       <!-- Progress bar during search -->
       {#if isParsing && totalCardsToSearch > 0}
@@ -750,8 +911,8 @@
                         <span class="text-xs text-muted-foreground">
                           [{currentOption.set_code} #{currentOption.collector_number}]
                         </span>
-                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel({ card_type: currentOption.card_type }))}">
-                          {getFinishLabel({ card_type: currentOption.card_type })}
+                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(currentOption))}">
+                          {getFinishLabel(currentOption)}
                         </Badge>
                       </div>
                     {/if}
