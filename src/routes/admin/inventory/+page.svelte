@@ -9,7 +9,7 @@
   import * as Command from '$components/ui/command';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
-  import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
+  import { getRonImageUrl, getScryfallImageUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { 
     Search, 
     ChevronLeft, 
@@ -18,7 +18,9 @@
     PackageX,
     RefreshCw,
     ChevronsUpDown,
-    Check
+    Check,
+    CloudDownload,
+    Loader2
   } from 'lucide-svelte';
 
   interface InventoryCard {
@@ -63,6 +65,7 @@
   // Track selected cards for bulk actions
   let selectedCards = $state<Set<string>>(new Set());
   let isUpdating = $state(false);
+  let isSyncing = $state(false);
 
   const totalPages = $derived(Math.ceil(data.totalCount / data.perPage));
   
@@ -180,9 +183,26 @@
     await updateStock([cardId], !currentStock);
   }
 
-  function getFinishLabel(card: { card_type: string; foil_type?: string | null }): string {
-    if (card.foil_type) return card.foil_type;
-    return card.card_type;
+  async function syncWithGoogleSheets() {
+    isSyncing = true;
+    try {
+      const response = await fetch('/api/admin/inventory/sync', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Sync complete! ${result.success} cards synced, ${result.errors} errors. Total: ${result.total}`);
+        invalidateAll();
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to sync with Google Sheets');
+      }
+    } catch (err) {
+      toast.error('Failed to sync with Google Sheets');
+    } finally {
+      isSyncing = false;
+    }
   }
 
   // Handle mouse move for card image popup
@@ -206,9 +226,25 @@
 </script>
 
 <div class="p-8">
-  <div class="mb-8">
-    <h1 class="text-3xl font-bold">Inventory</h1>
-    <p class="text-muted-foreground">Manage card stock status</p>
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">Inventory</h1>
+      <p class="text-muted-foreground">Manage card stock status</p>
+    </div>
+    <Button 
+      variant="outline" 
+      onclick={syncWithGoogleSheets}
+      disabled={isSyncing}
+      class="gap-2"
+    >
+      {#if isSyncing}
+        <Loader2 class="h-4 w-4 animate-spin" />
+        Syncing...
+      {:else}
+        <CloudDownload class="h-4 w-4" />
+        Sync with Google Sheets
+      {/if}
+    </Button>
   </div>
 
   <!-- Filters -->
@@ -358,6 +394,8 @@
           <Table.Head>Card Name</Table.Head>
           <Table.Head>Serial</Table.Head>
           <Table.Head>Set</Table.Head>
+          <Table.Head>Set Code</Table.Head>
+          <Table.Head>Collector #</Table.Head>
           <Table.Head>Finish</Table.Head>
           <Table.Head>Stock</Table.Head>
           <Table.Head></Table.Head>
@@ -399,8 +437,21 @@
             >
               {card.set_name || card.set_code}
             </Table.Cell>
+            <Table.Cell 
+              class="text-xs font-mono uppercase"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
+              {card.set_code || '—'}
+            </Table.Cell>
+            <Table.Cell 
+              class="text-sm"
+              onmousemove={(e) => handleRowMouseMove(e, card)}
+            >
+              {card.collector_number || '—'}
+            </Table.Cell>
             <Table.Cell onmousemove={(e) => handleRowMouseMove(e, card)}>
-              <Badge variant="outline">{getFinishLabel(card)}</Badge>
+              {@const finish = getFinishLabel(card)}
+              <Badge class={getFinishBadgeClasses(finish)}>{finish}</Badge>
             </Table.Cell>
             <Table.Cell onmousemove={(e) => handleRowMouseMove(e, card)}>
               {#if card.is_in_stock}
@@ -426,7 +477,7 @@
           </Table.Row>
         {:else}
           <Table.Row>
-            <Table.Cell colspan={7} class="py-8 text-center text-muted-foreground">
+            <Table.Cell colspan={9} class="py-8 text-center text-muted-foreground">
               No cards found
             </Table.Cell>
           </Table.Row>
