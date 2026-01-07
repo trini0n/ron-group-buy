@@ -14,7 +14,8 @@
     ShoppingCart,
     ExternalLink,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Check
   } from 'lucide-svelte';
   import { Textarea } from '$components/ui/textarea';
   import * as Accordion from '$components/ui/accordion';
@@ -678,10 +679,13 @@
     });
   }
 
-  // Select a specific finish variant
+  // Select a specific finish variant (only switches finish if card is already selected)
   function selectFinish(idx: number, finishVariant: CardMatch) {
     if (!finishVariant.is_in_stock) return;
-    selectedCards = new Map(selectedCards).set(idx, finishVariant);
+    // Only switch finish if card is already selected
+    if (selectedCards.has(idx)) {
+      selectedCards = new Map(selectedCards).set(idx, finishVariant);
+    }
   }
 
   function toggleCardSelection(idx: number, card: CardMatch | null) {
@@ -1036,6 +1040,15 @@
                           {carouselIdx + 1} / {uniqueOptions.length}
                         </div>
                       {/if}
+                      
+                      <!-- Selection indicator overlay -->
+                      {#if isSelected}
+                        <div class="absolute inset-0 bg-primary/10 pointer-events-none flex items-center justify-center">
+                          <div class="bg-primary/80 rounded-full p-1.5 shadow-lg">
+                            <Check class="h-6 w-6 text-primary-foreground" />
+                          </div>
+                        </div>
+                      {/if}
                     {:else}
                       <div class="flex h-full items-center justify-center text-muted-foreground">
                         <div class="text-center p-4">
@@ -1067,7 +1080,7 @@
                     {#if finishVariants.length > 1}
                       <div class="flex rounded-md border overflow-hidden">
                         {#each finishVariants as variant}
-                          {@const isActiveFinish = selectedCard?.id === variant.id || (!selectedCard && variant.id === finishVariants[0].id)}
+                          {@const isActiveFinish = isSelected && selectedCard?.id === variant.id}
                           <button
                             onclick={(e) => { e.stopPropagation(); selectFinish(originalIdx, variant); }}
                             disabled={!variant.is_in_stock}
