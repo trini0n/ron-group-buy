@@ -26,9 +26,10 @@
   interface Props {
     filters: Filters;
     sets: Set[];
+    onClearAll?: () => void;
   }
 
-  let { filters = $bindable(), sets }: Props = $props();
+  let { filters = $bindable(), sets, onClearAll }: Props = $props();
 
   // Combobox state
   let setComboboxOpen = $state(false);
@@ -109,6 +110,7 @@
       isNew: false
     };
     setSearchValue = '';
+    onClearAll?.();
   }
 
   function selectSet(code: string) {

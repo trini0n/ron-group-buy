@@ -6,20 +6,112 @@
   import { Button } from '$components/ui/button';
   import * as Tooltip from '$components/ui/tooltip';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
 
   let { data } = $props();
 
-  let searchQuery = $state('');
-  let viewMode = $state<'grid' | 'table'>('grid');
+  // Initialize from URL params via server - use untrack since we only want initial values
+  const initialFilters = untrack(() => data.initialFilters);
+  
+  let searchQuery = $state(initialFilters.search);
+  let viewMode = $state<'grid' | 'table'>(initialFilters.view);
   let filters = $state({
-    setCode: '',
-    colorIdentity: [] as string[],
-    colorIdentityStrict: false,
-    priceCategories: ['Non-Foil', 'Foil'] as string[],
-    cardTypes: [] as string[],
-    frameTypes: [] as string[],
-    inStockOnly: false,
-    isNew: false
+    setCode: initialFilters.setCode,
+    colorIdentity: initialFilters.colorIdentity as string[],
+    colorIdentityStrict: initialFilters.colorIdentityStrict,
+    priceCategories: initialFilters.priceCategories as string[],
+    cardTypes: initialFilters.cardTypes as string[],
+    frameTypes: initialFilters.frameTypes as string[],
+    inStockOnly: initialFilters.inStockOnly,
+    isNew: initialFilters.isNew
+  });
+
+  // Track whether this is the initial render (skip first URL update)
+  let isInitialized = $state(false);
+
+  // Debounce timer for search input
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const SEARCH_DEBOUNCE_MS = 400;
+
+  // Build URL from current filter state
+  function buildFilterUrl(): string {
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.set('q', searchQuery);
+    if (filters.setCode) params.set('set', filters.setCode);
+    if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','));
+    if (filters.colorIdentityStrict) params.set('strict', '1');
+    if (filters.priceCategories.length > 0 && 
+        !(filters.priceCategories.length === 2 && 
+          filters.priceCategories.includes('Non-Foil') && 
+          filters.priceCategories.includes('Foil'))) {
+      params.set('price', filters.priceCategories.join(','));
+    }
+    if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','));
+    if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','));
+    if (filters.inStockOnly) params.set('stock', '1');
+    if (filters.isNew) params.set('new', '1');
+    if (viewMode !== 'grid') params.set('view', viewMode);
+    
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '/';
+  }
+
+  // Update URL without navigation (replaceState)
+  function updateUrl() {
+    const newUrl = buildFilterUrl();
+    goto(newUrl, { replaceState: true, noScroll: true, keepFocus: true });
+  }
+
+  // Debounced search update
+  function handleSearchInput(event: Event) {
+    const target = event.target as HTMLInputElement;
+    searchQuery = target.value;
+    
+    // Clear existing timer
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+    
+    // Set new debounce timer
+    searchDebounceTimer = setTimeout(() => {
+      updateUrl();
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  // Watch for filter changes (non-search) and update URL immediately
+  $effect(() => {
+    // Track all filter values to trigger on changes
+    const _ = [
+      filters.setCode,
+      filters.colorIdentity.join(','),
+      filters.colorIdentityStrict,
+      filters.priceCategories.join(','),
+      filters.cardTypes.join(','),
+      filters.frameTypes.join(','),
+      filters.inStockOnly,
+      filters.isNew,
+      viewMode
+    ];
+    
+    // Skip the initial render to avoid unnecessary URL update
+    if (!isInitialized) {
+      isInitialized = true;
+      return;
+    }
+    
+    // Update URL
+    queueMicrotask(() => updateUrl());
+  });
+
+  // Cleanup debounce timer on unmount
+  $effect(() => {
+    return () => {
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+    };
   });
 </script>
 
@@ -45,7 +137,8 @@
         type="search"
         placeholder="Search cards by name..."
         class="pl-10"
-        bind:value={searchQuery}
+        value={searchQuery}
+        oninput={handleSearchInput}
       />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
@@ -85,7 +178,11 @@
   <div class="flex flex-col gap-6 lg:flex-row">
     <!-- Filters Sidebar -->
     <aside class="w-full shrink-0 lg:w-64">
-      <SearchFilters bind:filters sets={data.sets} />
+      <SearchFilters 
+        bind:filters 
+        sets={data.sets} 
+        onClearAll={() => { searchQuery = ''; }}
+      />
     </aside>
 
     <!-- Card View -->

@@ -2,12 +2,38 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
+  import * as Breadcrumb from '$components/ui/breadcrumb';
   import { Separator } from '$components/ui/separator';
   import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
-  import { ShoppingCart, ExternalLink, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-svelte';
+  import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
 
   let { data } = $props();
+
+  // Extract the primary card type from type_line (exclude supertypes)
+  const primaryCardType = $derived.by(() => {
+    const typeLine = data.card?.type_line || '';
+    // Card types in MTG (the ones we want to extract)
+    const cardTypes = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Planeswalker', 'Battle', 'Kindred', 'Tribal'];
+    
+    // Split by " — " to get the types part (before subtypes)
+    const mainTypes = typeLine.split(' — ')[0] || typeLine;
+    
+    // Find the first matching card type
+    for (const type of cardTypes) {
+      if (mainTypes.includes(type)) {
+        return type;
+      }
+    }
+    return null;
+  });
+
+  // Build breadcrumb URLs with filters applied
+  const setFilterUrl = $derived(`/?set=${data.card?.set_code?.toLowerCase() || ''}`);
+  const typeFilterUrl = $derived.by(() => {
+    if (!primaryCardType) return setFilterUrl;
+    return `${setFilterUrl}&types=${primaryCardType}`;
+  });
 
   // Compute images array - ensure it's always valid
   const images = $derived.by(() => {
@@ -54,10 +80,41 @@
 </svelte:head>
 
 <div class="container py-8">
-  <a href="/" class="mb-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
-    <ArrowLeft class="h-4 w-4" />
-    Back to catalog
-  </a>
+  <!-- Breadcrumbs: / setCode / Type / Card Name -->
+  <Breadcrumb.Root class="mb-6">
+    <Breadcrumb.List>
+      <Breadcrumb.Item>
+        <Breadcrumb.Link href="/">
+          <Home class="h-4 w-4" />
+          <span class="sr-only">Home</span>
+        </Breadcrumb.Link>
+      </Breadcrumb.Item>
+      
+      <Breadcrumb.Separator />
+      
+      <Breadcrumb.Item>
+        <Breadcrumb.Link href={setFilterUrl}>
+          {data.card.set_code?.toUpperCase()}
+        </Breadcrumb.Link>
+      </Breadcrumb.Item>
+      
+      {#if primaryCardType}
+        <Breadcrumb.Separator />
+        
+        <Breadcrumb.Item>
+          <Breadcrumb.Link href={typeFilterUrl}>
+            {primaryCardType}
+          </Breadcrumb.Link>
+        </Breadcrumb.Item>
+      {/if}
+      
+      <Breadcrumb.Separator />
+      
+      <Breadcrumb.Item>
+        <Breadcrumb.Page>{data.card.card_name}</Breadcrumb.Page>
+      </Breadcrumb.Item>
+    </Breadcrumb.List>
+  </Breadcrumb.Root>
 
   <div class="grid gap-8 lg:grid-cols-2">
     <!-- Card Image Carousel -->
