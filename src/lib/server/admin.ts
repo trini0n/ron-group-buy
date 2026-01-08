@@ -26,3 +26,22 @@ export function createAdminClient() {
     }
   })
 }
+
+/**
+ * Check if a request is from an authenticated admin user
+ * Use this in API routes to verify admin access
+ */
+export async function isAdminRequest(locals: App.Locals): Promise<boolean> {
+  if (!locals.user) {
+    return false
+  }
+
+  const adminClient = createAdminClient()
+  const { data: userData } = await adminClient
+    .from('users')
+    .select('discord_id')
+    .eq('id', locals.user.id)
+    .single()
+
+  return isAdminDiscordId(userData?.discord_id)
+}
