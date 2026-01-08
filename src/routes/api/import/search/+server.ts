@@ -23,6 +23,8 @@ interface CardMatch {
   foil_type: string | null
   is_in_stock: boolean
   scryfall_id: string | null
+  type_line: string | null
+  language: string | null
 }
 
 interface SearchResult {
@@ -87,7 +89,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
     const { data } = await supabase
       .from('cards')
       .select(
-        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id'
+        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
       )
       .ilike('card_name', primaryName)
       .ilike('set_code', card.set)
@@ -108,7 +110,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
     const { data } = await supabase
       .from('cards')
       .select(
-        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id'
+        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
       )
       .ilike('card_name', primaryName)
       .ilike('set_code', card.set)
@@ -128,12 +130,12 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
     const { data: altData } = await supabase
       .from('cards')
       .select(
-        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id'
+        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
       )
       .ilike('card_name', primaryName)
       .order('is_in_stock', { ascending: false })
       .order('set_code', { ascending: false })
-      .limit(50)
+      .limit(100)
 
     if (altData) {
       // Filter out the exact match
@@ -146,7 +148,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
   alternatives = Array.from(new Map(alternatives.map(item => [item.id, item])).values())
   
   // Cap alternatives
-  alternatives = alternatives.slice(0, 30)
+  alternatives = alternatives.slice(0, 50)
 
   // If we still don't have an exact match but have alternatives, check if the first one matches closely
   if (!exactMatch && alternatives.length > 0) {
@@ -163,7 +165,7 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
     const { data: fuzzyData } = await supabase
       .from('cards')
       .select(
-        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id'
+        'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
       )
       .ilike('card_name', `%${primaryName}%`)
       .order('is_in_stock', { ascending: false })
@@ -174,8 +176,15 @@ async function searchCard(supabase: ReturnType<typeof createAdminClient>, card: 
     }
   }
 
+  // If requestedCard doesn't have typeLine but we found a match, populate it
+  const matchedTypeLine = exactMatch?.type_line || alternatives[0]?.type_line || null;
+  const updatedCard = { ...card };
+  if (!updatedCard.typeLine && matchedTypeLine) {
+    updatedCard.typeLine = matchedTypeLine;
+  }
+
   return {
-    requestedCard: card,
+    requestedCard: updatedCard,
     exactMatch,
     alternatives,
     selected: null

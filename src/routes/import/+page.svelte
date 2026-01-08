@@ -99,6 +99,7 @@
     foil_type: string | null;
     is_in_stock: boolean;
     scryfall_id: string | null;
+    language: string | null;
   }
 
   interface SearchResult {
@@ -639,16 +640,17 @@
     'Surge Foil': 3
   };
 
-  // Get finish variants for the current option (same set_code + collector_number)
+  // Get finish variants for the current option (same set_code + collector_number + language)
   // Deduped by card_type and sorted: Normal → Holo → Foil
   function getFinishVariants(options: CardMatch[], currentOption: CardMatch | null): CardMatch[] {
     if (!currentOption) return [];
     
-    // Filter to same set+collector
+    // Filter to same set+collector+language
     const sameSetCollector = options.filter(
       (opt) =>
         opt.set_code === currentOption.set_code &&
-        opt.collector_number === currentOption.collector_number
+        opt.collector_number === currentOption.collector_number &&
+        (opt.language || 'en') === (currentOption.language || 'en')
     );
     
     // Dedupe by card_type (finish), prefer in-stock
@@ -668,11 +670,11 @@
     });
   }
 
-  // Get unique set+collector combinations for carousel navigation (deduped by finish)
+  // Get unique set+collector+language combinations for carousel navigation (deduped by finish)
   function getUniqueSetCollectorOptions(options: CardMatch[]): CardMatch[] {
     const seen = new Set<string>();
     return options.filter((opt) => {
-      const key = `${opt.set_code}|${opt.collector_number}`;
+      const key = `${opt.set_code}|${opt.collector_number}|${opt.language || 'en'}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -714,6 +716,49 @@
 
   function clearSelection() {
     selectedCards = new Map();
+  }
+
+  // Select all in-stock cards for a specific card type within a board
+  function selectAllCardType(boardType: string, cardType: string) {
+    const newSelected = new Map(selectedCards);
+    searchResults.forEach((result, idx) => {
+      const resultBoardType = result.requestedCard.boardType || 'mainboard';
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      if (resultBoardType === boardType && resultCardType === cardType) {
+        const options = getAllOptions(result);
+        const inStockOption = options.find((o) => o.is_in_stock);
+        if (inStockOption) {
+          newSelected.set(idx, inStockOption);
+        }
+      }
+    });
+    selectedCards = newSelected;
+  }
+
+  // Clear all selections for a specific card type within a board
+  function clearCardType(boardType: string, cardType: string) {
+    const newSelected = new Map(selectedCards);
+    searchResults.forEach((result, idx) => {
+      const resultBoardType = result.requestedCard.boardType || 'mainboard';
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      if (resultBoardType === boardType && resultCardType === cardType) {
+        newSelected.delete(idx);
+      }
+    });
+    selectedCards = newSelected;
+  }
+
+  // Count selected cards in a card type section
+  function countSelectedInCardType(boardType: string, cardType: string): number {
+    let count = 0;
+    searchResults.forEach((result, idx) => {
+      const resultBoardType = result.requestedCard.boardType || 'mainboard';
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      if (resultBoardType === boardType && resultCardType === cardType && selectedCards.has(idx)) {
+        count++;
+      }
+    });
+    return count;
   }
 
   async function addSelectedToCart() {
@@ -960,10 +1005,37 @@
         <h3 class="mb-4 text-lg font-semibold border-b pb-2">{board.label}</h3>
 
         {#each board.cardTypes as cardTypeGroup}
+          {@const selectedInType = countSelectedInCardType(board.boardType, cardTypeGroup.type)}
+          {@const inStockCount = cardTypeGroup.cards.filter(c => getAllOptions(c.result).some(o => o.is_in_stock)).length}
           <div class="mb-6">
-            <h4 class="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {cardTypeGroup.type} ({cardTypeGroup.cards.length})
-            </h4>
+            <div class="mb-3 flex items-center justify-between">
+              <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {cardTypeGroup.type} ({cardTypeGroup.cards.length})
+                {#if selectedInType > 0}
+                  <span class="text-primary">• {selectedInType} selected</span>
+                {/if}
+              </h4>
+              <div class="flex gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  class="h-6 px-2 text-xs"
+                  onclick={() => selectAllCardType(board.boardType, cardTypeGroup.type)}
+                  disabled={inStockCount === 0}
+                >
+                  Select All
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  class="h-6 px-2 text-xs"
+                  onclick={() => clearCardType(board.boardType, cardTypeGroup.type)}
+                  disabled={selectedInType === 0}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
 
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {#each cardTypeGroup.cards as { result, originalIdx }}
@@ -1067,7 +1139,7 @@
                       disabled={!hasOptions || !currentOption?.is_in_stock}
                     >
                       <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
-                        {result.requestedCard.name}
+                        {result.requestedCard.name}{#if hasOptions && currentOption?.language && currentOption.language !== 'en'}&nbsp;<span class="text-muted-foreground">({currentOption.language})</span>{/if}
                       </p>
                       {#if hasOptions && currentOption}
                         <p class="text-xs text-muted-foreground">
