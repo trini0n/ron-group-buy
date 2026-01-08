@@ -233,13 +233,15 @@
                       <Tooltip.Trigger asChild>
                         <span class="font-medium cursor-pointer hover:underline">{item.card_name}</span>
                       </Tooltip.Trigger>
-                      <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
-                        <img 
-                          src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
-                          alt={item.card_name}
-                          class="w-48 rounded-lg shadow-xl"
-                        />
-                      </Tooltip.Content>
+                      <Tooltip.Portal>
+                        <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
+                          <img 
+                            src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
+                            alt={item.card_name}
+                            class="w-48 rounded-lg shadow-xl"
+                          />
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
                     </Tooltip.Root>
                     <p class="text-xs text-muted-foreground">
                       {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'}
