@@ -15,10 +15,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, items } = body
+  const { addressId, newAddress, shippingType, items } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
+  }
+
+  // Validate shipping type
+  if (shippingType && !['regular', 'express'].includes(shippingType)) {
+    throw error(400, 'Invalid shipping type')
   }
 
   // Validate address
@@ -69,6 +74,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       user_id: locals.user.id,
       order_number: generateOrderNumber(),
       status: 'pending',
+      shipping_type: shippingType || 'regular',
       shipping_name: shippingAddress.name,
       shipping_line1: shippingAddress.line1,
       shipping_line2: shippingAddress.line2,

@@ -73,7 +73,9 @@
 
 <Tooltip.Provider>
 <div class="flex min-h-screen flex-col">
-  <GroupBuyBanner config={data.groupBuyConfig} />
+  {#if !data.url?.pathname?.startsWith('/admin')}
+    <GroupBuyBanner config={data.groupBuyConfig} />
+  {/if}
   <Header user={data.user} isAdmin={data.isAdmin} />
   
   <main class="flex-1">

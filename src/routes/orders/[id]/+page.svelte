@@ -2,8 +2,10 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
-  import { formatPrice, getTrackingUrl } from '$lib/utils';
+  import * as Tooltip from '$components/ui/tooltip';
+  import { formatPrice, getTrackingUrl, getCardImageUrl, getCardPrice } from '$lib/utils';
   import { ArrowLeft, Check, ExternalLink, Package, Truck } from 'lucide-svelte';
+  import { Separator } from '$components/ui/separator';
 
   let { data } = $props();
 
@@ -17,17 +19,60 @@
     cancelled: 'bg-red-500'
   };
 
-  const total = $derived.by(() => data.order.order_items.reduce(
+  // Shipping pricing constants
+  const SHIPPING_RATES = {
+    us: { regular: 6.00, express: 40.00, tariff: 9.00 },
+    international: { regular: 6.00, express: 25.00, tariff: 0 }
+  };
+
+  const order = $derived(data.order);
+
+  // Calculate subtotal (cards only)
+  const subtotal = $derived.by(() => order.order_items.reduce(
     (sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1),
     0
   ));
+
+  // Calculate foil/non-foil breakdown
+  const foilItems = $derived(
+    order.order_items.filter((item: any) => item.card_type === 'Foil')
+  );
+  const nonFoilItems = $derived(
+    order.order_items.filter((item: any) => item.card_type !== 'Foil')
+  );
+  const foilCount = $derived(
+    foilItems.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
+  );
+  const nonFoilCount = $derived(
+    nonFoilItems.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
+  );
+  const foilTotal = $derived(
+    foilItems.reduce((sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1), 0)
+  );
+  const nonFoilTotal = $derived(
+    nonFoilItems.reduce((sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1), 0)
+  );
+  const itemCount = $derived(
+    order.order_items.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
+  );
+
+  // Calculate shipping costs
+  const isUSShipping = $derived(
+    order.shipping_country?.toUpperCase() === 'US' ||
+    order.shipping_country?.toUpperCase() === 'USA' ||
+    order.shipping_country?.toUpperCase() === 'UNITED STATES'
+  );
+  const rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international);
+  const shippingCost = $derived(order.shipping_type === 'express' ? rates.express : rates.regular);
+  const tariffCost = $derived(rates.tariff);
+  const grandTotal = $derived(subtotal + shippingCost + tariffCost);
 </script>
 
 <svelte:head>
   <title>Order {data.order.order_number} - Group Buy</title>
 </svelte:head>
 
-<div class="container max-w-4xl py-8">
+<div class="container py-8">
   <a href="/orders" class="mb-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
     <ArrowLeft class="h-4 w-4" />
     Back to orders
@@ -67,17 +112,28 @@
     <!-- Order Items -->
     <div class="lg:col-span-2">
       <Card.Root>
-        <Card.Header class="border-b">
+        <Card.Header class="border-b py-3">
           <Card.Title>Order Items</Card.Title>
         </Card.Header>
         <Card.Content class="p-0">
           <div class="divide-y">
             {#each data.order.order_items as item (item.id)}
-              <div class="flex items-center justify-between p-4">
+              <div class="flex items-center justify-between px-4 py-3">
                 <div>
-                  <p class="font-medium">{item.card_name}</p>
+                  <Tooltip.Root openDelay={100} closeDelay={0}>
+                    <Tooltip.Trigger asChild>
+                      <span class="font-medium cursor-pointer hover:underline">{item.card_name}</span>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
+                      <img 
+                        src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
+                        alt={item.card_name}
+                        class="w-48 rounded-lg shadow-xl"
+                      />
+                    </Tooltip.Content>
+                  </Tooltip.Root>
                   <p class="text-sm text-muted-foreground">
-                    {item.card_serial} • {item.card_type}
+                    {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'} • {item.card_type}
                   </p>
                 </div>
                 <div class="text-right">
@@ -90,10 +146,47 @@
             {/each}
           </div>
         </Card.Content>
-        <Card.Footer class="border-t bg-muted/50">
-          <div class="flex w-full justify-between text-lg font-bold">
-            <span>Total</span>
-            <span>{formatPrice(total)}</span>
+        <Card.Footer class="flex-col items-stretch border-t bg-muted/50 py-4">
+          <div class="w-full space-y-2">
+            <div class="flex justify-between text-sm font-medium">
+              <span>Subtotal ({itemCount} cards)</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div class="ml-4 space-y-1">
+              {#if nonFoilCount > 0}
+                <div class="flex justify-between text-xs text-muted-foreground">
+                  <span>Normal/Holo ({nonFoilCount} × $1.25)</span>
+                  <span>{formatPrice(nonFoilTotal)}</span>
+                </div>
+              {/if}
+              {#if foilCount > 0}
+                <div class="flex justify-between text-xs text-muted-foreground">
+                  <span>Foil ({foilCount} × $1.50)</span>
+                  <span>{formatPrice(foilTotal)}</span>
+                </div>
+              {/if}
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="flex items-center gap-1">
+                {#if order.shipping_type === 'express'}
+                  <Truck class="h-3.5 w-3.5" /> Express Shipping
+                {:else}
+                  <Package class="h-3.5 w-3.5" /> Regular Shipping
+                {/if}
+              </span>
+              <span>{formatPrice(shippingCost)}</span>
+            </div>
+            {#if tariffCost > 0}
+              <div class="flex justify-between text-sm">
+                <span>Tariff (US)</span>
+                <span>{formatPrice(tariffCost)}</span>
+              </div>
+            {/if}
+            <Separator class="my-2" />
+            <div class="flex justify-between font-bold">
+              <span>Total</span>
+              <span class="text-lg">{formatPrice(grandTotal)}</span>
+            </div>
           </div>
         </Card.Footer>
       </Card.Root>
@@ -103,7 +196,7 @@
     <div class="space-y-6">
       <!-- Shipping Address -->
       <Card.Root>
-        <Card.Header>
+        <Card.Header class="pb-3">
           <Card.Title class="text-base">Shipping Address</Card.Title>
         </Card.Header>
         <Card.Content>

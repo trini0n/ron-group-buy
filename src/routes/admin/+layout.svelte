@@ -33,7 +33,7 @@
 
 <div class="h-[calc(100vh-4rem)]" style="--sidebar-height: calc(100vh - 4rem);">
   <Sidebar.Provider class="!min-h-[var(--sidebar-height)]">
-    <Sidebar.Root collapsible="icon" class="!h-[var(--sidebar-height)] top-16">
+    <Sidebar.Root collapsible="icon" class="z-40 !h-[var(--sidebar-height)] top-16">
       <Sidebar.Content>
         <Sidebar.Group>
           <Sidebar.GroupContent>

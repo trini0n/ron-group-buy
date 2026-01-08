@@ -9,7 +9,9 @@
   import * as Select from '$components/ui/select';
   import * as Dialog from '$components/ui/dialog';
   import * as AlertDialog from '$components/ui/alert-dialog';
+  import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
+  import { getCardImageUrl } from '$lib/utils';
   import { 
     ORDER_STATUS_CONFIG, 
     getNextStatuses, 
@@ -78,6 +80,23 @@
       currency: 'USD'
     }).format(amount);
   }
+
+  // Shipping pricing constants (same as checkout)
+  const SHIPPING_RATES = {
+    us: { regular: 6.00, express: 40.00, tariff: 9.00 },
+    international: { regular: 6.00, express: 25.00, tariff: 0 }
+  };
+
+  // Calculate shipping costs based on order data
+  const isUSShipping = $derived(
+    order.shipping_country?.toUpperCase() === 'US' ||
+    order.shipping_country?.toUpperCase() === 'USA' ||
+    order.shipping_country?.toUpperCase() === 'UNITED STATES'
+  );
+  const rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international);
+  const shippingCost = $derived(order.shipping_type === 'express' ? rates.express : rates.regular);
+  const tariffCost = $derived(rates.tariff);
+  const grandTotal = $derived(order.subtotal + shippingCost + tariffCost);
 
   async function saveOrderDetails() {
     isSaving = true;
@@ -209,7 +228,23 @@
             <Table.Body>
               {#each order.items as item}
                 <Table.Row>
-                  <Table.Cell class="font-medium">{item.card_name}</Table.Cell>
+                  <Table.Cell>
+                    <Tooltip.Root openDelay={100} closeDelay={0}>
+                      <Tooltip.Trigger asChild>
+                        <span class="font-medium cursor-pointer hover:underline">{item.card_name}</span>
+                      </Tooltip.Trigger>
+                      <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
+                        <img 
+                          src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
+                          alt={item.card_name}
+                          class="w-48 rounded-lg shadow-xl"
+                        />
+                      </Tooltip.Content>
+                    </Tooltip.Root>
+                    <p class="text-xs text-muted-foreground">
+                      {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'}
+                    </p>
+                  </Table.Cell>
                   <Table.Cell class="font-mono text-sm">{item.card_serial}</Table.Cell>
                   <Table.Cell>
                     <Badge variant="outline">{item.card_type}</Badge>
@@ -225,9 +260,26 @@
           </Table.Root>
           <Separator class="my-4" />
           <div class="flex justify-end">
-            <div class="text-right">
-              <p class="text-sm text-muted-foreground">Subtotal</p>
-              <p class="text-2xl font-bold">{formatPrice(order.subtotal)}</p>
+            <div class="w-64 space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">Subtotal ({order.itemCount} cards)</span>
+                <span>{formatPrice(order.subtotal)}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">Shipping ({order.shipping_type === 'express' ? 'Express' : 'Regular'})</span>
+                <span>{formatPrice(shippingCost)}</span>
+              </div>
+              {#if tariffCost > 0}
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">Tariff (US)</span>
+                  <span>{formatPrice(tariffCost)}</span>
+                </div>
+              {/if}
+              <Separator class="my-2" />
+              <div class="flex justify-between font-bold">
+                <span>Total</span>
+                <span class="text-lg">{formatPrice(grandTotal)}</span>
+              </div>
             </div>
           </div>
         </Card.Content>
@@ -332,7 +384,16 @@
             Shipping Address
           </Card.Title>
         </Card.Header>
-        <Card.Content>
+        <Card.Content class="space-y-3">
+          <div class="flex items-center gap-2 text-sm">
+            {#if order.shipping_type === 'express'}
+              <Truck class="h-4 w-4" />
+              <Badge variant="outline">Express Shipping</Badge>
+            {:else}
+              <Package class="h-4 w-4" />
+              <Badge variant="outline">Regular Shipping</Badge>
+            {/if}
+          </div>
           <address class="not-italic text-sm">
             <p class="font-medium">{order.shipping_name}</p>
             <p>{order.shipping_line1}</p>

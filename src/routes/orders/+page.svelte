@@ -44,7 +44,7 @@
         {@const total = calculateOrderTotal(order.order_items)}
 
         <Card.Root>
-          <Card.Header class="flex flex-row items-center justify-between space-y-0">
+          <Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
               <div class="flex items-center gap-2">
                 <Card.Title class="font-mono">{order.order_number}</Card.Title>
@@ -67,7 +67,7 @@
             </div>
           </Card.Header>
 
-          <Card.Content class="border-t pt-4">
+          <Card.Content class="pt-0">
             <p class="text-sm text-muted-foreground">
               {order.order_items.length} item{order.order_items.length !== 1 ? 's' : ''}:
               {order.order_items
@@ -82,7 +82,7 @@
 
           <!-- Tracking Info -->
           {#if order.tracking_number}
-            <Card.Footer class="border-t bg-muted/50">
+            <Card.Footer class="border-t bg-muted/50 py-3">
               <a
                 href={getTrackingUrl(order.tracking_number)}
                 target="_blank"
@@ -96,7 +96,7 @@
 
           <!-- PayPal Invoice Link -->
           {#if order.paypal_invoice_url && order.status === 'invoiced'}
-            <Card.Footer class="border-t bg-yellow-50 dark:bg-yellow-900/20">
+            <Card.Footer class="border-t bg-yellow-50 dark:bg-yellow-900/20 py-3">
               <a
                 href={order.paypal_invoice_url}
                 target="_blank"

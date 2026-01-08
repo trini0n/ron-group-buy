@@ -8,9 +8,25 @@
   import { formatPrice, getCardPrice } from '$lib/utils';
   import { createSupabaseClient } from '$lib/supabase';
   import { browser } from '$app/environment';
-  import { ArrowLeft, Check, AlertTriangle, Mail } from 'lucide-svelte';
+  import { ArrowLeft, Check, AlertTriangle, Mail, Package, Truck, ChevronDown, ChevronUp } from 'lucide-svelte';
 
   let { data } = $props();
+
+  // Shipping pricing constants
+  const SHIPPING_RATES = {
+    us: {
+      regular: 6.00,
+      express: 40.00,
+      expressPerHalfKg: 8.00,
+      tariff: 9.00
+    },
+    international: {
+      regular: 6.00,
+      express: 25.00,
+      expressPerHalfKg: 5.00,
+      tariff: 0
+    }
+  };
 
   // Email verification
   let isResendingVerification = $state(false);
@@ -20,6 +36,7 @@
   let selectedAddressId = $state<string | null>(null);
   let useNewAddress = $state(false);
   let isSubmitting = $state(false);
+  let shippingType = $state<'regular' | 'express'>('regular');
   
   // Initialize from data
   $effect(() => {
@@ -37,6 +54,49 @@
     postal_code: '',
     country: 'US'
   });
+
+  // Determine shipping location and calculate costs
+  let selectedCountry = $derived.by(() => {
+    if (useNewAddress) {
+      return newAddress.country;
+    }
+    const selectedAddress = data.addresses.find((a: { id: string; country: string }) => a.id === selectedAddressId);
+    return selectedAddress?.country || 'US';
+  });
+
+  let isUSShipping = $derived(
+    selectedCountry.toUpperCase() === 'US' || 
+    selectedCountry.toUpperCase() === 'USA' || 
+    selectedCountry.toUpperCase() === 'UNITED STATES'
+  );
+
+  let rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international);
+  let shippingCost = $derived(shippingType === 'regular' ? rates.regular : rates.express);
+  let tariffCost = $derived(rates.tariff);
+  let estimatedTotal = $derived(cartStore.total + shippingCost + tariffCost);
+
+  // Collapsible items state
+  let showItems = $state(false);
+
+  // Calculate foil and non-foil breakdown
+  let foilItems = $derived(
+    cartStore.items.filter(item => item.card.card_type === 'Foil')
+  );
+  let nonFoilItems = $derived(
+    cartStore.items.filter(item => item.card.card_type !== 'Foil')
+  );
+  let foilCount = $derived(
+    foilItems.reduce((sum, item) => sum + item.quantity, 0)
+  );
+  let nonFoilCount = $derived(
+    nonFoilItems.reduce((sum, item) => sum + item.quantity, 0)
+  );
+  let foilTotal = $derived(
+    foilItems.reduce((sum, item) => sum + getCardPrice(item.card.card_type) * item.quantity, 0)
+  );
+  let nonFoilTotal = $derived(
+    nonFoilItems.reduce((sum, item) => sum + getCardPrice(item.card.card_type) * item.quantity, 0)
+  );
 
   async function resendVerificationEmail() {
     if (!browser) return;
@@ -93,6 +153,7 @@
         body: JSON.stringify({
           addressId: useNewAddress ? null : selectedAddressId,
           newAddress: useNewAddress ? newAddress : null,
+          shippingType,
           cartId: cartStore.cartId,
           cartVersion: cartStore.version,
           items: cartStore.items.map((item) => ({
@@ -251,46 +312,136 @@
         {/if}
       </div>
 
+      <!-- Shipping Type Selection -->
+      <div class="lg:col-span-2">
+        <h2 class="mb-4 text-xl font-semibold">Shipping Method</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-accent {shippingType === 'regular' ? 'border-primary bg-accent' : ''}"
+          >
+            <input
+              type="radio"
+              name="shippingType"
+              value="regular"
+              checked={shippingType === 'regular'}
+              onchange={() => shippingType = 'regular'}
+              class="mt-1"
+            />
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <Package class="h-4 w-4" />
+                <span class="font-medium">Regular Shipping</span>
+              </div>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Standard delivery
+              </p>
+              <p class="mt-2 font-semibold">{formatPrice(rates.regular)}</p>
+            </div>
+          </label>
+
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors hover:bg-accent {shippingType === 'express' ? 'border-primary bg-accent' : ''}"
+          >
+            <input
+              type="radio"
+              name="shippingType"
+              value="express"
+              checked={shippingType === 'express'}
+              onchange={() => shippingType = 'express'}
+              class="mt-1"
+            />
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <Truck class="h-4 w-4" />
+                <span class="font-medium">Express Shipping</span>
+              </div>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Faster delivery (+{formatPrice(rates.expressPerHalfKg)}/0.5kg over 0.5kg)
+              </p>
+              <p class="mt-2 font-semibold">{formatPrice(rates.express)}</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <!-- Order Summary -->
-      <div>
+      <div class="lg:col-span-2">
         <h2 class="mb-4 text-xl font-semibold">Order Summary</h2>
 
         <Card.Root>
           <Card.Content class="pt-6">
-            <div class="max-h-64 space-y-2 overflow-auto">
-              {#each cartStore.items as item (item.id)}
-                {@const price = getCardPrice(item.card.card_type)}
-                <div class="flex justify-between text-sm">
-                  <span class="truncate">
-                    {item.card.card_name} × {item.quantity}
-                  </span>
-                  <span class="shrink-0">{formatPrice(price * item.quantity)}</span>
-                </div>
-              {/each}
-            </div>
+            <!-- Collapsible Items Section -->
+            <button
+              type="button"
+              class="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+              onclick={() => showItems = !showItems}
+            >
+              <span class="font-medium">{cartStore.itemCount} items in cart</span>
+              {#if showItems}
+                <ChevronUp class="h-5 w-5 text-muted-foreground" />
+              {:else}
+                <ChevronDown class="h-5 w-5 text-muted-foreground" />
+              {/if}
+            </button>
+
+            {#if showItems}
+              <div class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3">
+                {#each cartStore.items as item (item.id)}
+                  {@const price = getCardPrice(item.card.card_type)}
+                  <div class="flex justify-between text-sm">
+                    <span class="truncate pr-2">
+                      {item.card.card_name} × {item.quantity}
+                      <span class="text-muted-foreground">({item.card.card_type})</span>
+                    </span>
+                    <span class="shrink-0">{formatPrice(price * item.quantity)}</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
 
             <Separator class="my-4" />
 
+            <!-- Subtotal Breakdown -->
             <div class="space-y-2">
-              <div class="flex justify-between text-sm">
-                <span>Subtotal ({cartStore.itemCount} items)</span>
+              <div class="flex justify-between text-sm font-medium">
+                <span>Subtotal ({cartStore.itemCount} cards)</span>
                 <span>{formatPrice(cartStore.total)}</span>
               </div>
-              <div class="flex justify-between text-sm text-muted-foreground">
-                <span>Shipping</span>
-                <span>To be calculated</span>
+              <div class="ml-4 space-y-1">
+                {#if nonFoilCount > 0}
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Normal/Holo ({nonFoilCount} × $1.25)</span>
+                    <span>{formatPrice(nonFoilTotal)}</span>
+                  </div>
+                {/if}
+                {#if foilCount > 0}
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Foil ({foilCount} × $1.50)</span>
+                    <span>{formatPrice(foilTotal)}</span>
+                  </div>
+                {/if}
               </div>
+              <div class="flex justify-between text-sm">
+                <span>Shipping ({shippingType === 'regular' ? 'Regular' : 'Express'})</span>
+                <span>{formatPrice(shippingCost)}</span>
+              </div>
+              {#if tariffCost > 0}
+                <div class="flex justify-between text-sm">
+                  <span>Tariff (US orders)</span>
+                  <span>{formatPrice(tariffCost)}</span>
+                </div>
+              {/if}
             </div>
 
             <Separator class="my-4" />
 
             <div class="flex justify-between text-lg font-bold">
-              <span>Total</span>
-              <span>{formatPrice(cartStore.total)}</span>
+              <span>Estimated Total</span>
+              <span>{formatPrice(estimatedTotal)}</span>
             </div>
 
             <p class="mt-2 text-xs text-muted-foreground">
-              * A PayPal invoice will be sent with final shipping costs.
+              * Final invoice may include additional weight-based shipping charges for Express orders.
             </p>
           </Card.Content>
         </Card.Root>

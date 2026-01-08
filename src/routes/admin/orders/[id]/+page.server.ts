@@ -18,7 +18,13 @@ export const load = async ({ params }) => {
         card_name,
         card_type,
         quantity,
-        unit_price
+        unit_price,
+        card:cards(
+          set_code,
+          collector_number,
+          scryfall_id,
+          ron_image_url
+        )
       )
     `
     )
