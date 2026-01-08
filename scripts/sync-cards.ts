@@ -158,17 +158,24 @@ async function upsertCards(cards: CardRecord[]): Promise<{ success: number; erro
 
   // Deduplicate by serial (keep first occurrence)
   const seenSerials = new Set<string>()
+  const duplicateSerials: string[] = []
   const uniqueCards = cards.filter((card) => {
     if (seenSerials.has(card.serial)) {
+      duplicateSerials.push(card.serial)
       return false
     }
     seenSerials.add(card.serial)
     return true
   })
 
+  const duplicateCount = cards.length - uniqueCards.length
   console.log(
-    `   📤 Upserting ${uniqueCards.length} unique cards (${cards.length - uniqueCards.length} duplicates removed)...`
+    `   📤 Upserting ${uniqueCards.length} unique cards (${duplicateCount} duplicates removed)...`
   )
+  
+  if (duplicateSerials.length > 0) {
+    console.log(`   ⚠️  Duplicate serials found: ${duplicateSerials.join(', ')}`)
+  }
 
   // Fetch existing cards with converted Google Photos URLs (lh3.googleusercontent.com)
   // to preserve them during upsert

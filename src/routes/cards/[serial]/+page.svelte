@@ -158,9 +158,6 @@
           {#if data.card.is_new}
             <Badge variant="outline" class="border-green-500 text-green-500">New</Badge>
           {/if}
-          {#if data.card.is_foil}
-            <Badge variant="outline">Foil</Badge>
-          {/if}
           {#if data.card.is_borderless}
             <Badge variant="outline">Borderless</Badge>
           {/if}

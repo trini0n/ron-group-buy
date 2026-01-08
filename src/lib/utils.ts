@@ -73,12 +73,24 @@ export function isValidRonImageUrl(ronImageUrl: string | null): boolean {
 
 /**
  * Get Ron's direct image URL if available
+ * Normalizes lh3.googleusercontent.com URLs to use high resolution
  */
 export function getRonImageUrl(ronImageUrl: string | null): string | null {
-  if (isValidRonImageUrl(ronImageUrl)) {
-    return ronImageUrl
+  if (!isValidRonImageUrl(ronImageUrl) || !ronImageUrl) {
+    return null
   }
-  return null
+  
+  // For lh3.googleusercontent.com URLs, ensure high resolution
+  if (ronImageUrl.includes('lh3.googleusercontent.com')) {
+    // Remove existing size suffix (=w123, =s200, =w200-h300, etc.)
+    let cleanUrl = ronImageUrl.replace(/=[wsh]\d+(-[wsh]\d+)*(-[a-zA-Z]+)*$/, '')
+    // Also handle =w0 or other simple suffixes
+    cleanUrl = cleanUrl.replace(/=\w+$/, '')
+    // Append high resolution suffix (w1200 is a good balance of quality and load time)
+    return cleanUrl + '=w1200'
+  }
+  
+  return ronImageUrl
 }
 
 /**

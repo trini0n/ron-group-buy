@@ -113,7 +113,30 @@
       }
     };
   });
+
+  // Search input element reference for keyboard shortcut
+  let searchInputEl: HTMLInputElement | null = $state(null);
+
+  // Handle "/" keyboard shortcut to focus search
+  function handleKeydown(event: KeyboardEvent) {
+    // Ignore if typing in an input, textarea, or contenteditable
+    const target = event.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+
+    if (event.key === '/') {
+      event.preventDefault();
+      searchInputEl?.focus();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
   <title>Group Buy - Card Catalog</title>
@@ -125,7 +148,7 @@
   <div class="mb-8 text-center">
     <h1 class="text-4xl font-bold tracking-tight">Card Catalog</h1>
     <p class="mt-2 text-muted-foreground">
-      Browse Ron's selection of Magic: The Gathering cards
+      Browse Ron's library of Magic: The Gathering cards
     </p>
   </div>
 
@@ -134,8 +157,9 @@
     <div class="relative flex-1">
       <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
+        bind:ref={searchInputEl}
         type="search"
-        placeholder="Search cards by name..."
+        placeholder="Search cards by name... (Press / to focus)"
         class="pl-10"
         value={searchQuery}
         oninput={handleSearchInput}
