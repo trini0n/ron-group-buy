@@ -6,8 +6,38 @@ export const load = async ({ url }) => {
   // Parse filters from URL
   const statusFilter = url.searchParams.get('status')
   const searchQuery = url.searchParams.get('q')
+  const groupBuyFilter = url.searchParams.get('groupBuy')
   const page = parseInt(url.searchParams.get('page') || '1')
   const perPage = 25
+
+  // Fetch all group buys with order counts
+  const { data: groupBuys } = await adminClient
+    .from('group_buy_config')
+    .select('id, name, is_active, created_at')
+    .order('created_at', { ascending: false })
+
+  // Get order counts per group buy
+  const { data: orderCountsRaw } = await adminClient
+    .from('orders')
+    .select('group_buy_id')
+  
+  const orderCounts = new Map<string | null, number>()
+  orderCountsRaw?.forEach(order => {
+    const gbId = order.group_buy_id
+    orderCounts.set(gbId, (orderCounts.get(gbId) || 0) + 1)
+  })
+
+  // Build group buys with counts
+  const groupBuysWithCounts = groupBuys?.map(gb => ({
+    ...gb,
+    orderCount: orderCounts.get(gb.id) || 0
+  })) || []
+
+  // Add "Unassigned" category for orders without group_buy_id
+  const unassignedCount = orderCounts.get(null) || 0
+
+  // Total order count (unfiltered) for the "All Orders" display
+  const allOrdersCount = orderCountsRaw?.length || 0
 
   // Build query
   let query = adminClient
@@ -27,7 +57,7 @@ export const load = async ({ url }) => {
     `,
       { count: 'exact' }
     )
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: true })
 
   // Apply filters
   if (statusFilter) {
@@ -36,6 +66,13 @@ export const load = async ({ url }) => {
 
   if (searchQuery) {
     query = query.or(`order_number.ilike.%${searchQuery}%,shipping_name.ilike.%${searchQuery}%`)
+  }
+
+  // Filter by group buy
+  if (groupBuyFilter === 'unassigned') {
+    query = query.is('group_buy_id', null)
+  } else if (groupBuyFilter) {
+    query = query.eq('group_buy_id', groupBuyFilter)
   }
 
   // Pagination
@@ -47,7 +84,19 @@ export const load = async ({ url }) => {
 
   if (error) {
     console.error('Error fetching orders:', error)
-    return { orders: [], totalCount: 0, page, perPage }
+    // Still return groupBuys even if orders query fails
+    return { 
+      orders: [], 
+      totalCount: 0, 
+      allOrdersCount,
+      page, 
+      perPage, 
+      groupBuys: groupBuysWithCounts, 
+      unassignedCount,
+      statusFilter,
+      searchQuery,
+      groupBuyFilter
+    }
   }
 
   // Calculate totals for each order
@@ -71,9 +120,13 @@ export const load = async ({ url }) => {
   return {
     orders: ordersWithTotals,
     totalCount: count || 0,
+    allOrdersCount,
     page,
     perPage,
     statusFilter,
-    searchQuery
+    searchQuery,
+    groupBuyFilter,
+    groupBuys: groupBuysWithCounts,
+    unassignedCount
   }
 }

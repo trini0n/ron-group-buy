@@ -3,9 +3,13 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import { formatPrice, getTrackingUrl } from '$lib/utils';
-  import { Package, ExternalLink } from 'lucide-svelte';
+  import { Package, ExternalLink, Pencil } from 'lucide-svelte';
+  import { goto } from '$app/navigation';
+  import { toast } from 'svelte-sonner';
 
   let { data } = $props();
+  
+  let loadingOrderId = $state<string | null>(null);
 
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-500',
@@ -19,6 +23,35 @@
 
   function calculateOrderTotal(items: any[]): number {
     return items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  }
+
+  function canEditOrder(order: { status: string | null; group_buy_id: string | null }): boolean {
+    return (
+      order.status === 'pending' &&
+      order.group_buy_id !== null &&
+      data.activeGroupBuyIds.includes(order.group_buy_id)
+    );
+  }
+
+  async function loadOrderToCart(orderId: string) {
+    loadingOrderId = orderId;
+    try {
+      const response = await fetch(`/api/orders/${orderId}/load-to-cart`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        toast.success('Order loaded to cart for editing');
+        goto('/cart');
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to load order');
+      }
+    } catch (err) {
+      toast.error('Failed to load order to cart');
+    } finally {
+      loadingOrderId = null;
+    }
   }
 </script>
 
@@ -42,6 +75,7 @@
     <div class="space-y-4">
       {#each data.orders as order (order.id)}
         {@const total = calculateOrderTotal(order.order_items)}
+        {@const editable = canEditOrder(order)}
 
         <Card.Root>
           <Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -61,8 +95,19 @@
               </Card.Description>
             </div>
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
               <span class="text-lg font-bold">{formatPrice(total)}</span>
+              {#if editable}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onclick={() => loadOrderToCart(order.id)}
+                  disabled={loadingOrderId === order.id}
+                >
+                  <Pencil class="mr-1 h-3.5 w-3.5" />
+                  {loadingOrderId === order.id ? 'Loading...' : 'Edit Order'}
+                </Button>
+              {/if}
               <Button variant="outline" href="/orders/{order.id}">View Details</Button>
             </div>
           </Card.Header>
