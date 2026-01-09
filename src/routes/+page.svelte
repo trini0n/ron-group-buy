@@ -1,12 +1,14 @@
 <script lang="ts">
   import CardGrid from '$components/cards/CardGrid.svelte';
   import CardTableView from '$components/cards/CardTableView.svelte';
+  import CardGridSkeleton from '$components/cards/CardGridSkeleton.svelte';
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
   import { Button } from '$components/ui/button';
   import * as Tooltip from '$components/ui/tooltip';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
   import { goto } from '$app/navigation';
+  import { navigating } from '$app/stores';
   import { untrack } from 'svelte';
 
   let { data } = $props();
@@ -199,31 +201,36 @@
     </div>
   </div>
 
-  <div class="flex flex-col gap-6 lg:flex-row">
-    <!-- Filters Sidebar -->
-    <aside class="w-full shrink-0 lg:w-64">
-      <SearchFilters 
-        bind:filters 
-        sets={data.sets} 
-        onClearAll={() => { searchQuery = ''; }}
-      />
-    </aside>
+  <!-- Show skeleton when navigating to this page -->
+  {#if $navigating?.to?.url.pathname === '/'}
+    <CardGridSkeleton count={10} />
+  {:else}
+    <div class="flex flex-col gap-6 lg:flex-row">
+      <!-- Filters Sidebar -->
+      <aside class="w-full shrink-0 lg:w-64">
+        <SearchFilters 
+          bind:filters 
+          sets={data.sets} 
+          onClearAll={() => { searchQuery = ''; }}
+        />
+      </aside>
 
-    <!-- Card View -->
-    <div class="flex-1">
-      {#if viewMode === 'grid'}
-        <CardGrid 
-          cards={data.cards} 
-          {searchQuery} 
-          {filters}
-        />
-      {:else}
-        <CardTableView
-          cards={data.cards}
-          {searchQuery}
-          {filters}
-        />
-      {/if}
+      <!-- Card View -->
+      <div class="flex-1">
+        {#if viewMode === 'grid'}
+          <CardGrid 
+            cards={data.cards} 
+            {searchQuery} 
+            {filters}
+          />
+        {:else}
+          <CardTableView
+            cards={data.cards}
+            {searchQuery}
+            {filters}
+          />
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 </div>

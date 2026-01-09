@@ -395,77 +395,21 @@
           <Card.Title class="flex items-center gap-2">
             <Bell class="h-5 w-5" />
             Notification Preferences
+            <Badge variant="secondary">Coming Soon</Badge>
           </Card.Title>
           <Card.Description>
-            Choose how you want to be notified about your orders
+            Notification preferences for email and Discord will be available soon
           </Card.Description>
         </Card.Header>
-        <Card.Content class="space-y-6">
-          <div>
-            <h4 class="mb-4 font-medium flex items-center gap-2">
-              <Mail class="h-4 w-4" />
-              Email Notifications
-            </h4>
-            <div class="space-y-4">
-              <label class="flex items-center justify-between">
-                <span class="text-sm">Order confirmed</span>
-                <Switch bind:checked={emailOrderConfirmed} />
-              </label>
-              <label class="flex items-center justify-between">
-                <span class="text-sm">Invoice sent</span>
-                <Switch bind:checked={emailInvoiceSent} />
-              </label>
-              <label class="flex items-center justify-between">
-                <span class="text-sm">Payment received</span>
-                <Switch bind:checked={emailPaymentReceived} />
-              </label>
-              <label class="flex items-center justify-between">
-                <span class="text-sm">Order shipped</span>
-                <Switch bind:checked={emailOrderShipped} />
-              </label>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <h4 class="mb-4 font-medium flex items-center gap-2">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
-              </svg>
-              Discord Notifications
-              {#if !data.profile?.discord_id}
-                <Badge variant="outline" class="text-yellow-500">Not connected</Badge>
-              {/if}
-            </h4>
-            {#if data.profile?.discord_id}
-              <div class="space-y-4">
-                <label class="flex items-center justify-between">
-                  <span class="text-sm">Order shipped</span>
-                  <Switch bind:checked={discordOrderShipped} />
-                </label>
-                <label class="flex items-center justify-between">
-                  <span class="text-sm">Payment reminders</span>
-                  <Switch bind:checked={discordPaymentReminder} />
-                </label>
-              </div>
-            {:else}
-              <p class="text-sm text-muted-foreground">
-                Sign in with Discord to enable Discord notifications.
-              </p>
-            {/if}
+        <Card.Content>
+          <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+            <Bell class="h-12 w-12 mb-4 opacity-30" />
+            <p class="text-sm">
+              We're working on notification preferences. Soon you'll be able to customize
+              how you receive updates about your orders via email and Discord.
+            </p>
           </div>
         </Card.Content>
-        <Card.Footer>
-          <Button onclick={saveNotifications} disabled={isSavingNotifications}>
-            {#if isSavingNotifications}
-              Saving...
-            {:else}
-              <Save class="mr-2 h-4 w-4" />
-              Save Preferences
-            {/if}
-          </Button>
-        </Card.Footer>
       </Card.Root>
     </div>
   </div>

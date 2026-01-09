@@ -247,7 +247,7 @@
           checked={filters.colorIdentityStrict}
           onCheckedChange={(v) => filters.colorIdentityStrict = !!v}
         />
-        <span class="text-sm">Strict (exact match)</span>
+        <span class="text-sm">Strict (excludes other colors)</span>
       </label>
     {/if}
   </div>

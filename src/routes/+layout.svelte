@@ -73,16 +73,16 @@
 
 <Tooltip.Provider>
 <div class="flex min-h-screen flex-col">
-  {#if !data.url?.pathname?.startsWith('/admin')}
+  {#if !data.url?.pathname?.startsWith('/admin') && !data.url?.pathname?.startsWith('/auth')}
     <GroupBuyBanner config={data.groupBuyConfig} />
+    <Header user={data.user} isAdmin={data.isAdmin} />
   {/if}
-  <Header user={data.user} isAdmin={data.isAdmin} />
   
   <main class="flex-1">
     {@render children()}
   </main>
   
-  {#if !data.url?.pathname?.startsWith('/admin')}
+  {#if !data.url?.pathname?.startsWith('/admin') && !data.url?.pathname?.startsWith('/auth')}
     <Footer />
   {/if}
 </div>

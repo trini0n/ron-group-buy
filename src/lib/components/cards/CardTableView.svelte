@@ -106,10 +106,10 @@
       if (filters.colorIdentity.length > 0) {
         const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
         if (filters.colorIdentityStrict) {
-          // Strict mode: exact match (same colors, no more, no less)
-          const selectedSorted = [...filters.colorIdentity].sort().join(',');
-          const cardSorted = [...cardColors].sort().join(',');
-          if (selectedSorted !== cardSorted) return false;
+          // Strict mode: card must only have colors from the selected set (subset match)
+          // e.g., if B,G,R selected, show cards with B, G, R, BG, BR, GR, BGR, or colorless
+          const hasDisallowedColor = cardColors.some((c) => !filters.colorIdentity.includes(c));
+          if (hasDisallowedColor) return false;
         } else {
           // Non-strict: card has at least one of the selected colors
           const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));

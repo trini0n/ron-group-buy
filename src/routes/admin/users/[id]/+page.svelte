@@ -289,19 +289,13 @@
           <Card.Title class="flex items-center gap-2">
             <Mail class="h-5 w-5" />
             Notifications
+            <Badge variant="secondary">Coming Soon</Badge>
           </Card.Title>
         </Card.Header>
         <Card.Content>
-          <dl class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <dt class="text-muted-foreground">Email notifications</dt>
-              <dd>{user.email_notifications ? 'Enabled' : 'Disabled'}</dd>
-            </div>
-            <div class="flex justify-between">
-              <dt class="text-muted-foreground">Discord notifications</dt>
-              <dd>{user.discord_notifications ? 'Enabled' : 'Disabled'}</dd>
-            </div>
-          </dl>
+          <p class="text-sm text-muted-foreground">
+            Notification preferences are not yet available.
+          </p>
         </Card.Content>
       </Card.Root>
     </div>

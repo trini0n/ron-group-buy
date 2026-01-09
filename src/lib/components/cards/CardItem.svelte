@@ -103,8 +103,8 @@
   }
 </script>
 
-<a href={getCardUrl(card)} class="card-hover group block">
-  <CardUI.Root class="overflow-hidden">
+<a href={getCardUrl(card)} class="card-hover group block h-full">
+  <CardUI.Root class="flex h-full flex-col overflow-hidden">
     <!-- Card Image -->
     <div class="relative aspect-[2.5/3.5] overflow-hidden bg-muted">
       <img
@@ -130,7 +130,7 @@
     </div>
 
     <!-- Card Info -->
-    <CardUI.Content class="p-3">
+    <CardUI.Content class="flex flex-1 flex-col p-3">
       <h3 class="line-clamp-2 text-sm font-medium leading-tight">
         {selectedCard.card_name}
       </h3>
@@ -163,6 +163,9 @@
           <Badge class="text-xs {finishClasses}">{finishLabel}</Badge>
         </div>
       {/if}
+
+      <!-- Spacer to push add-to-cart to bottom -->
+      <div class="flex-1"></div>
 
       <!-- Quantity & Add to Cart -->
       {#if selectedCard.is_in_stock}
