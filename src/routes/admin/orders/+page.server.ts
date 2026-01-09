@@ -61,7 +61,7 @@ export const load = async ({ url }) => {
 
   // Apply filters
   if (statusFilter) {
-    query = query.eq('status', statusFilter)
+    query = query.eq('status', statusFilter as 'pending' | 'invoiced' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled')
   }
 
   if (searchQuery) {

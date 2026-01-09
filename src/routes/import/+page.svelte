@@ -912,7 +912,7 @@
 
       <!-- Paste Decklist Option -->
       <div class="mt-4">
-        <Accordion.Root type="single" collapsible>
+        <Accordion.Root type="single">
           <Accordion.Item value="paste">
             <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
               Or click here to paste a decklist instead.

@@ -33,7 +33,7 @@
     state: string | null;
     postal_code: string;
     country: string;
-    is_default: boolean;
+    is_default: boolean | null;
   }
 
   let { data } = $props();
@@ -146,7 +146,7 @@
         state: address.state || '',
         postal_code: address.postal_code,
         country: address.country,
-        is_default: address.is_default
+        is_default: address.is_default ?? false
       };
     } else {
       editingAddress = null;
@@ -246,7 +246,7 @@
           <Avatar.Root class="h-20 w-20">
             <Avatar.Image src={data.profile?.avatar_url} alt={data.profile?.name || 'User'} />
             <Avatar.Fallback class="text-2xl">
-              {getInitials(data.profile?.name, data.authUser.email || '')}
+              {getInitials(data.profile?.name ?? null, data.authUser.email || '')}
             </Avatar.Fallback>
           </Avatar.Root>
           <h2 class="mt-4 text-xl font-semibold">{data.profile?.name || 'User'}</h2>

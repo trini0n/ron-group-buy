@@ -23,10 +23,10 @@
   interface GroupBuyConfig {
     id: string;
     name: string;
-    is_active: boolean;
+    is_active: boolean | null;
     opens_at: string | null;
     closes_at: string | null;
-    created_at: string;
+    created_at: string | null;
   }
 
   let { data } = $props();
@@ -55,7 +55,7 @@
     formName = config.name;
     formOpensAt = config.opens_at ? formatDateTimeLocal(config.opens_at) : '';
     formClosesAt = config.closes_at ? formatDateTimeLocal(config.closes_at) : '';
-    formIsActive = config.is_active;
+    formIsActive = config.is_active ?? false;
     editingConfig = config;
     isCreating = true;
   }

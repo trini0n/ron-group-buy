@@ -40,12 +40,14 @@ export const load = async ({ url }) => {
   })
 
   // Get admin status for users with discord_id
-  const discordIds = users?.filter((u) => u.discord_id).map((u) => u.discord_id) || []
+  const discordIds = users?.filter((u) => u.discord_id).map((u) => u.discord_id as string) || []
   const { data: admins } = await adminClient.from('admins').select('discord_id, role').in('discord_id', discordIds)
 
   const adminByDiscordId = new Map<string, string>()
   admins?.forEach((admin) => {
-    adminByDiscordId.set(admin.discord_id, admin.role)
+    if (admin.discord_id) {
+      adminByDiscordId.set(admin.discord_id, admin.role ?? 'admin')
+    }
   })
 
   const usersWithStats =

@@ -18,8 +18,8 @@ export const load = async ({ url }) => {
     id: string
     serial: string
     card_name: string
-    set_code: string
-    collector_number: string
+    set_code: string | null
+    collector_number: string | null
     card_type: string
     foil_type: string | null
     language: string | null
@@ -91,27 +91,28 @@ export const load = async ({ url }) => {
 
   // For duplicates filtering, we need to fetch all matching cards first and then filter client-side
   // because Supabase's .in() filter has limitations with large arrays
-  let cards: Array<{
+  type InventoryCard = {
     id: string
     serial: string
     card_name: string
-    set_name: string
-    set_code: string
-    collector_number: string
+    set_name: string | null
+    set_code: string | null
+    collector_number: string | null
     card_type: string
-    is_in_stock: boolean
-    is_new: boolean
+    is_in_stock: boolean | null
+    is_new: boolean | null
     foil_type: string | null
     language: string | null
-    scryfall_id: string
+    scryfall_id: string | null
     ron_image_url: string | null
-  }> | null = null
+  }
+  let cards: InventoryCard[] | null = null
   let count: number | null = null
   let error: Error | null = null
 
   if (duplicatesOnly) {
     // Fetch all cards that match filters (without pagination) so we can filter by duplicates client-side
-    const allMatchingCards: typeof cards = []
+    const allMatchingCards: InventoryCard[] = []
     let fetchOffset = 0
     const fetchBatchSize = 1000
     let fetchHasMore = true
@@ -151,7 +152,7 @@ export const load = async ({ url }) => {
     }
 
     // Filter to only duplicates
-    const duplicateCards = allMatchingCards.filter(card => duplicateIds.has(card.id))
+    const duplicateCards = allMatchingCards.filter((card) => duplicateIds.has(card.id))
     count = duplicateCards.length
 
     // Apply pagination to the filtered results

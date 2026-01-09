@@ -83,10 +83,3 @@ export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
       return []
   }
 }
-
-/**
- * Generate 17track.net URL from tracking number
- */
-export function get17TrackUrl(trackingNumber: string): string {
-  return `https://t.17track.net/en#nums=${encodeURIComponent(trackingNumber)}`
-}

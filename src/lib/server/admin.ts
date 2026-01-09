@@ -3,13 +3,15 @@ import { PUBLIC_SUPABASE_URL } from '$env/static/public'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 
+// Import for internal use
+import { isAdminDiscordId } from '$lib/admin-shared'
+
 // Re-export shared constants and types for convenience in server files
 export {
   ADMIN_DISCORD_IDS,
   isAdminDiscordId,
   ORDER_STATUS_CONFIG,
   getNextStatuses,
-  get17TrackUrl,
   type AdminDiscordId,
   type OrderStatus
 } from '$lib/admin-shared'

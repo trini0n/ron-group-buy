@@ -16,12 +16,12 @@ interface CardMatch {
   id: string
   serial: string
   card_name: string
-  set_code: string
-  set_name: string
+  set_code: string | null
+  set_name: string | null
   collector_number: string | null
   card_type: string
   foil_type: string | null
-  is_in_stock: boolean
+  is_in_stock: boolean | null
   scryfall_id: string | null
   type_line: string | null
   language: string | null

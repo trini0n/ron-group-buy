@@ -11,11 +11,10 @@
   import * as AlertDialog from '$components/ui/alert-dialog';
   import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
-  import { getCardImageUrl, getFinishLabel, getFinishBadgeClasses, getFrameEffectLabel } from '$lib/utils';
+  import { getCardImageUrl, getFinishLabel, getFinishBadgeClasses, getFrameEffectLabel, getTrackingUrl } from '$lib/utils';
   import { 
     ORDER_STATUS_CONFIG, 
     getNextStatuses, 
-    get17TrackUrl,
     type OrderStatus 
   } from '$lib/admin-shared';
   import { 
@@ -231,19 +230,17 @@
                 {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
                 <Table.Row>
                   <Table.Cell>
-                    <Tooltip.Root openDelay={100} closeDelay={0}>
-                      <Tooltip.Trigger asChild>
+                    <Tooltip.Root delayDuration={100}>
+                      <Tooltip.Trigger>
                         <span class="font-medium cursor-pointer hover:underline">{item.card_name}</span>
                       </Tooltip.Trigger>
-                      <Tooltip.Portal>
-                        <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
-                          <img 
-                            src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
-                            alt={item.card_name}
-                            class="w-48 rounded-lg shadow-xl"
-                          />
-                        </Tooltip.Content>
-                      </Tooltip.Portal>
+                      <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
+                        <img 
+                          src={getCardImageUrl(item.card?.ron_image_url ?? null, item.card?.scryfall_id ?? null, 'normal')}
+                          alt={item.card_name}
+                          class="w-48 rounded-lg shadow-xl"
+                        />
+                      </Tooltip.Content>
                     </Tooltip.Root>
                     <p class="text-xs text-muted-foreground">
                       {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'}
@@ -259,7 +256,7 @@
                   <Table.Cell class="text-right">{item.quantity}</Table.Cell>
                   <Table.Cell class="text-right">{formatPrice(Number(item.unit_price))}</Table.Cell>
                   <Table.Cell class="text-right font-medium">
-                    {formatPrice(item.quantity * Number(item.unit_price))}
+                    {formatPrice((item.quantity ?? 0) * Number(item.unit_price))}
                   </Table.Cell>
                 </Table.Row>
               {/each}
@@ -440,7 +437,7 @@
           </div>
           {#if trackingNumber}
             <a 
-              href={get17TrackUrl(trackingNumber)} 
+              href={getTrackingUrl(trackingNumber)} 
               target="_blank"
               class="inline-flex items-center gap-2 text-sm text-primary hover:underline"
             >

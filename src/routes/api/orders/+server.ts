@@ -42,13 +42,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   // Check for existing pending order in this group buy
-  const { data: existingOrder } = await locals.supabase
+  const { data: existingOrder } = activeGroupBuy ? await locals.supabase
     .from('orders')
     .select('id, order_number')
     .eq('user_id', locals.user.id)
-    .eq('group_buy_id', activeGroupBuy?.id)
+    .eq('group_buy_id', activeGroupBuy.id)
     .eq('status', 'pending')
-    .single()
+    .single() : { data: null }
 
   // If there's an existing pending order, merge items into it
   if (existingOrder && activeGroupBuy) {
@@ -190,7 +190,7 @@ async function mergeIntoExistingOrder(
       // Sum quantities for duplicate cards
       itemsToUpdate.push({
         id: existing.id,
-        quantity: existing.quantity + newItem.quantity
+        quantity: (existing.quantity ?? 0) + newItem.quantity
       })
     } else {
       // New card, insert it

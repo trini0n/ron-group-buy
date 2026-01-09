@@ -86,15 +86,17 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     .delete()
     .eq('cart_id', cart.id)
 
-  // Copy order items to cart
-  const cartItems = order.order_items.map((item: {
-    card_id: string
-    quantity: number
-  }) => ({
-    cart_id: cart.id,
-    card_id: item.card_id,
-    quantity: item.quantity
-  }))
+  // Copy order items to cart, filtering out items with null card_id
+  const cartItems = order.order_items
+    .filter((item: { card_id: string | null }) => item.card_id !== null)
+    .map((item: {
+      card_id: string | null
+      quantity: number | null
+    }) => ({
+      cart_id: cart.id,
+      card_id: item.card_id!,
+      quantity: item.quantity ?? 1
+    }))
 
   if (cartItems.length > 0) {
     const { error: insertError } = await locals.supabase

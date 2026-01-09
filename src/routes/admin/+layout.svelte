@@ -40,7 +40,7 @@
             <Sidebar.Menu><bos>
               {#each navItems as item}
                 <Sidebar.MenuItem>
-                  <Sidebar.MenuButton isActive={isActive(item.href)} tooltip={item.label}>
+                  <Sidebar.MenuButton isActive={isActive(item.href)}>
                     {#snippet child({ props })}
                       <a href={item.href} {...props}>
                         <item.icon />

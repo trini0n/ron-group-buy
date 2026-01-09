@@ -122,13 +122,13 @@
               {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
               <div class="flex items-center justify-between px-4 py-3">
                 <div>
-                  <Tooltip.Root openDelay={100} closeDelay={0}>
-                    <Tooltip.Trigger asChild>
+                  <Tooltip.Root delayDuration={100}>
+                    <Tooltip.Trigger>
                       <span class="font-medium cursor-pointer hover:underline">{item.card_name}</span>
                     </Tooltip.Trigger>
                     <Tooltip.Content class="w-auto p-1 bg-transparent border-0 shadow-none" side="right">
                       <img 
-                        src={getCardImageUrl(item.card?.ron_image_url, item.card?.scryfall_id, 'normal')}
+                        src={getCardImageUrl(item.card?.ron_image_url ?? null, item.card?.scryfall_id ?? null, 'normal')}
                         alt={item.card_name}
                         class="w-48 rounded-lg shadow-xl"
                       />

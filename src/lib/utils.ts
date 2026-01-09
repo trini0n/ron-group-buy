@@ -6,15 +6,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Calculate price based on card type
- * Normal & Holo: $1.25
- * Foil: $1.50
- */
-export function getCardPrice(cardType: string): number {
-  return cardType === 'Foil' ? 1.5 : 1.25
-}
-
-/**
  * Format price for display
  */
 export function formatPrice(price: number): string {
@@ -22,12 +13,12 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Calculate cart total
+ * Calculate price based on card type
+ * Normal & Holo: $1.25
+ * Foil: $1.50
  */
-export function calculateCartTotal(items: Array<{ cardType: string; quantity: number }>): number {
-  return items.reduce((total, item) => {
-    return total + getCardPrice(item.cardType) * item.quantity
-  }, 0)
+export function getCardPrice(cardType: string): number {
+  return cardType === 'Foil' ? 1.5 : 1.25
 }
 
 /**

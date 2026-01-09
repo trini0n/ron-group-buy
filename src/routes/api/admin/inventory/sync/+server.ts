@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
+import { getCardTypeFromSerial } from '$lib/utils'
 
 // Published CSV URL for the Library sheet
 const LIBRARY_CSV_URL =
@@ -70,12 +71,6 @@ function parseBoolean(value: string): boolean {
 
 function parseIsNew(value: string): boolean {
   return value?.includes('🆕') || value?.toUpperCase() === 'TRUE'
-}
-
-function getCardTypeFromSerial(serial: string): 'Normal' | 'Holo' | 'Foil' {
-  if (serial.startsWith('H-')) return 'Holo'
-  if (serial.startsWith('F-')) return 'Foil'
-  return 'Normal'
 }
 
 function parseSheetCsv(csvContent: string): CardRecord[] {

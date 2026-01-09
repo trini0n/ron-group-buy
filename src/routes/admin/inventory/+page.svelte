@@ -31,8 +31,8 @@
     set_code: string | null;
     collector_number: string | null;
     card_type: string;
-    is_in_stock: boolean;
-    is_new: boolean;
+    is_in_stock: boolean | null;
+    is_new: boolean | null;
     foil_type: string | null;
     language: string | null;
     scryfall_id: string | null;
@@ -475,7 +475,7 @@
               <Button 
                 variant="ghost" 
                 size="sm"
-                onclick={() => toggleSingleCard(card.id, card.is_in_stock)}
+                onclick={() => toggleSingleCard(card.id, card.is_in_stock ?? false)}
                 disabled={isUpdating}
               >
                 <RefreshCw class="h-4 w-4" />

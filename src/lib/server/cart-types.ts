@@ -155,10 +155,8 @@ export interface MergeCartResponse {
   message?: string
 }
 
-// Utility: Calculate price for a card type
-export function getCardPrice(cardType: string): number {
-  return cardType === 'Foil' ? 1.5 : 1.25
-}
+// Re-export getCardPrice from utils to avoid duplication
+export { getCardPrice } from '$lib/utils'
 
 // Utility: Generate cart hash for drift detection
 export function generateCartHash(items: CartItem[]): string {

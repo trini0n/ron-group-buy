@@ -158,7 +158,7 @@
               type="password"
               bind:value={password}
               required
-              minlength="8"
+              minlength={8}
             />
             
             <!-- Password Requirements -->
