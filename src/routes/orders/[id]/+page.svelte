@@ -3,7 +3,7 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import * as Tooltip from '$components/ui/tooltip';
-  import { formatPrice, getTrackingUrl, getCardImageUrl, getCardPrice } from '$lib/utils';
+  import { formatPrice, getTrackingUrl, getCardImageUrl, getCardPrice, getFinishLabel, getFrameEffectLabel } from '$lib/utils';
   import { ArrowLeft, Check, ExternalLink, Package, Truck } from 'lucide-svelte';
   import { Separator } from '$components/ui/separator';
 
@@ -118,6 +118,8 @@
         <Card.Content class="p-0">
           <div class="divide-y">
             {#each data.order.order_items as item (item.id)}
+              {@const frameEffect = getFrameEffectLabel(item.card)}
+              {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
               <div class="flex items-center justify-between px-4 py-3">
                 <div>
                   <Tooltip.Root openDelay={100} closeDelay={0}>
@@ -133,7 +135,11 @@
                     </Tooltip.Content>
                   </Tooltip.Root>
                   <p class="text-sm text-muted-foreground">
-                    {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'} • {item.card_type}
+                    {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'}
+                    {#if frameEffect}
+                      • {frameEffect}
+                    {/if}
+                    • {finishLabel}
                   </p>
                 </div>
                 <div class="text-right">

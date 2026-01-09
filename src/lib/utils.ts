@@ -201,3 +201,29 @@ export function getFinishBadgeClasses(finish: string): string {
       return 'bg-secondary text-secondary-foreground'
   }
 }
+
+/**
+ * Get the frame effect label for a card from its boolean flags
+ * Returns null if no special frame effect
+ * Note: Showcase supersedes Borderless (if both are true, only show Showcase)
+ */
+export function getFrameEffectLabel(card: {
+  is_retro?: boolean | null
+  is_extended?: boolean | null
+  is_showcase?: boolean | null
+  is_borderless?: boolean | null
+  is_etched?: boolean | null
+} | null): string | null {
+  if (!card) return null
+  
+  const effects: string[] = []
+  if (card.is_retro) effects.push('Retro')
+  if (card.is_extended) effects.push('Extended Art')
+  if (card.is_showcase) effects.push('Showcase')
+  // Only show Borderless if Showcase is NOT present (Showcase supersedes Borderless)
+  if (card.is_borderless && !card.is_showcase) effects.push('Borderless')
+  if (card.is_etched) effects.push('Etched')
+  
+  return effects.length > 0 ? effects.join(', ') : null
+}
+

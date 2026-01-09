@@ -2,8 +2,9 @@
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
+  import * as Tooltip from '$components/ui/tooltip';
   import { formatPrice, getTrackingUrl } from '$lib/utils';
-  import { Package, ExternalLink, Pencil } from 'lucide-svelte';
+  import { Package, ExternalLink, Pencil, Eye } from 'lucide-svelte';
   import { goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
 
@@ -95,20 +96,38 @@
               </Card.Description>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex flex-col items-end gap-1">
               <span class="text-lg font-bold">{formatPrice(total)}</span>
-              {#if editable}
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onclick={() => loadOrderToCart(order.id)}
-                  disabled={loadingOrderId === order.id}
-                >
-                  <Pencil class="mr-1 h-3.5 w-3.5" />
-                  {loadingOrderId === order.id ? 'Loading...' : 'Edit Order'}
-                </Button>
-              {/if}
-              <Button variant="outline" href="/orders/{order.id}">View Details</Button>
+              <div class="flex items-center gap-1">
+                {#if editable}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        class="h-8 w-8"
+                        onclick={() => loadOrderToCart(order.id)}
+                        disabled={loadingOrderId === order.id}
+                      >
+                        <Pencil class="h-4 w-4" />
+                      </Button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>
+                      <p>{loadingOrderId === order.id ? 'Loading...' : 'Edit Order'}</p>
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
+                <Tooltip.Root>
+                  <Tooltip.Trigger>
+                    <Button variant="outline" size="icon" class="h-8 w-8" href="/orders/{order.id}">
+                      <Eye class="h-4 w-4" />
+                    </Button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>
+                    <p>View Details</p>
+                  </Tooltip.Content>
+                </Tooltip.Root>
+              </div>
             </div>
           </Card.Header>
 

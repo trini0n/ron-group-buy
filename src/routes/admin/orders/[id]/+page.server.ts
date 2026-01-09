@@ -23,7 +23,14 @@ export const load = async ({ params }) => {
           set_code,
           collector_number,
           scryfall_id,
-          ron_image_url
+          ron_image_url,
+          card_type,
+          foil_type,
+          is_retro,
+          is_extended,
+          is_showcase,
+          is_borderless,
+          is_etched
         )
       )
     `

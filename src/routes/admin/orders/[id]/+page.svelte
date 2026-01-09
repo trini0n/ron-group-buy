@@ -11,7 +11,7 @@
   import * as AlertDialog from '$components/ui/alert-dialog';
   import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
-  import { getCardImageUrl } from '$lib/utils';
+  import { getCardImageUrl, getFinishLabel, getFinishBadgeClasses, getFrameEffectLabel } from '$lib/utils';
   import { 
     ORDER_STATUS_CONFIG, 
     getNextStatuses, 
@@ -227,6 +227,8 @@
             </Table.Header>
             <Table.Body>
               {#each order.items as item}
+                {@const frameEffect = getFrameEffectLabel(item.card)}
+                {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
                 <Table.Row>
                   <Table.Cell>
                     <Tooltip.Root openDelay={100} closeDelay={0}>
@@ -245,11 +247,14 @@
                     </Tooltip.Root>
                     <p class="text-xs text-muted-foreground">
                       {item.card?.set_code?.toUpperCase() || '???'} #{item.card?.collector_number || '?'}
+                      {#if frameEffect}
+                        • {frameEffect}
+                      {/if}
                     </p>
                   </Table.Cell>
                   <Table.Cell class="font-mono text-sm">{item.card_serial}</Table.Cell>
                   <Table.Cell>
-                    <Badge variant="outline">{item.card_type}</Badge>
+                    <Badge class={getFinishBadgeClasses(finishLabel)}>{finishLabel}</Badge>
                   </Table.Cell>
                   <Table.Cell class="text-right">{item.quantity}</Table.Cell>
                   <Table.Cell class="text-right">{formatPrice(Number(item.unit_price))}</Table.Cell>
