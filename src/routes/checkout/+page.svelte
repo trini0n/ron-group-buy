@@ -156,6 +156,7 @@
           shippingType,
           cartId: cartStore.cartId,
           cartVersion: cartStore.version,
+          action: data.existingPendingOrder ? 'merge' : null, // Auto-merge if existing order
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -167,13 +168,13 @@
         })
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        const { orderId, orderNumber } = await response.json();
         cartStore.clear();
-        window.location.href = `/orders/${orderId}?success=true`;
+        window.location.href = `/orders/${result.orderId}?success=true`;
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.message}`);
+        alert(`Error: ${result.message}`);
       }
     } catch (err) {
       alert('Failed to submit order. Please try again.');

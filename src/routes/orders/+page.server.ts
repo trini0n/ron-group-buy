@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     throw redirect(303, '/?login=required');
   }
 
-  // Fetch orders with group_buy_id
+  // Fetch orders
   const { data: orders } = await locals.supabase
     .from('orders')
     .select(`
@@ -23,16 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     .eq('user_id', locals.user.id)
     .order('created_at', { ascending: false });
 
-  // Fetch active group buys to determine which orders can be edited
-  const { data: activeGroupBuys } = await locals.supabase
-    .from('group_buy_config')
-    .select('id')
-    .eq('is_active', true);
-
-  const activeGroupBuyIds = new Set(activeGroupBuys?.map(gb => gb.id) ?? []);
-
   return {
-    orders: orders || [],
-    activeGroupBuyIds: Array.from(activeGroupBuyIds)
+    orders: orders || []
   };
 };

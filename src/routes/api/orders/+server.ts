@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items } = body
+  const { addressId, newAddress, shippingType, items, action } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
@@ -32,6 +32,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // Validate shipping type
   if (shippingType && !['regular', 'express'].includes(shippingType)) {
     throw error(400, 'Invalid shipping type')
+  }
+
+  // Validate action if provided
+  if (action && !['replace', 'merge'].includes(action)) {
+    throw error(400, 'Invalid action')
   }
 
   // Get active group buy
@@ -44,15 +49,62 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // Check for existing pending order in this group buy
   const { data: existingOrder } = activeGroupBuy ? await locals.supabase
     .from('orders')
-    .select('id, order_number')
+    .select(`
+      id, 
+      order_number,
+      order_items (
+        id,
+        quantity,
+        unit_price
+      )
+    `)
     .eq('user_id', locals.user.id)
     .eq('group_buy_id', activeGroupBuy.id)
     .eq('status', 'pending')
     .single() : { data: null }
 
-  // If there's an existing pending order, merge items into it
+  // If there's an existing pending order
   if (existingOrder && activeGroupBuy) {
-    return await mergeIntoExistingOrder(existingOrder, items, locals)
+    // If no action specified, return confirmation request
+    if (!action) {
+      const itemCount = existingOrder.order_items?.reduce(
+        (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1), 0
+      ) ?? 0
+      const total = existingOrder.order_items?.reduce(
+        (sum: number, item: { quantity: number | null; unit_price: number | string }) => 
+          sum + (item.quantity ?? 1) * Number(item.unit_price), 0
+      ) ?? 0
+
+      return json({
+        requiresConfirmation: true,
+        existingOrder: {
+          id: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          itemCount,
+          total
+        }
+      })
+    }
+
+    // Handle actions
+    if (action === 'merge') {
+      return await mergeIntoExistingOrder(existingOrder, items, locals)
+    }
+
+    if (action === 'replace') {
+      // Delete existing order and items first
+      await locals.supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', existingOrder.id)
+
+      await locals.supabase
+        .from('orders')
+        .delete()
+        .eq('id', existingOrder.id)
+
+      // Fall through to create new order
+    }
   }
 
   // Validate address

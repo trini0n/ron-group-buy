@@ -3,12 +3,17 @@
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
   import * as AlertDialog from '$components/ui/alert-dialog';
+  import * as Dialog from '$components/ui/dialog';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
-  import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle } from 'lucide-svelte';
+  import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle, Info, Package, X, Merge } from 'lucide-svelte';
   import { onMount } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
+  import { toast } from 'svelte-sonner';
 
   let clearCartDialogOpen = $state(false);
+  let pendingOrderDialogOpen = $state(false);
+  let isPendingOrderAction = $state(false);
 
   let { data } = $props();
 
@@ -34,6 +39,38 @@
     // Active and within date range (or no date constraints)
     return true;
   });
+
+  async function handlePendingOrderAction(action: 'merge' | 'cancel') {
+    if (!data.existingPendingOrder) return;
+    
+    isPendingOrderAction = true;
+    try {
+      const response = await fetch(`/api/orders/${data.existingPendingOrder.id}/pending`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+
+      if (response.ok) {
+        pendingOrderDialogOpen = false;
+        if (action === 'merge') {
+          await cartStore.syncFromServer();
+          toast.success('Order items added to your cart');
+        } else {
+          toast.success('Pending order cancelled');
+        }
+        // Force page reload to clear the pending order from data
+        window.location.reload();
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to process order');
+      }
+    } catch (err) {
+      toast.error('Failed to process order');
+    } finally {
+      isPendingOrderAction = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -42,6 +79,31 @@
 
 <div class="container py-8">
   <h1 class="mb-8 text-3xl font-bold">Shopping Cart</h1>
+
+  <!-- Existing Pending Order Notice -->
+  {#if data.existingPendingOrder}
+    <div class="mb-6 rounded-lg border border-blue-400 bg-blue-50 p-4 dark:border-blue-600 dark:bg-blue-900/20">
+      <div class="flex items-center gap-3">
+        <Info class="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+        <div class="flex-1 min-w-0">
+          <h3 class="font-medium text-blue-800 dark:text-blue-300">You have a pending order</h3>
+          <p class="mt-0.5 text-sm text-blue-700 dark:text-blue-400">
+            Order <span class="font-mono font-medium">{data.existingPendingOrder.orderNumber}</span> has {data.existingPendingOrder.itemCount} 
+            {data.existingPendingOrder.itemCount === 1 ? 'card' : 'cards'} totaling {formatPrice(data.existingPendingOrder.total)}.
+          </p>
+        </div>
+        <Button 
+          variant="outline"
+          size="sm"
+          class="shrink-0 border-blue-400 text-blue-700 hover:bg-blue-100 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/40"
+          onclick={() => pendingOrderDialogOpen = true}
+        >
+          <Package class="mr-2 h-4 w-4" />
+          Manage
+        </Button>
+      </div>
+    </div>
+  {/if}
 
   {#if cartStore.items.length === 0}
     <div class="flex flex-col items-center justify-center py-16 text-center">
@@ -244,3 +306,69 @@
     </div>
   {/if}
 </div>
+
+<!-- Pending Order Dialog -->
+<Dialog.Root bind:open={pendingOrderDialogOpen}>
+  <Dialog.Content class="max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>Pending Order</Dialog.Title>
+      <Dialog.Description>
+        Order <span class="font-mono font-medium">{data.existingPendingOrder?.orderNumber}</span>
+      </Dialog.Description>
+    </Dialog.Header>
+    
+    <div class="py-4">
+      <div class="rounded-lg bg-muted/50 p-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-muted-foreground">Items</span>
+          <span class="font-medium">{data.existingPendingOrder?.itemCount} cards</span>
+        </div>
+        <div class="mt-2 flex items-center justify-between">
+          <span class="text-sm text-muted-foreground">Total</span>
+          <span class="font-bold">{formatPrice(data.existingPendingOrder?.total ?? 0)}</span>
+        </div>
+      </div>
+      
+      <p class="mt-4 text-sm text-muted-foreground">
+        What would you like to do with this order?
+      </p>
+    </div>
+    
+    <div class="space-y-2">
+      <Button 
+        class="w-full justify-start gap-3 h-auto py-4" 
+        variant="outline"
+        onclick={() => handlePendingOrderAction('merge')}
+        disabled={isPendingOrderAction}
+      >
+        <Merge class="h-4 w-4 text-green-500" />
+        <div class="text-left">
+          <p class="font-medium">Add to cart</p>
+          <p class="text-xs text-muted-foreground">Merge these items into your current cart</p>
+        </div>
+      </Button>
+      
+      <Button 
+        class="w-full justify-start gap-3 h-auto py-4" 
+        variant="outline"
+        onclick={() => handlePendingOrderAction('cancel')}
+        disabled={isPendingOrderAction}
+      >
+        <X class="h-4 w-4 text-red-500" />
+        <div class="text-left">
+          <p class="font-medium">Cancel order</p>
+          <p class="text-xs text-muted-foreground">Delete this pending order</p>
+        </div>
+      </Button>
+    </div>
+    
+    <Dialog.Footer class="mt-4">
+      <Button variant="ghost" onclick={() => pendingOrderDialogOpen = false}>
+        Close
+      </Button>
+      <Button variant="outline" href="/orders/{data.existingPendingOrder?.id}">
+        View full order
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

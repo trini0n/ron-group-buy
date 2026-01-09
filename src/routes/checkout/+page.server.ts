@@ -27,10 +27,48 @@ export const load: PageServerLoad = async ({ locals }) => {
     .eq('is_active', true)
     .single()
 
+  // Check for existing pending order in this group buy
+  let existingPendingOrder = null
+  if (groupBuyConfig) {
+    const { data: pendingOrder } = await locals.supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        order_items (
+          id,
+          quantity,
+          unit_price
+        )
+      `)
+      .eq('user_id', locals.user.id)
+      .eq('group_buy_id', groupBuyConfig.id)
+      .eq('status', 'pending')
+      .single()
+
+    if (pendingOrder) {
+      const itemCount = pendingOrder.order_items?.reduce(
+        (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1), 0
+      ) ?? 0
+      const total = pendingOrder.order_items?.reduce(
+        (sum: number, item: { quantity: number | null; unit_price: number | string }) => 
+          sum + (item.quantity ?? 1) * Number(item.unit_price), 0
+      ) ?? 0
+
+      existingPendingOrder = {
+        id: pendingOrder.id,
+        orderNumber: pendingOrder.order_number,
+        itemCount,
+        total
+      }
+    }
+  }
+
   return {
     addresses: addresses || [],
     groupBuyConfig,
     isEmailVerified,
-    userEmail: locals.user.email
+    userEmail: locals.user.email,
+    existingPendingOrder
   }
 }
