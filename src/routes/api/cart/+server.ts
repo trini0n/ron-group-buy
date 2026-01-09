@@ -2,10 +2,13 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
+import { createAdminClient } from '$lib/server/admin'
 
 // GET /api/cart - Get current cart with validation
 export const GET: RequestHandler = async ({ locals, cookies }) => {
-  const cartService = new CartService(locals.supabase)
+  // Use admin client for guests to bypass RLS (guest carts don't have user_id)
+  const supabase = locals.user ? locals.supabase : createAdminClient()
+  const cartService = new CartService(supabase)
   const guestId = cookies.get('guest_cart_id')
 
   try {
@@ -56,7 +59,9 @@ export const GET: RequestHandler = async ({ locals, cookies }) => {
 
 // POST /api/cart - Add item to cart
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
-  const cartService = new CartService(locals.supabase)
+  // Use admin client for guests to bypass RLS (guest carts don't have user_id)
+  const supabase = locals.user ? locals.supabase : createAdminClient()
+  const cartService = new CartService(supabase)
 
   const body = await request.json()
   const { card_id, quantity = 1, expected_version } = body
@@ -124,7 +129,9 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
 
 // DELETE /api/cart - Clear entire cart
 export const DELETE: RequestHandler = async ({ locals, cookies }) => {
-  const cartService = new CartService(locals.supabase)
+  // Use admin client for guests to bypass RLS (guest carts don't have user_id)
+  const supabase = locals.user ? locals.supabase : createAdminClient()
+  const cartService = new CartService(supabase)
   const guestId = cookies.get('guest_cart_id')
 
   try {

@@ -2,6 +2,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
+import { createAdminClient } from '$lib/server/admin'
 
 // GET /api/cart/merge - Check if merge is needed
 export const GET: RequestHandler = async ({ locals, cookies }) => {
@@ -9,7 +10,8 @@ export const GET: RequestHandler = async ({ locals, cookies }) => {
     throw error(401, 'Authentication required')
   }
 
-  const cartService = new CartService(locals.supabase)
+  // Use admin client to access guest cart data (bypass RLS)
+  const cartService = new CartService(createAdminClient())
   const guestId = cookies.get('guest_cart_id')
 
   if (!guestId) {
@@ -59,7 +61,8 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     throw error(401, 'Authentication required')
   }
 
-  const cartService = new CartService(locals.supabase)
+  // Use admin client to access guest cart data (bypass RLS)
+  const cartService = new CartService(createAdminClient())
   const guestId = cookies.get('guest_cart_id')
 
   if (!guestId) {
