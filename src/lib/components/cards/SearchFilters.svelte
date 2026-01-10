@@ -4,8 +4,10 @@
   import { Button } from '$components/ui/button';
   import * as Popover from '$components/ui/popover';
   import * as Command from '$components/ui/command';
+  import * as Accordion from '$components/ui/accordion';
   import ManaIcon from '$lib/components/icons/ManaIcon.svelte';
-  import { X, ChevronsUpDown, Check } from 'lucide-svelte';
+  import { X, ChevronsUpDown, Check, ChevronDown, Filter } from 'lucide-svelte';
+  import { browser } from '$app/environment';
 
   interface Set {
     code: string;
@@ -34,6 +36,24 @@
   // Combobox state
   let setComboboxOpen = $state(false);
   let setSearchValue = $state('');
+  
+  // Mobile accordion state - collapsed by default on mobile
+  let isMobile = $state(false);
+  let mobileFiltersOpen = $state(false);
+  
+  // Check screen size on mount and resize
+  $effect(() => {
+    if (!browser) return;
+    
+    const checkMobile = () => {
+      isMobile = window.innerWidth < 1024; // lg breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  });
 
   const colors: Array<{ value: 'W' | 'U' | 'B' | 'R' | 'G'; label: string }> = [
     { value: 'W', label: 'White' },
@@ -82,11 +102,11 @@
     }
   }
 
-  function toggleFrameType(frameType: string) {
-    if (filters.frameTypes.includes(frameType)) {
-      filters.frameTypes = filters.frameTypes.filter((f) => f !== frameType);
+  function toggleFrameType(frame: string) {
+    if (filters.frameTypes.includes(frame)) {
+      filters.frameTypes = filters.frameTypes.filter((f) => f !== frame);
     } else {
-      filters.frameTypes = [...filters.frameTypes, frameType];
+      filters.frameTypes = [...filters.frameTypes, frame];
     }
   }
 
@@ -99,23 +119,20 @@
   }
 
   function clearFilters() {
-    filters = {
-      setCodes: [],
-      colorIdentity: [],
-      colorIdentityStrict: false,
-      priceCategories: ['Non-Foil', 'Foil'],
-      cardTypes: [],
-      frameTypes: [],
-      inStockOnly: false,
-      isNew: false
-    };
-    setSearchValue = '';
+    filters.setCodes = [];
+    filters.colorIdentity = [];
+    filters.colorIdentityStrict = false;
+    filters.priceCategories = ['Non-Foil', 'Foil'];
+    filters.cardTypes = [];
+    filters.frameTypes = [];
+    filters.inStockOnly = false;
+    filters.isNew = false;
     onClearAll?.();
   }
 
-  function toggleSet(code: string) {
-    if (code === '') {
-      // Clear all selections
+  function toggleSetCode(code: string) {
+    // Allow multi-select: toggle the set
+    if (filters.setCodes.length === 1 && filters.setCodes[0] === code.toLowerCase()) {
       filters.setCodes = [];
     } else if (filters.setCodes.includes(code.toLowerCase())) {
       filters.setCodes = filters.setCodes.filter(c => c !== code.toLowerCase());
@@ -158,163 +175,201 @@
         set.name.toLowerCase().includes(query) || set.code.toLowerCase().includes(query)
     );
   });
+  
+  // Count active filters for badge
+  const activeFilterCount = $derived.by(() => {
+    let count = 0;
+    if (filters.setCodes.length > 0) count++;
+    if (filters.colorIdentity.length > 0) count++;
+    if (filters.priceCategories.length < 2) count++;
+    if (filters.cardTypes.length > 0) count++;
+    if (filters.frameTypes.length > 0) count++;
+    if (filters.inStockOnly) count++;
+    if (filters.isNew) count++;
+    return count;
+  });
 </script>
 
-<div class="space-y-6 rounded-lg border bg-card p-4">
-  <div class="flex items-center justify-between">
-    <h2 class="font-semibold">Filters</h2>
+<div class="space-y-4 rounded-lg border bg-card p-4">
+  <!-- Header with toggle for mobile - entire bar is clickable -->
+  <div 
+    class="flex cursor-pointer items-center justify-between lg:cursor-default"
+    onclick={() => mobileFiltersOpen = !mobileFiltersOpen}
+    onkeydown={(e) => e.key === 'Enter' && (mobileFiltersOpen = !mobileFiltersOpen)}
+    role="button"
+    tabindex="0"
+  >
+    <div class="flex items-center gap-2 font-semibold">
+      <Filter class="h-4 w-4 lg:hidden" />
+      <span>Filters</span>
+      {#if activeFilterCount > 0}
+        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+          {activeFilterCount}
+        </span>
+      {/if}
+      <ChevronDown class="h-4 w-4 transition-transform lg:hidden {mobileFiltersOpen ? 'rotate-180' : ''}" />
+    </div>
     {#if hasActiveFilters}
-      <Button variant="ghost" size="sm" onclick={clearFilters}>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onclick={(e: MouseEvent) => { e.stopPropagation(); clearFilters(); }}
+      >
         <X class="mr-1 h-3 w-3" />
         Clear
       </Button>
     {/if}
   </div>
 
-  <!-- Set Filter - Multiselect Combobox -->
-  <div class="space-y-2">
-    <div class="flex items-center justify-between">
-      <Label>Set</Label>
-      {#if filters.setCodes.length > 0}
-        <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearSetSelection}>
-          Clear
-        </Button>
+  <!-- Filter content - collapsible on mobile -->
+  <div class="space-y-6 {isMobile && !mobileFiltersOpen ? 'hidden' : ''}">
+    <!-- Set Filter - Multiselect Combobox -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <Label>Set</Label>
+        {#if filters.setCodes.length > 0}
+          <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearSetSelection}>
+            Clear
+          </Button>
+        {/if}
+      </div>
+      <Popover.Root bind:open={setComboboxOpen}>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="outline"
+              class="w-full justify-between"
+              role="combobox"
+              aria-expanded={setComboboxOpen}
+            >
+              <span class="truncate">{selectedSetLabel}</span>
+              <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          {/snippet}
+        </Popover.Trigger>
+        <Popover.Content class="w-[300px] p-0" align="start">
+          <Command.Root shouldFilter={false}>
+            <Command.Input 
+              placeholder="Search sets..." 
+              bind:value={setSearchValue}
+            />
+            <Command.List>
+              <Command.Empty>No sets found.</Command.Empty>
+              <Command.Group>
+                {#each filteredSets as set}
+                  <Command.Item
+                    value={set.code}
+                    onSelect={() => {
+                      toggleSetCode(set.code);
+                    }}
+                  >
+                    <Check
+                      class="mr-2 h-4 w-4 {filters.setCodes.includes(set.code.toLowerCase()) ? 'opacity-100' : 'opacity-0'}"
+                    />
+                    <span class="mr-2 text-xs text-muted-foreground uppercase">{set.code}</span>
+                    <span class="truncate">{set.name}</span>
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.List>
+          </Command.Root>
+        </Popover.Content>
+      </Popover.Root>
+    </div>
+
+    <!-- Color Identity Filter -->
+    <div class="space-y-2">
+      <Label>Color Identity</Label>
+      <div class="flex flex-wrap gap-2">
+        {#each colors as color}
+          <button
+            type="button"
+            class="relative rounded-full transition-all {filters.colorIdentity.includes(color.value)
+              ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+              : 'opacity-60 hover:opacity-100'}"
+            onclick={() => toggleColor(color.value)}
+            title={color.label}
+          >
+            <ManaIcon color={color.value} size={32} />
+          </button>
+        {/each}
+      </div>
+      {#if filters.colorIdentity.length > 0}
+        <label class="flex cursor-pointer items-center space-x-2 pt-1">
+          <Checkbox
+            checked={filters.colorIdentityStrict}
+            onCheckedChange={(v) => filters.colorIdentityStrict = !!v}
+          />
+          <span class="text-sm">Strict (excludes other colors)</span>
+        </label>
       {/if}
     </div>
-    <Popover.Root bind:open={setComboboxOpen}>
-      <Popover.Trigger>
-        {#snippet child({ props })}
-          <Button
-            {...props}
-            variant="outline"
-            class="w-full justify-between"
-            role="combobox"
-            aria-expanded={setComboboxOpen}
-          >
-            <span class="truncate">{selectedSetLabel}</span>
-            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        {/snippet}
-      </Popover.Trigger>
-      <Popover.Content class="w-[300px] p-0" align="start">
-        <Command.Root shouldFilter={false}>
-          <Command.Input
-            placeholder="Search sets..."
-            bind:value={setSearchValue}
-          />
-          <Command.List>
-            <Command.Empty>No sets found.</Command.Empty>
-            <Command.Group>
-              {#each filteredSets as set (set.code)}
-                <Command.Item
-                  value={set.code}
-                  onSelect={() => toggleSet(set.code)}
-                >
-                  <Check
-                    class="mr-2 h-4 w-4 {filters.setCodes.includes(set.code.toLowerCase()) ? 'opacity-100' : 'opacity-0'}"
-                  />
-                  <span class="truncate">{set.name}</span>
-                  <span class="ml-2 text-xs text-muted-foreground">({set.code.toUpperCase()})</span>
-                </Command.Item>
-              {/each}
-            </Command.Group>
-          </Command.List>
-        </Command.Root>
-      </Popover.Content>
-    </Popover.Root>
-  </div>
 
-  <!-- Color Identity - MTG Mana Icons -->
-  <div class="space-y-2">
-    <Label>Color Identity</Label>
-    <div class="flex flex-wrap gap-2">
-      {#each colors as color}
-        <button
-          type="button"
-          class="relative flex items-center justify-center rounded-full transition-all hover:scale-110 {filters.colorIdentity.includes(color.value)
-            ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-            : 'opacity-60 hover:opacity-100'}"
-          onclick={() => toggleColor(color.value)}
-          title={color.label}
-        >
-          <ManaIcon color={color.value} size={32} />
-        </button>
-      {/each}
+    <!-- Card Types (Type Line) - Multiselect with OR logic -->
+    <div class="space-y-2">
+      <Label>Card Type</Label>
+      <div class="grid grid-cols-2 gap-2">
+        {#each cardTypes as type}
+          <label class="flex cursor-pointer items-center space-x-2">
+            <Checkbox
+              checked={filters.cardTypes.includes(type)}
+              onCheckedChange={() => toggleCardType(type)}
+            />
+            <span class="text-sm">{type}</span>
+          </label>
+        {/each}
+      </div>
     </div>
-    {#if filters.colorIdentity.length > 0}
-      <label class="flex cursor-pointer items-center space-x-2 pt-1">
+
+    <!-- Finish (card_type column) - Multiselect, all checked by default -->
+    <div class="space-y-2">
+      <Label>Finish</Label>
+      <div class="space-y-2">
+        {#each priceCategories as category}
+          <label class="flex cursor-pointer items-center space-x-2">
+            <Checkbox
+              checked={filters.priceCategories.includes(category.value)}
+              onCheckedChange={() => togglePriceCategory(category.value)}
+            />
+            <span class="text-sm">{category.label}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Frame Type Filter -->
+    <div class="space-y-2">
+      <Label>Frame Type</Label>
+      <div class="space-y-2">
+        {#each frameTypes as frame}
+          <label class="flex cursor-pointer items-center space-x-2">
+            <Checkbox
+              checked={filters.frameTypes.includes(frame.value)}
+              onCheckedChange={() => toggleFrameType(frame.value)}
+            />
+            <span class="text-sm">{frame.label}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Toggles -->
+    <div class="space-y-3">
+      <label class="flex cursor-pointer items-center space-x-2">
         <Checkbox
-          checked={filters.colorIdentityStrict}
-          onCheckedChange={(v) => filters.colorIdentityStrict = !!v}
+          checked={filters.inStockOnly}
+          onCheckedChange={(v) => filters.inStockOnly = !!v}
         />
-        <span class="text-sm">Strict (excludes other colors)</span>
+        <span>In Stock Only</span>
       </label>
-    {/if}
-  </div>
-
-  <!-- Card Types (Type Line) - Multiselect with OR logic -->
-  <div class="space-y-2">
-    <Label>Card Type</Label>
-    <div class="grid grid-cols-2 gap-2">
-      {#each cardTypes as type}
-        <label class="flex cursor-pointer items-center space-x-2">
-          <Checkbox
-            checked={filters.cardTypes.includes(type)}
-            onCheckedChange={() => toggleCardType(type)}
-          />
-          <span class="text-sm">{type}</span>
-        </label>
-      {/each}
+      <label class="flex cursor-pointer items-center space-x-2">
+        <Checkbox
+          checked={filters.isNew}
+          onCheckedChange={(v) => filters.isNew = !!v}
+        />
+        <span>New Cards Only</span>
+      </label>
     </div>
-  </div>
-
-  <!-- Finish (card_type column) - Multiselect, all checked by default -->
-  <div class="space-y-2">
-    <Label>Finish</Label>
-    <div class="space-y-2">
-      {#each priceCategories as category}
-        <label class="flex cursor-pointer items-center space-x-2">
-          <Checkbox
-            checked={filters.priceCategories.includes(category.value)}
-            onCheckedChange={() => togglePriceCategory(category.value)}
-          />
-          <span class="text-sm">{category.label}</span>
-        </label>
-      {/each}
-    </div>
-  </div>
-
-  <!-- Frame Type Filter -->
-  <div class="space-y-2">
-    <Label>Frame Type</Label>
-    <div class="space-y-2">
-      {#each frameTypes as frame}
-        <label class="flex cursor-pointer items-center space-x-2">
-          <Checkbox
-            checked={filters.frameTypes.includes(frame.value)}
-            onCheckedChange={() => toggleFrameType(frame.value)}
-          />
-          <span class="text-sm">{frame.label}</span>
-        </label>
-      {/each}
-    </div>
-  </div>
-
-  <!-- Toggles -->
-  <div class="space-y-3">
-    <label class="flex cursor-pointer items-center space-x-2">
-      <Checkbox
-        checked={filters.inStockOnly}
-        onCheckedChange={(v) => filters.inStockOnly = !!v}
-      />
-      <span>In Stock Only</span>
-    </label>
-    <label class="flex cursor-pointer items-center space-x-2">
-      <Checkbox
-        checked={filters.isNew}
-        onCheckedChange={(v) => filters.isNew = !!v}
-      />
-      <span>New Cards Only</span>
-    </label>
   </div>
 </div>

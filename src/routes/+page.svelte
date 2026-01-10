@@ -1,15 +1,14 @@
 <script lang="ts">
   import CardGrid from '$components/cards/CardGrid.svelte';
   import CardTableView from '$components/cards/CardTableView.svelte';
-  import CardGridSkeleton from '$components/cards/CardGridSkeleton.svelte';
   import SearchFilters from '$components/cards/SearchFilters.svelte';
   import { Input } from '$components/ui/input';
   import { Button } from '$components/ui/button';
   import * as Tooltip from '$components/ui/tooltip';
+  import { Skeleton } from '$components/ui/skeleton';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
-  import { goto } from '$app/navigation';
-  import { navigating } from '$app/stores';
   import { untrack } from 'svelte';
+  import type { Card } from '$lib/server/types';
 
   let { data } = $props();
 
@@ -18,6 +17,7 @@
   
   let searchQuery = $state(initialFilters.search);
   let viewMode = $state<'grid' | 'table'>(initialFilters.view);
+  let currentPage = $state(initialFilters.page);
   let filters = $state({
     setCodes: initialFilters.setCodes,
     colorIdentity: initialFilters.colorIdentity as string[],
@@ -27,6 +27,26 @@
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
     isNew: initialFilters.isNew
+  });
+
+  // Cache loaded data so skeleton only shows on initial load
+  let loadedCards = $state<Card[] | null>(null);
+  let loadedSets = $state<{ code: string; name: string }[] | null>(null);
+  let loadError = $state<string | null>(null);
+  let isLoading = $state(true);
+
+  // Load data once and cache it
+  $effect(() => {
+    data.streamed.cardsData
+      .then((cardsData) => {
+        loadedCards = cardsData.cards;
+        loadedSets = cardsData.sets;
+        isLoading = false;
+      })
+      .catch((error) => {
+        loadError = error.message || 'Failed to load cards';
+        isLoading = false;
+      });
   });
 
   // Track whether this is the initial render (skip first URL update)
@@ -55,15 +75,23 @@
     if (filters.inStockOnly) params.set('stock', '1');
     if (filters.isNew) params.set('new', '1');
     if (viewMode !== 'grid') params.set('view', viewMode);
+    if (currentPage > 1) params.set('page', String(currentPage));
     
     const queryString = params.toString();
     return queryString ? `?${queryString}` : '/';
   }
 
-  // Update URL without navigation (replaceState)
+  // Update URL without navigation - use history API directly for instant response
   function updateUrl() {
     const newUrl = buildFilterUrl();
-    goto(newUrl, { replaceState: true, noScroll: true, keepFocus: true });
+    // Use history.replaceState directly to avoid SvelteKit's async navigation
+    history.replaceState(history.state, '', newUrl);
+  }
+
+  // Handle page change from CardGrid
+  function handlePageChange(page: number) {
+    currentPage = page;
+    updateUrl();
   }
 
   // Debounced search update
@@ -78,6 +106,7 @@
     
     // Set new debounce timer
     searchDebounceTimer = setTimeout(() => {
+      currentPage = 1; // Reset to page 1 on search
       updateUrl();
     }, SEARCH_DEBOUNCE_MS);
   }
@@ -103,8 +132,11 @@
       return;
     }
     
-    // Update URL
-    queueMicrotask(() => updateUrl());
+    // Reset to page 1 when filters change
+    currentPage = 1;
+    
+    // Update URL synchronously
+    updateUrl();
   });
 
   // Cleanup debounce timer on unmount
@@ -201,36 +233,60 @@
     </div>
   </div>
 
-  <!-- Show skeleton when navigating to this page -->
-  {#if $navigating?.to?.url.pathname === '/'}
-    <CardGridSkeleton count={10} />
-  {:else}
-    <div class="flex flex-col gap-6 lg:flex-row">
-      <!-- Filters Sidebar -->
-      <aside class="w-full shrink-0 lg:w-64">
-        <SearchFilters 
-          bind:filters 
-          sets={data.sets} 
-          onClearAll={() => { searchQuery = ''; }}
-        />
-      </aside>
+  <div class="flex flex-col gap-6 lg:flex-row">
+    <!-- Filters Sidebar - always visible, sets load async -->
+    <aside class="w-full shrink-0 lg:w-64">
+      <SearchFilters 
+        bind:filters 
+        sets={loadedSets || []} 
+        onClearAll={() => { searchQuery = ''; currentPage = 1; }}
+      />
+    </aside>
 
-      <!-- Card View -->
-      <div class="flex-1">
+    <!-- Card View -->
+    <div class="flex-1">
+      {#if isLoading}
+        <!-- Skeleton for card grid while loading -->
+        <div class="mb-4 flex items-center justify-between">
+          <Skeleton class="h-4 w-48" />
+          <Skeleton class="h-4 w-24" />
+        </div>
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {#each Array(10) as _}
+            <div class="space-y-2">
+              <Skeleton class="aspect-[488/680] w-full rounded-lg" />
+              <Skeleton class="h-4 w-3/4" />
+              <div class="flex justify-between">
+                <Skeleton class="h-3 w-16" />
+                <Skeleton class="h-3 w-12" />
+              </div>
+            </div>
+          {/each}
+        </div>
+      {:else if loadError}
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+          <p class="text-xl font-medium text-destructive">Error loading cards</p>
+          <p class="mt-2 text-muted-foreground">{loadError}</p>
+        </div>
+      {:else if loadedCards}
         {#if viewMode === 'grid'}
           <CardGrid 
-            cards={data.cards} 
+            cards={loadedCards} 
             {searchQuery} 
             {filters}
+            {currentPage}
+            onPageChange={handlePageChange}
           />
         {:else}
           <CardTableView
-            cards={data.cards}
+            cards={loadedCards}
             {searchQuery}
             {filters}
+            {currentPage}
+            onPageChange={handlePageChange}
           />
         {/if}
-      </div>
+      {/if}
     </div>
-  {/if}
+  </div>
 </div>

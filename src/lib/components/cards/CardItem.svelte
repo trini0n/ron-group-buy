@@ -131,12 +131,15 @@
 
     <!-- Card Info -->
     <CardUI.Content class="flex flex-1 flex-col p-3">
-      <h3 class="line-clamp-2 text-sm font-medium leading-tight">
-        {selectedCard.card_name}
-      </h3>
-      <p class="mt-1 text-xs text-muted-foreground">
-        {cardIdentifier}
-      </p>
+      <!-- Fixed height section for name and identifier -->
+      <div class="min-h-[3.5rem]">
+        <h3 class="line-clamp-2 text-sm font-medium leading-tight">
+          {selectedCard.card_name}
+        </h3>
+        <p class="mt-1 text-xs text-muted-foreground">
+          {cardIdentifier}
+        </p>
+      </div>
       
       <!-- Finish Segment Control or Single Badge -->
       {#if finishVariants.length > 1}

@@ -9,6 +9,8 @@
   import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
+  import { browser } from '$app/environment';
+  import { untrack } from 'svelte';
 
   interface Filters {
     setCodes: string[];
@@ -28,14 +30,39 @@
     cards: Card[];
     searchQuery: string;
     filters: Filters;
+    currentPage?: number;
+    onPageChange?: (page: number) => void;
   }
 
-  let { cards, searchQuery, filters }: Props = $props();
+  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange }: Props = $props();
 
-  // Sorting state
+  // Sorting state with session storage persistence and default
   type SortKey = 'set_code' | 'collector_number' | 'card_name' | 'mana_cost' | 'type_line' | 'language' | 'card_type';
-  let sortKey = $state<SortKey | null>(null);
-  let sortDirection = $state<'asc' | 'desc'>('asc');
+  
+  // Load from session storage or default to card_name ascending
+  function loadSortState(): { key: SortKey; dir: 'asc' | 'desc' } {
+    if (browser) {
+      const saved = sessionStorage.getItem('tableViewSort');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return { key: parsed.key || 'card_name', dir: parsed.dir || 'asc' };
+        } catch { /* fall through to default */ }
+      }
+    }
+    return { key: 'card_name', dir: 'asc' };
+  }
+  
+  const initialSort = loadSortState();
+  let sortKey = $state<SortKey>(initialSort.key);
+  let sortDirection = $state<'asc' | 'desc'>(initialSort.dir);
+  
+  // Persist sort state to session storage
+  $effect(() => {
+    if (browser) {
+      sessionStorage.setItem('tableViewSort', JSON.stringify({ key: sortKey, dir: sortDirection }));
+    }
+  });
 
   // Selection state
   let selectedSerials = $state<Set<string>>(new Set());
@@ -62,7 +89,6 @@
 
   // Pagination
   const CARDS_PER_PAGE = 50;
-  let currentPage = $state(1);
 
   // Get frame type label
   function getFrameType(card: Card): string {
@@ -82,49 +108,45 @@
     return words.join(' ') || '-';
   }
 
-  // Filter cards (same logic as CardGrid)
-  const filteredCards = $derived.by(() => {
-    return cards.filter((card) => {
+  // Filter cards (pure function)
+  function filterCards(allCards: Card[], query: string, f: Filters): Card[] {
+    return allCards.filter((card) => {
       // Search query filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const nameMatch = card.card_name.toLowerCase().includes(query);
-        const setMatch = card.set_name?.toLowerCase().includes(query);
-        const typeMatch = card.type_line?.toLowerCase().includes(query);
+      if (query) {
+        const q = query.toLowerCase();
+        const nameMatch = card.card_name.toLowerCase().includes(q);
+        const setMatch = card.set_name?.toLowerCase().includes(q);
+        const typeMatch = card.type_line?.toLowerCase().includes(q);
         if (!nameMatch && !setMatch && !typeMatch) return false;
       }
 
       // Set filter (case-insensitive, multi-select - OR logic)
-      if (filters.setCodes.length > 0) {
+      if (f.setCodes.length > 0) {
         const cardSetCode = card.set_code?.toLowerCase() || '';
-        if (!filters.setCodes.includes(cardSetCode)) {
+        if (!f.setCodes.includes(cardSetCode)) {
           return false;
         }
       }
 
       // Color identity filter
-      if (filters.colorIdentity.length > 0) {
+      if (f.colorIdentity.length > 0) {
         const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
-        if (filters.colorIdentityStrict) {
-          // Strict mode: card must only have colors from the selected set (subset match)
-          // e.g., if B,G,R selected, show cards with B, G, R, BG, BR, GR, BGR, or colorless
-          const hasDisallowedColor = cardColors.some((c) => !filters.colorIdentity.includes(c));
+        if (f.colorIdentityStrict) {
+          const hasDisallowedColor = cardColors.some((c) => !f.colorIdentity.includes(c));
           if (hasDisallowedColor) return false;
         } else {
-          // Non-strict: card has at least one of the selected colors
-          const hasMatchingColor = filters.colorIdentity.some((c) => cardColors.includes(c));
+          const hasMatchingColor = f.colorIdentity.some((c) => cardColors.includes(c));
           if (!hasMatchingColor) return false;
         }
       }
 
       // Finish filter (card_type column)
-      if (filters.priceCategories.length < 2) {
-        // Map filter values to actual card_type values
+      if (f.priceCategories.length < 2) {
         const allowedTypes: string[] = [];
-        if (filters.priceCategories.includes('Non-Foil')) {
+        if (f.priceCategories.includes('Non-Foil')) {
           allowedTypes.push('Normal', 'Holo');
         }
-        if (filters.priceCategories.includes('Foil')) {
+        if (f.priceCategories.includes('Foil')) {
           allowedTypes.push('Foil');
         }
         if (!allowedTypes.includes(card.card_type)) {
@@ -133,20 +155,20 @@
       }
 
       // Card type filter (type line)
-      if (filters.cardTypes.length > 0) {
+      if (f.cardTypes.length > 0) {
         if (!card.type_line) return false;
         const typeLine = card.type_line.toLowerCase();
         const mainTypes = typeLine.split('—')[0].trim();
         const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
-        const hasMatchingType = filters.cardTypes.some((selectedType) =>
+        const hasMatchingType = f.cardTypes.some((selectedType) =>
           cardTypeWords.includes(selectedType.toLowerCase())
         );
         if (!hasMatchingType) return false;
       }
 
       // Frame type filter
-      if (filters.frameTypes.length > 0) {
-        const matchesFrameType = filters.frameTypes.some((frameType) => {
+      if (f.frameTypes.length > 0) {
+        const matchesFrameType = f.frameTypes.some((frameType) => {
           switch (frameType) {
             case 'retro': return card.is_retro === true;
             case 'extended': return card.is_extended === true;
@@ -159,24 +181,22 @@
       }
 
       // In stock filter
-      if (filters.inStockOnly && !card.is_in_stock) return false;
+      if (f.inStockOnly && !card.is_in_stock) return false;
 
       // New cards filter
-      if (filters.isNew && !card.is_new) return false;
+      if (f.isNew && !card.is_new) return false;
 
       return true;
     });
-  });
+  }
 
-  // Sort cards
-  const sortedCards = $derived.by(() => {
-    if (!sortKey) return filteredCards;
-    
-    return [...filteredCards].sort((a, b) => {
+  // Sort cards (pure function)
+  function sortCards(cardsToSort: Card[], key: SortKey, direction: 'asc' | 'desc'): Card[] {
+    return [...cardsToSort].sort((a, b) => {
       let aVal: string | number | null = null;
       let bVal: string | number | null = null;
 
-      switch (sortKey) {
+      switch (key) {
         case 'set_code':
           aVal = a.set_code ?? '';
           bVal = b.set_code ?? '';
@@ -209,12 +229,60 @@
       }
 
       if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+        return direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
 
       const comparison = String(aVal).localeCompare(String(bVal));
-      return sortDirection === 'asc' ? comparison : -comparison;
+      return direction === 'asc' ? comparison : -comparison;
     });
+  }
+
+  // State for deferred sorted cards
+  let sortedCards = $state<Card[]>([]);
+  let pendingFilterUpdate = false;
+
+  // Deferred filter and sort - uses requestAnimationFrame to let UI paint first
+  $effect(() => {
+    // Read dependencies to establish tracking
+    const currentCards = cards;
+    const currentQuery = searchQuery;
+    const currentKey = sortKey;
+    const currentDir = sortDirection;
+    // Create a snapshot of filters to avoid tracking nested changes
+    const currentFilters = {
+      setCodes: [...filters.setCodes],
+      colorIdentity: [...filters.colorIdentity],
+      colorIdentityStrict: filters.colorIdentityStrict,
+      priceCategories: [...filters.priceCategories],
+      cardTypes: [...filters.cardTypes],
+      frameTypes: [...filters.frameTypes],
+      inStockOnly: filters.inStockOnly,
+      isNew: filters.isNew
+    };
+    
+    // Skip if already pending
+    if (pendingFilterUpdate) return;
+    pendingFilterUpdate = true;
+    
+    // Use requestAnimationFrame to defer filtering after browser paint
+    requestAnimationFrame(() => {
+      // Use untrack to avoid reading state during update
+      untrack(() => {
+        const filtered = filterCards(currentCards, currentQuery, currentFilters);
+        sortedCards = sortCards(filtered, currentKey, currentDir);
+        pendingFilterUpdate = false;
+      });
+    });
+  });
+
+  // Initial synchronous load for first render
+  $effect(() => {
+    if (sortedCards.length === 0 && cards.length > 0) {
+      untrack(() => {
+        const filtered = filterCards(cards, searchQuery, filters);
+        sortedCards = sortCards(filtered, sortKey, sortDirection);
+      });
+    }
   });
 
   // Pagination
@@ -226,11 +294,20 @@
     return sortedCards.slice(start, end);
   });
 
-  // Reset page when filters change
+  // Internal page state synced with prop
+  let internalPage = $state(1);
+  
+  $effect(() => {
+    internalPage = propPage;
+  });
+  
+  // Use internal page bounded by total pages
+  const currentPage = $derived(Math.min(internalPage, Math.max(1, totalPages)));
+
+  // Reset selection when filters change (but page is controlled externally)
   $effect(() => {
     void filters;
     void searchQuery;
-    currentPage = 1;
     selectedSerials = new Set();
   });
 
@@ -297,7 +374,9 @@
   }
 
   function goToPage(page: number) {
-    currentPage = Math.max(1, Math.min(page, totalPages));
+    const newPage = Math.max(1, Math.min(page, totalPages));
+    internalPage = newPage;
+    onPageChange?.(newPage);
   }
 
   // Sort header component
