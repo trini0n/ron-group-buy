@@ -93,6 +93,16 @@
 
   const canDisconnect = $derived(authMethods.total > 1);
 
+  // Password dialog
+  let isPasswordDialogOpen = $state(false);
+  let passwordMode = $state<'add' | 'change'>('add');
+  let passwordForm = $state({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  let isSavingPassword = $state(false);
+
   function getInitials(name: string | null, email: string): string {
     if (name) {
       return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -244,6 +254,106 @@
       toast.error('Failed to update default address');
     }
   }
+
+  // OAuth Management
+  async function connectOAuth(provider: 'google' | 'discord') {
+    try {
+      const response = await fetch(`/api/profile/auth/${provider}`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const { url } = await response.json();
+        // Redirect to OAuth provider
+        window.location.href = url;
+      } else {
+        const error = await response.json();
+        toast.error(error.message || `Failed to connect ${provider}`);
+      }
+    } catch (err) {
+      toast.error(`Failed to connect ${provider}`);
+    }
+  }
+
+  async function disconnectOAuth(provider: 'google' | 'discord') {
+    if (!canDisconnect) {
+      toast.error('Cannot remove last authentication method');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to disconnect your ${provider} account?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/profile/auth/${provider}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        toast.success(`${provider} account disconnected`);
+        invalidateAll();
+      } else {
+        const error = await response.json();
+        toast.error(error.message || `Failed to disconnect ${provider}`);
+      }
+    } catch (err) {
+      toast.error(`Failed to disconnect ${provider}`);
+    }
+  }
+
+  // Password Management
+  function openPasswordDialog(mode: 'add' | 'change') {
+    passwordMode = mode;
+    passwordForm = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    };
+    isPasswordDialogOpen = true;
+  }
+
+  async function savePassword() {
+    // Validate passwords match
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    // Validate password strength
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+
+    isSavingPassword = true;
+    try {
+      const endpoint = '/api/profile/password';
+      const method = passwordMode === 'add' ? 'POST' : 'PATCH';
+      const body = passwordMode === 'add' 
+        ? { password: passwordForm.newPassword }
+        : { currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword };
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        toast.success(passwordMode === 'add' ? 'Password added' : 'Password changed');
+        isPasswordDialogOpen = false;
+        invalidateAll();
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Failed to save password');
+      }
+    } catch (err) {
+      toast.error('Failed to save password');
+    } finally {
+      isSavingPassword = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -382,9 +492,24 @@
                     </p>
                   </div>
                 </div>
-                <Badge variant={authMethods.hasGoogle ? 'default' : 'outline'}>
-                  {authMethods.hasGoogle ? 'Connected' : 'Available'}
-                </Badge>
+                {#if authMethods.hasGoogle}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!canDisconnect}
+                    onclick={() => disconnectOAuth('google')}
+                  >
+                    Disconnect
+                  </Button>
+                {:else}
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onclick={() => connectOAuth('google')}
+                  >
+                    Connect
+                  </Button>
+                {/if}
               </div>
 
               <!-- Discord Account -->
@@ -402,16 +527,26 @@
                     </p>
                   </div>
                 </div>
-                <Badge variant={authMethods.hasDiscord ? 'default' : 'outline'}>
-                  {authMethods.hasDiscord ? 'Connected' : 'Available'}
-                </Badge>
+                {#if authMethods.hasDiscord}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    disabled={!canDisconnect}
+                    onclick={() => disconnectOAuth('discord')}
+                  >
+                    Disconnect
+                  </Button>
+                {:else}
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onclick={() => connectOAuth('discord')}
+                  >
+                    Connect
+                  </Button>
+                {/if}
               </div>
             </div>
-            {#if !canDisconnect}
-              <p class="mt-2 text-xs text-muted-foreground">
-                <strong>Note:</strong> OAuth connect/disconnect coming soon. You need at least one login method.
-              </p>
-            {/if}
           </div>
 
           <Separator />
@@ -428,13 +563,17 @@
                   <div>
                     <p class="text-sm font-medium">Password Login</p>
                     <p class="text-xs text-muted-foreground">
-                      {authMethods.hasPassword ? 'Password is set' : 'No password set'}
+                      {authMethods.hasPassword ? 'Password is set  ' : 'No password set'}
                     </p>
                   </div>
                 </div>
-                <Badge variant={authMethods.hasPassword ? 'default' : 'outline'}>
-                  {authMethods.hasPassword ? 'Enabled' : 'Disabled'}
-                </Badge>
+                <Button 
+                  variant={authMethods.hasPassword ? 'outline' : 'default'}
+                  size="sm"
+                  onclick={() => openPasswordDialog(authMethods.hasPassword ? 'change' : 'add')}
+                >
+                  {authMethods.hasPassword ? 'Change' : 'Add'} Password
+                </Button>
               </div>
             </div>
             <p class="mt-2 text-xs text-muted-foreground">
@@ -610,6 +749,78 @@
           {:else}
             <Save class="mr-2 h-4 w-4" />
             Save Address
+          {/if}
+        </Button>
+      </Dialog.Footer>
+    </form>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Password Dialog -->
+<Dialog.Root bind:open={isPasswordDialogOpen}>
+  <Dialog.Content class="max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>{passwordMode === 'add' ? 'Add' : 'Change'} Password</Dialog.Title>
+      <Dialog.Description>
+        {passwordMode === 'add' 
+          ? 'Add a password to enable email/password login.'
+          : 'Change your current password. You will stay logged in.'}
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <form onsubmit={(e) => { e.preventDefault(); savePassword(); }}>
+      <div class="space-y-4 py-4">
+        {#if passwordMode === 'change'}
+          <div class="space-y-2">
+            <Label for="current_password">Current Password</Label>
+            <Input 
+              id="current_password" 
+              type="password"
+              bind:value={passwordForm.currentPassword}
+              required
+              autocomplete="current-password"
+            />
+          </div>
+        {/if}
+        
+        <div class="space-y-2">
+          <Label for="new_password">New Password</Label>
+          <Input 
+            id="new_password" 
+            type="password"
+            bind:value={passwordForm.newPassword}
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+          <p class="text-xs text-muted-foreground">
+            Must be at least 8 characters
+          </p>
+        </div>
+        
+        <div class="space-y-2">
+          <Label for="confirm_password">Confirm New Password</Label>
+          <Input 
+            id="confirm_password" 
+            type="password"
+            bind:value={passwordForm.confirmPassword}
+            required
+            minlength="8"
+            autocomplete="new-password"
+          />
+        </div>
+      </div>
+
+      <Dialog.Footer>
+        <Button type="button" variant="outline" onclick={() => isPasswordDialogOpen = false}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSavingPassword}>
+          {#if isSavingPassword}
+            Saving...
+          {:else}
+            <Save class="mr-2 h-4 w-4" />
+            {passwordMode === 'add' ? 'Add' : 'Change'} Password
           {/if}
         </Button>
       </Dialog.Footer>

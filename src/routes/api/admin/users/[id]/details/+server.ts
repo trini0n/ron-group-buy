@@ -29,6 +29,29 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     throw error(404, 'User not found')
   }
 
+  // Fetch auth identities from Supabase Auth
+  let authMethods = {
+    hasGoogle: false,
+    hasDiscord: false,
+    hasPassword: false
+  }
+
+  try {
+    const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(params.id)
+    
+    if (!authError && authData?.user?.identities) {
+      const identities = authData.user.identities
+      authMethods = {
+        hasGoogle: identities.some((i: any) => i.provider === 'google'),
+        hasDiscord: identities.some((i: any) => i.provider === 'discord'),
+        hasPassword: identities.some((i: any) => i.provider === 'email')
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching auth identities:', err)
+    // Continue without auth methods if there's an error
+  }
+
   // Fetch user's orders
   const { data: orders } = await adminClient
     .from('orders')
@@ -65,6 +88,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   return json({
     user,
     orders: ordersWithTotals,
-    addresses: addresses || []
+    addresses: addresses || [],
+    authMethods
   })
 }

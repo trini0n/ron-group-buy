@@ -14,7 +14,7 @@
   import { ORDER_STATUS_CONFIG, type OrderStatus } from '$lib/admin-shared';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
-  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag, Shield, Crown, Eye, MapPin, Mail, MessageSquare, Save, Loader2 } from 'lucide-svelte';
+  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag, Shield, Crown, Eye, MapPin, Mail, MessageSquare, Save, Loader2, Key } from 'lucide-svelte';
 
   let { data } = $props();
 
@@ -27,12 +27,14 @@
   let userOrders = $state<any[]>([]);
   let userAddresses = $state<any[]>([]);
   let loadingUserDetails = $state(false);
+  let userAuthMethods = $state({ hasGoogle: false, hasDiscord: false, hasPassword: false });
   
   // Editable fields for selected user
   let adminNotes = $state('');
   let isBlocked = $state(false);
   let blockedReason = $state('');
   let isSaving = $state(false);
+  let isResettingPassword = $state(false);
   
   // Initialize searchInput when data changes
   $effect(() => {
@@ -118,11 +120,12 @@
         const details = await response.json();
         userOrders = details.orders || [];
         userAddresses = details.addresses || [];
+        userAuthMethods = details.authMethods || { hasGoogle: false, hasDiscord: false, hasPassword: false };
         // Update editable fields from fresh data
         adminNotes = details.user.admin_notes || '';
         isBlocked = details.user.is_blocked || false;
         blockedReason = details.user.blocked_reason || '';
-        selectedUser = { ...user, ...details.user };
+        selectedUser = { ...user, ...details.user, authMethods: details.authMethods };
       } else {
         toast.error('Failed to load user details');
       }
@@ -178,6 +181,32 @@
       minute: '2-digit'
     });
   }
+
+  async function resetUserPassword() {
+    if (!selectedUser) return;
+    
+    if (!confirm(`Send password reset email to ${selectedUser.email}?`)) {
+      return;
+    }
+
+    isResettingPassword = true;
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/reset-password`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        toast.success('Password reset email sent');
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to send password reset email');
+      }
+    } catch (err) {
+      toast.error('Failed to send password reset email');
+    } finally {
+      isResettingPassword = false;
+    }
+  }
 </script>
 
 <div class="p-8">
@@ -217,7 +246,7 @@
       <Table.Header>
         <Table.Row>
           <Table.Head>User</Table.Head>
-          <Table.Head>Discord</Table.Head>
+          <Table.Head>Auth Methods</Table.Head>
           <Table.Head class="text-right">Orders</Table.Head>
           <Table.Head>Status</Table.Head>
           <Table.Head>Admin</Table.Head>
@@ -241,11 +270,47 @@
               </div>
             </Table.Cell>
             <Table.Cell>
-              {#if user.discord_username}
-                <span class="text-sm">{user.discord_username}</span>
-              {:else}
-                <span class="text-sm text-muted-foreground">—</span>
-              {/if}
+              <div class="flex items-center gap-1 flex-wrap">
+                {#if user.google_id}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      <Badge variant="outline" class="text-xs">
+                        <svg class="h-3 w-3 mr-1" viewBox="0 0 24 24">
+                          <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Google
+                      </Badge>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>
+                      <p>Google OAuth</p>
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
+                {#if user.discord_username}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      <Badge variant="outline" class="text-xs">
+                        <svg class="h-3 w-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+                        </svg>
+                        Discord
+                      </Badge>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>
+                      <p>{user.discord_username}</p>
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
+                {#if !user.google_id && !user.discord_username}
+                  <Badge variant="outline" class="text-xs">
+                    <Key class="h-3 w-3 mr-1" />
+                    Password
+                  </Badge>
+                {/if}
+              </div>
             </Table.Cell>
             <Table.Cell class="text-right">
               <div class="flex items-center justify-end gap-1">
@@ -385,19 +450,67 @@
                 <Card.Title class="text-base">Account Information</Card.Title>
               </Card.Header>
               <Card.Content>
-                <dl class="grid gap-3 sm:grid-cols-2 text-sm">
+                <dl class="grid gap-3 text-sm">
                   <div>
                     <dt class="text-muted-foreground">Email</dt>
                     <dd class="font-medium">{selectedUser.email}</dd>
                   </div>
+                  
                   <div>
-                    <dt class="text-muted-foreground">Discord</dt>
-                    <dd class="font-medium">{selectedUser.discord_username || '—'}</dd>
+                    <dt class="text-muted-foreground mb-2">Authentication Methods</dt>
+                    <dd class="space-y-2">
+                      {#if userAuthMethods.hasGoogle}
+                        <div class="flex items-center gap-2 text-sm">
+                          <Badge variant="outline" class="w-fit">
+                            <svg class="h-3 w-3 mr-1" viewBox="0 0 24 24">
+                              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            </svg>
+                            Google OAuth
+                          </Badge>
+                          {#if selectedUser.google_id}
+                            <span class="text-xs text-muted-foreground font-mono">{selectedUser.google_id}</span>
+                          {/if}
+                        </div>
+                      {/if}
+                      
+                      {#if userAuthMethods.hasDiscord}
+                        <div class="space-y-1">
+                          <div class="flex items-center gap-2">
+                            <Badge variant="outline" class="w-fit">
+                              <svg class="h-3 w-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+                              </svg>
+                              Discord OAuth
+                            </Badge>
+                            {#if selectedUser.discord_username}
+                              <span class="text-xs">{selectedUser.discord_username}</span>
+                            {/if}
+                          </div>
+                          {#if selectedUser.discord_id}
+                            <div class="text-xs text-muted-foreground font-mono ml-20">{selectedUser.discord_id}</div>
+                          {/if}
+                        </div>
+                      {/if}
+                      
+                      {#if userAuthMethods.hasPassword}
+                        <div class="flex items-center gap-2">
+                          <Badge variant="outline" class="w-fit">
+                            <Key class="h-3 w-3 mr-1" />
+                            Email/Password
+                          </Badge>
+                          <span class="text-xs text-muted-foreground">Password authentication enabled</span>
+                        </div>
+                      {/if}
+                      
+                      {#if !userAuthMethods.hasGoogle && !userAuthMethods.hasDiscord && !userAuthMethods.hasPassword}
+                        <p class="text-xs text-muted-foreground">No authentication methods found</p>
+                      {/if}
+                    </dd>
                   </div>
-                  <div>
-                    <dt class="text-muted-foreground">Discord ID</dt>
-                    <dd class="font-mono text-xs">{selectedUser.discord_id || '—'}</dd>
-                  </div>
+
                   <div>
                     <dt class="text-muted-foreground">Joined</dt>
                     <dd class="font-medium">{formatDateFull(selectedUser.created_at)}</dd>
@@ -405,6 +518,46 @@
                 </dl>
               </Card.Content>
             </Card.Root>
+
+            <!-- Password Management (for email/password users) -->
+            {#if userAuthMethods.hasPassword}
+              <Card.Root>
+                <Card.Header class="pb-3">
+                  <Card.Title class="text-base flex items-center gap-2">
+                    <Key class="h-4 w-4" />
+                    Password Management
+                  </Card.Title>
+                  <Card.Description>
+                    Admin controls for user password authentication
+                  </Card.Description>
+                </Card.Header>
+                <Card.Content>
+                  <div class="space-y-3">
+                    <div>
+                      <p class="text-sm font-medium mb-1">Password Status</p>
+                      <p class="text-xs text-muted-foreground">User has password authentication enabled</p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onclick={resetUserPassword}
+                      disabled={isResettingPassword}
+                    >
+                      {#if isResettingPassword}
+                        <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      {:else}
+                        <Mail class="mr-2 h-4 w-4" />
+                        Send Password Reset Email
+                      {/if}
+                    </Button>
+                    <p class="text-xs text-muted-foreground">
+                      Sends a password reset link to <strong>{selectedUser.email}</strong>
+                    </p>
+                  </div>
+                </Card.Content>
+              </Card.Root>
+            {/if}
 
             <!-- Recent Orders -->
             <Card.Root>

@@ -31,9 +31,29 @@
   <title>Admin - Group Buy</title>
 </svelte:head>
 
-<div class="h-[calc(100vh-4rem)]" style="--sidebar-height: calc(100vh - 4rem);">
-  <Sidebar.Provider class="!min-h-[var(--sidebar-height)]">
-    <Sidebar.Root collapsible="icon" class="z-40 !h-[var(--sidebar-height)] top-16">
+<div class="h-screen" style="--sidebar-height: 100vh;">
+  <Sidebar.Provider class="!min-h-screen">
+    <Sidebar.Root collapsible="icon" class="z-40 !h-screen !top-0">
+      <Sidebar.Header>
+        <div class="h-12 flex items-center border-b px-2 w-full">
+          <Sidebar.Menu class="w-full">
+            <Sidebar.MenuItem>
+              <Sidebar.MenuButton isActive={$page.url.pathname === '/'}>
+                {#snippet child({ props })}
+                  <a href="/" {...props}>
+                    <img 
+                      src="https://cdn.discordapp.com/icons/1210417854940446720/345fdba1b79e7462e959124bb8cbe784.webp?size=80&quality=lossless" 
+                      alt="Home"
+                      class="h-4 w-4 rounded"
+                    />
+                    <span>Home</span>
+                  </a>
+                {/snippet}
+              </Sidebar.MenuButton>
+            </Sidebar.MenuItem>
+          </Sidebar.Menu>
+        </div>
+      </Sidebar.Header>
       <Sidebar.Content>
         <Sidebar.Group>
           <Sidebar.GroupContent>
@@ -72,12 +92,6 @@
     <Sidebar.Inset>
       <header class="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <Sidebar.Trigger class="-ml-1" />
-        <a href="/" class="text-sm text-muted-foreground hover:text-foreground transition-colors" title="Go to homepage">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-        </a>
         <span class="text-sm text-muted-foreground">Admin</span>
       </header>
       <main class="flex-1 overflow-auto">
