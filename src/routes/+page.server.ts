@@ -72,6 +72,7 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
     }
   })
 
+  // Sort alphabetically by set name for better searchability in the dropdown
   const sets = Array.from(setsMap.entries())
     .map(([code, name]) => ({ code, name }))
     .sort((a, b) => a.name.localeCompare(b.name))

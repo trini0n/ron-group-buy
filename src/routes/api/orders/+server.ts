@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items, action } = body
+  const { addressId, newAddress, shippingType, items, action, paypalEmail } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
@@ -146,6 +146,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     shippingAddress = savedAddress
   } else {
     throw error(400, 'No address provided')
+  }
+
+  // Update user's PayPal email if provided
+  if (paypalEmail) {
+    await locals.supabase
+      .from('users')
+      .update({ paypal_email: paypalEmail })
+      .eq('id', locals.user.id)
   }
 
   // Create order with group_buy_id

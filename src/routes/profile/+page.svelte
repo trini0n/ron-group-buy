@@ -21,7 +21,9 @@
     Plus,
     Save,
     Check,
-    ExternalLink
+    ExternalLink,
+    Key,
+    Shield
   } from 'lucide-svelte';
 
   interface Address {
@@ -40,6 +42,7 @@
 
   // Profile state
   let name = $state('');
+  let paypalEmail = $state('');
   let isSavingProfile = $state(false);
 
   // Notification preferences
@@ -54,6 +57,7 @@
   // Initialize state from data
   $effect(() => {
     name = data.profile?.name || '';
+    paypalEmail = data.profile?.paypal_email || '';
     emailOrderConfirmed = data.notifications?.email_order_confirmed ?? true;
     emailInvoiceSent = data.notifications?.email_invoice_sent ?? true;
     emailPaymentReceived = data.notifications?.email_payment_received ?? true;
@@ -77,6 +81,18 @@
   });
   let isSavingAddress = $state(false);
 
+  // Auth methods validation - prevent account lockout
+  const authMethods = $derived({
+    hasGoogle: !!data.profile?.google_id,
+    hasDiscord: !!data.profile?.discord_id,
+    hasPassword: data.hasPassword ?? false,
+    total: (data.profile?.google_id ? 1 : 0) + 
+           (data.profile?.discord_id ? 1 : 0) + 
+           (data.hasPassword ? 1 : 0)
+  });
+
+  const canDisconnect = $derived(authMethods.total > 1);
+
   function getInitials(name: string | null, email: string): string {
     if (name) {
       return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -90,7 +106,7 @@
       const response = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, paypal_email: paypalEmail })
       });
 
       if (response.ok) {
@@ -307,6 +323,18 @@
               Email cannot be changed. Sign in with a different account to use a different email.
             </p>
           </div>
+          <div class="space-y-2">
+            <Label for="paypal-email">PayPal Email Address</Label>
+            <Input 
+              id="paypal-email" 
+              type="email"
+              bind:value={paypalEmail}
+              placeholder="your-paypal@example.com"
+            />
+            <p class="text-xs text-muted-foreground">
+              Used for PayPal invoices. Leave blank if same as account email.
+            </p>
+          </div>
         </Card.Content>
         <Card.Footer>
           <Button onclick={saveProfile} disabled={isSavingProfile}>
@@ -318,6 +346,116 @@
             {/if}
           </Button>
         </Card.Footer>
+      </Card.Root>
+
+      <!-- Account Security -->
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <Shield class="h-5 w-5" />
+            Account Security
+          </Card.Title>
+          <Card.Description>
+            Manage connected accounts and login methods
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-6">
+          <!-- Connected Accounts -->
+          <div>
+            <h3 class="mb-3 text-sm font-medium">Connected Accounts</h3>
+            <div class="space-y-2">
+              <!-- Google Account -->
+              <div class="flex items-center justify-between rounded-lg border p-3">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium">Google</p>
+                    <p class="text-xs text-muted-foreground">
+                      {authMethods.hasGoogle ? 'Connected' : 'Not connected'}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={authMethods.hasGoogle ? 'default' : 'outline'}>
+                  {authMethods.hasGoogle ? 'Connected' : 'Available'}
+                </Badge>
+              </div>
+
+              <!-- Discord Account -->
+              <div class="flex items-center justify-between rounded-lg border p-3">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium">Discord</p>
+                    <p class="text-xs text-muted-foreground">
+                      {authMethods.hasDiscord ? data.profile?.discord_username || 'Connected' : 'Not connected'}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={authMethods.hasDiscord ? 'default' : 'outline'}>
+                  {authMethods.hasDiscord ? 'Connected' : 'Available'}
+                </Badge>
+              </div>
+            </div>
+            {#if !canDisconnect}
+              <p class="mt-2 text-xs text-muted-foreground">
+                <strong>Note:</strong> OAuth connect/disconnect coming soon. You need at least one login method.
+              </p>
+            {/if}
+          </div>
+
+          <Separator />
+
+          <!-- Password Section -->
+          <div>
+            <h3 class="mb-3 text-sm font-medium">Password</h3>
+            <div class="rounded-lg border p-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                    <Key class="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium">Password Login</p>
+                    <p class="text-xs text-muted-foreground">
+                      {authMethods.hasPassword ? 'Password is set' : 'No password set'}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={authMethods.hasPassword ? 'default' : 'outline'}>
+                  {authMethods.hasPassword ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-muted-foreground">
+              <strong>Note:</strong> Password management coming soon.
+            </p>
+          </div>
+
+          <Separator />
+
+          <!-- Account Status -->
+          <div class="rounded-lg bg-muted p-3">
+            <p class="text-sm font-medium">Login Methods: {authMethods.total}</p>
+            <p class="text-xs text-muted-foreground mt-1">
+              {#if authMethods.total === 1}
+                You have 1 login method. Add another before disconnecting to prevent account lockout.
+              {:else}
+                You have {authMethods.total} login methods. You can safely disconnect one if needed.
+              {/if}
+            </p>
+          </div>
+        </Card.Content>
       </Card.Root>
 
       <!-- Saved Addresses -->

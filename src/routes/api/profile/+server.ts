@@ -7,11 +7,17 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
     throw error(401, 'Unauthorized')
   }
 
-  const { name } = await request.json()
+  const { name, paypal_email } = await request.json()
+
+  const updateData: { name?: string; paypal_email?: string | null; updated_at: string } = {
+    updated_at: new Date().toISOString()
+  }
+  if (name !== undefined) updateData.name = name
+  if (paypal_email !== undefined) updateData.paypal_email = paypal_email || null
 
   const { error: updateError } = await locals.supabase
     .from('users')
-    .update({ name, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', locals.user.id)
 
   if (updateError) {

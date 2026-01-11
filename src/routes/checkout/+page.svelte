@@ -55,6 +55,14 @@
     country: 'US'
   });
 
+  // PayPal email
+  let paypalEmail = $state('');
+  
+  // Initialize PayPal email from user data
+  $effect(() => {
+    paypalEmail = data.userPaypalEmail || '';
+  });
+
   // Determine shipping location and calculate costs
   let selectedCountry = $derived.by(() => {
     if (useNewAddress) {
@@ -362,6 +370,23 @@
               <p class="mt-2 font-semibold">{formatPrice(rates.express)}</p>
             </div>
           </label>
+        </div>
+      </div>
+
+      <!-- PayPal Email -->
+      <div class="lg:col-span-2">
+        <h2 class="mb-4 text-xl font-semibold">Payment Information</h2>
+        <div class="space-y-2">
+          <Label for="paypal-email">PayPal Email Address</Label>
+          <Input 
+            id="paypal-email" 
+            type="email"
+            placeholder="your-email@example.com"
+            bind:value={paypalEmail}
+          />
+          <p class="text-xs text-muted-foreground">
+            We'll send your PayPal invoice to this address. This will be saved to your profile for future orders.
+          </p>
         </div>
       </div>
 

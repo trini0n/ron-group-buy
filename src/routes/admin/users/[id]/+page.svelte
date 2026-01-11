@@ -134,8 +134,18 @@
               <dd class="font-medium">{user.discord_username || '—'}</dd>
             </div>
             <div>
-              <dt class="text-sm text-muted-foreground">Discord ID</dt>
-              <dd class="font-mono text-sm">{user.discord_id || '—'}</dd>
+              <dt class="text-sm text-muted-foreground">
+                {#if user.google_id}
+                  Google ID
+                {:else if user.discord_id}
+                  Discord ID
+                {:else}
+                  User ID
+                {/if}
+              </dt>
+              <dd class="font-mono text-sm">
+                {user.google_id || user.discord_id || user.id}
+              </dd>
             </div>
             <div>
               <dt class="text-sm text-muted-foreground">Joined</dt>

@@ -29,11 +29,16 @@ export const load: PageServerLoad = async ({ locals }) => {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', locals.user.id)
 
+  // Check if user has identities to determine auth methods
+  const { data: identitiesData } = await locals.supabase.auth.getUserIdentities()
+  const hasPassword = identitiesData?.identities?.some((i: any) => i.provider === 'email') ?? false
+
   return {
     profile,
     addresses: addresses || [],
     notifications,
     orderCount: orderCount || 0,
-    authUser: locals.user
+    authUser: locals.user,
+    hasPassword
   }
 }

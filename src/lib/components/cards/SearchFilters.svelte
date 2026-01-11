@@ -258,17 +258,14 @@
               <Command.Empty>No sets found.</Command.Empty>
               <Command.Group>
                 {#each filteredSets as set}
-                  <Command.Item
-                    value={set.code}
-                    onSelect={() => {
-                      toggleSetCode(set.code);
-                    }}
-                  >
-                    <Check
-                      class="mr-2 h-4 w-4 {filters.setCodes.includes(set.code.toLowerCase()) ? 'opacity-100' : 'opacity-0'}"
-                    />
-                    <span class="mr-2 text-xs text-muted-foreground uppercase">{set.code}</span>
-                    <span class="truncate">{set.name}</span>
+                  <Command.Item value={set.code} onSelect={() => toggleSetCode(set.code)}>
+                    <div class="flex w-full items-center">
+                      <Check
+                        class="mr-2 h-4 w-4 flex-shrink-0 {filters.setCodes.includes(set.code.toLowerCase()) ? 'opacity-100' : 'opacity-0'}"
+                      />
+                      <span class="mr-2 inline-block w-10 flex-shrink-0 text-right font-mono text-xs uppercase text-muted-foreground">{set.code}</span>
+                      <span class="min-w-0 flex-1 truncate">{set.name}</span>
+                    </div>
                   </Command.Item>
                 {/each}
               </Command.Group>

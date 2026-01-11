@@ -64,11 +64,19 @@ export const load: PageServerLoad = async ({ locals }) => {
     }
   }
 
+  // Get user's saved PayPal email
+  const { data: userData } = await locals.supabase
+    .from('users')
+    .select('paypal_email')
+    .eq('id', locals.user.id)
+    .single()
+
   return {
     addresses: addresses || [],
     groupBuyConfig,
     isEmailVerified,
     userEmail: locals.user.email,
+    userPaypalEmail: userData?.paypal_email || null,
     existingPendingOrder
   }
 }

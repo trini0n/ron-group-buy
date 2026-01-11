@@ -51,6 +51,19 @@
 
   // Track whether this is the initial render (skip first URL update)
   let isInitialized = $state(false);
+  
+  // Track previous filter state to detect actual filter changes (not page changes)
+  let prevFilters = $state({
+    setCodes: filters.setCodes.join(','),
+    colorIdentity: filters.colorIdentity.join(','),
+    colorIdentityStrict: filters.colorIdentityStrict,
+    priceCategories: filters.priceCategories.join(','),
+    cardTypes: filters.cardTypes.join(','),
+    frameTypes: filters.frameTypes.join(','),
+    inStockOnly: filters.inStockOnly,
+    isNew: filters.isNew,
+    viewMode: viewMode
+  });
 
   // Debounce timer for search input
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -113,27 +126,36 @@
 
   // Watch for filter changes (non-search) and update URL immediately
   $effect(() => {
-    // Track all filter values to trigger on changes
-    const _ = [
-      filters.setCodes.join(','),
-      filters.colorIdentity.join(','),
-      filters.colorIdentityStrict,
-      filters.priceCategories.join(','),
-      filters.cardTypes.join(','),
-      filters.frameTypes.join(','),
-      filters.inStockOnly,
-      filters.isNew,
-      viewMode
-    ];
+    // Create snapshot of current filter state
+    const current = {
+      setCodes: filters.setCodes.join(','),
+      colorIdentity: filters.colorIdentity.join(','),
+      colorIdentityStrict: filters.colorIdentityStrict,
+      priceCategories: filters.priceCategories.join(','),
+      cardTypes: filters.cardTypes.join(','),
+      frameTypes: filters.frameTypes.join(','),
+      inStockOnly: filters.inStockOnly,
+      isNew: filters.isNew,
+      viewMode: viewMode
+    };
     
     // Skip the initial render to avoid unnecessary URL update
     if (!isInitialized) {
       isInitialized = true;
+      prevFilters = current;
       return;
     }
     
-    // Reset to page 1 when filters change
-    currentPage = 1;
+    // Check if any actual filter changed (not just page number)
+    const filtersChanged = Object.keys(current).some(
+      key => current[key as keyof typeof current] !== prevFilters[key as keyof typeof prevFilters]
+    );
+    
+    // Only reset to page 1 when filters actually change
+    if (filtersChanged) {
+      currentPage = 1;
+      prevFilters = current;
+    }
     
     // Update URL synchronously
     updateUrl();
