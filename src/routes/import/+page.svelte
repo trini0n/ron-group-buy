@@ -409,30 +409,19 @@
       isParsing = true;
       totalCardsToSearch = data.cards.length;
       
-      // Batch cards for progress tracking (batches of 10)
-      const BATCH_SIZE = 10;
-      const batches: DeckCard[][] = [];
-      for (let i = 0; i < data.cards.length; i += BATCH_SIZE) {
-        batches.push(data.cards.slice(i, i + BATCH_SIZE));
-      }
-      
-      const allResults: SearchResult[] = [];
-      
-      for (const batch of batches) {
-        const searchResponse = await fetch('/api/import/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cards: batch })
-        });
+      // Single request for all cards (optimized batch search)
+      const searchResponse = await fetch('/api/import/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards: data.cards })
+      });
 
-        if (!searchResponse.ok) {
-          throw new Error('Failed to search for cards');
-        }
-
-        const batchResults: SearchResult[] = await searchResponse.json();
-        allResults.push(...batchResults);
-        cardsSearched = allResults.length;
+      if (!searchResponse.ok) {
+        throw new Error('Failed to search for cards');
       }
+
+      const allResults: SearchResult[] = await searchResponse.json();
+      cardsSearched = allResults.length;
       
       searchResults = allResults;
 
@@ -531,29 +520,19 @@
       isParsing = true;
       totalCardsToSearch = cards.length;
       
-      const BATCH_SIZE = 10;
-      const batches: DeckCard[][] = [];
-      for (let i = 0; i < cards.length; i += BATCH_SIZE) {
-        batches.push(cards.slice(i, i + BATCH_SIZE));
-      }
-      
-      const allResults: SearchResult[] = [];
-      
-      for (const batch of batches) {
-        const searchResponse = await fetch('/api/import/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cards: batch })
-        });
+      // Single request for all cards (optimized batch search)
+      const searchResponse = await fetch('/api/import/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards })
+      });
 
-        if (!searchResponse.ok) {
-          throw new Error('Failed to search for cards');
-        }
-
-        const batchResults: SearchResult[] = await searchResponse.json();
-        allResults.push(...batchResults);
-        cardsSearched = allResults.length;
+      if (!searchResponse.ok) {
+        throw new Error('Failed to search for cards');
       }
+
+      const allResults: SearchResult[] = await searchResponse.json();
+      cardsSearched = allResults.length;
       
       searchResults = allResults;
 
