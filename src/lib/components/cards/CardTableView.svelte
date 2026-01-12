@@ -111,13 +111,12 @@
   // Filter cards (pure function)
   function filterCards(allCards: Card[], query: string, f: Filters): Card[] {
     return allCards.filter((card) => {
-      // Search query filter
+      // Search query filter - matches card name and flavor name only
       if (query) {
         const q = query.toLowerCase();
         const nameMatch = card.card_name.toLowerCase().includes(q);
-        const setMatch = card.set_name?.toLowerCase().includes(q);
-        const typeMatch = card.type_line?.toLowerCase().includes(q);
-        if (!nameMatch && !setMatch && !typeMatch) return false;
+        const flavorMatch = card.flavor_name?.toLowerCase().includes(q);
+        if (!nameMatch && !flavorMatch) return false;
       }
 
       // Set filter (case-insensitive, multi-select - OR logic)
@@ -239,7 +238,9 @@
 
   // State for deferred sorted cards
   let sortedCards = $state<Card[]>([]);
-  let pendingFilterUpdate = false;
+  // Store the frame ID so we can cancel pending updates
+  let pendingFilterFrameId: number | null = null;
+  let initialLoadDone = false;
 
   // Deferred filter and sort - uses requestAnimationFrame to let UI paint first
   $effect(() => {
@@ -260,29 +261,30 @@
       isNew: filters.isNew
     };
     
-    // Skip if already pending
-    if (pendingFilterUpdate) return;
-    pendingFilterUpdate = true;
+    // Cancel any pending frame to prevent stacking updates
+    if (pendingFilterFrameId !== null) {
+      cancelAnimationFrame(pendingFilterFrameId);
+    }
+    
+    // For initial load with cards, do it synchronously to avoid flash
+    if (!initialLoadDone && currentCards.length > 0) {
+      initialLoadDone = true;
+      untrack(() => {
+        const filtered = filterCards(currentCards, currentQuery, currentFilters);
+        sortedCards = sortCards(filtered, currentKey, currentDir);
+      });
+      return;
+    }
     
     // Use requestAnimationFrame to defer filtering after browser paint
-    requestAnimationFrame(() => {
+    pendingFilterFrameId = requestAnimationFrame(() => {
+      pendingFilterFrameId = null;
       // Use untrack to avoid reading state during update
       untrack(() => {
         const filtered = filterCards(currentCards, currentQuery, currentFilters);
         sortedCards = sortCards(filtered, currentKey, currentDir);
-        pendingFilterUpdate = false;
       });
     });
-  });
-
-  // Initial synchronous load for first render
-  $effect(() => {
-    if (sortedCards.length === 0 && cards.length > 0) {
-      untrack(() => {
-        const filtered = filterCards(cards, searchQuery, filters);
-        sortedCards = sortCards(filtered, sortKey, sortDirection);
-      });
-    }
   });
 
   // Pagination
@@ -305,10 +307,13 @@
   const currentPage = $derived(Math.min(internalPage, Math.max(1, totalPages)));
 
   // Reset selection when filters change (but page is controlled externally)
+  // Use untrack to prevent cascading reactivity when clearing selection
   $effect(() => {
     void filters;
     void searchQuery;
-    selectedSerials = new Set();
+    untrack(() => {
+      selectedSerials = new Set();
+    });
   });
 
   // Toggle sort

@@ -40,7 +40,6 @@
   }
   
   let groupedCards = $state<CardGroup[]>([]);
-  let pendingUpdate = false;
   
   // Sync internal page with prop when it changes
   $effect(() => {
@@ -58,13 +57,12 @@
   function filterAndGroupCards(allCards: Card[], query: string, f: Filters): CardGroup[] {
     // Filter cards
     const filtered = allCards.filter((card) => {
-      // Search query filter
+      // Search query filter - matches card name and flavor name only
       if (query) {
         const q = query.toLowerCase();
         const nameMatch = card.card_name.toLowerCase().includes(q);
-        const setMatch = card.set_name?.toLowerCase().includes(q);
-        const typeMatch = card.type_line?.toLowerCase().includes(q);
-        if (!nameMatch && !setMatch && !typeMatch) return false;
+        const flavorMatch = card.flavor_name?.toLowerCase().includes(q);
+        if (!nameMatch && !flavorMatch) return false;
       }
 
       // Set filter
@@ -168,7 +166,12 @@
     });
   }
 
+
   // Deferred filter update - uses requestAnimationFrame to let UI paint first
+  // Store the frame ID so we can cancel pending updates
+  let pendingFrameId: number | null = null;
+  let initialLoadDone = false;
+  
   $effect(() => {
     // Read dependencies to establish tracking
     const currentCards = cards;
@@ -185,27 +188,28 @@
       isNew: filters.isNew
     };
     
-    // Skip if already pending
-    if (pendingUpdate) return;
-    pendingUpdate = true;
+    // Cancel any pending frame to prevent stacking updates
+    if (pendingFrameId !== null) {
+      cancelAnimationFrame(pendingFrameId);
+    }
+    
+    // For initial load with cards, do it synchronously to avoid flash
+    if (!initialLoadDone && currentCards.length > 0) {
+      initialLoadDone = true;
+      untrack(() => {
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters);
+      });
+      return;
+    }
     
     // Use requestAnimationFrame to defer filtering after browser paint
-    requestAnimationFrame(() => {
+    pendingFrameId = requestAnimationFrame(() => {
+      pendingFrameId = null;
       // Use untrack to avoid reading state during update
       untrack(() => {
         groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters);
-        pendingUpdate = false;
       });
     });
-  });
-
-  // Initial synchronous load for first render
-  $effect(() => {
-    if (groupedCards.length === 0 && cards.length > 0) {
-      untrack(() => {
-        groupedCards = filterAndGroupCards(cards, searchQuery, filters);
-      });
-    }
   });
 
   const totalPages = $derived(Math.ceil(groupedCards.length / CARDS_PER_PAGE));
