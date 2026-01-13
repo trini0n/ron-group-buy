@@ -145,6 +145,32 @@ export class NotificationService {
   }
 
   /**
+   * Gets the active group buy name for notifications
+   */
+  private async getActiveGroupBuyName(): Promise<string> {
+    const { data } = await this.supabase
+      .from('group_buy_config')
+      .select('name')
+      .eq('is_active', true)
+      .single();
+
+    if (!data?.name) {
+      // Fallback using current month/year
+      const now = new Date();
+      const month = now.toLocaleString('en-US', { month: 'long' });
+      const year = now.getFullYear();
+      return `Ron's ${month} ${year} Group Buy`;
+    }
+
+    // Transform config name like "January 2026 Group Buy" to "Ron's January 2026 Group Buy"
+    const name = data.name;
+    if (name.startsWith("Ron's")) {
+      return name;
+    }
+    return `Ron's ${name}`;
+  }
+
+  /**
    * Sends a notification to a user
    * Checks preferences and delivers via appropriate channels
    */
@@ -172,8 +198,15 @@ export class NotificationService {
       return { success: false, error: 'User has no Discord account linked' };
     }
 
+    // Get active group buy name and inject into variables
+    const groupBuyName = await this.getActiveGroupBuyName();
+    const enrichedVariables = {
+      ...variables,
+      group_buy_name: variables.group_buy_name || groupBuyName
+    };
+
     // Render the notification message
-    const message = await renderNotification(this.supabase, type, 'discord', variables);
+    const message = await renderNotification(this.supabase, type, 'discord', enrichedVariables);
 
     // Record notification as pending
     const notificationId = await this.recordNotification(payload, 'discord', 'pending');

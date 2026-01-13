@@ -16,6 +16,7 @@ export type NotificationStatus = 'pending' | 'sent' | 'failed';
  */
 export interface TemplateVariables {
   order_number: string;
+  group_buy_name?: string;
   status?: string;
   previous_status?: string;
   tracking_number?: string;
