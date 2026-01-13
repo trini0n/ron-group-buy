@@ -31,3 +31,4 @@ supabase/.temp
 
 # Type generation
 src/lib/server/database.types.ts
+coverage/
