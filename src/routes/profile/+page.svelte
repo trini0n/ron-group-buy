@@ -6,6 +6,7 @@
   import { Switch } from '$components/ui/switch';
   import * as Card from '$components/ui/card';
   import * as Dialog from '$components/ui/dialog';
+  import * as AlertDialog from '$components/ui/alert-dialog';
   import * as Avatar from '$components/ui/avatar';
   import { Separator } from '$components/ui/separator';
   import { invalidateAll, goto } from '$app/navigation';
@@ -102,6 +103,10 @@
     confirmPassword: ''
   });
   let isSavingPassword = $state(false);
+
+  // Disconnect confirmation dialog
+  let isDisconnectDialogOpen = $state(false);
+  let disconnectingProvider = $state<'google' | 'discord' | null>(null);
 
   function getInitials(name: string | null, email: string): string {
     if (name) {
@@ -268,22 +273,30 @@
         window.location.href = url;
       } else {
         const error = await response.json();
-        toast.error(error.message || `Failed to connect ${provider}`);
+        const providerName = provider === 'google' ? 'Google' : 'Discord';
+        toast.error(error.message || `Failed to connect ${providerName}`);
       }
     } catch (err) {
-      toast.error(`Failed to connect ${provider}`);
+      const providerName = provider === 'google' ? 'Google' : 'Discord';
+      toast.error(`Failed to connect ${providerName}`);
     }
   }
 
-  async function disconnectOAuth(provider: 'google' | 'discord') {
+  function openDisconnectDialog(provider: 'google' | 'discord') {
     if (!canDisconnect) {
       toast.error('Cannot remove last authentication method');
       return;
     }
+    disconnectingProvider = provider;
+    isDisconnectDialogOpen = true;
+  }
 
-    if (!confirm(`Are you sure you want to disconnect your ${provider} account?`)) {
-      return;
-    }
+  async function confirmDisconnect() {
+    if (!disconnectingProvider) return;
+    
+    const provider = disconnectingProvider;
+    const providerName = provider === 'google' ? 'Google' : 'Discord';
+    isDisconnectDialogOpen = false;
 
     try {
       const response = await fetch(`/api/profile/auth/${provider}`, {
@@ -291,14 +304,16 @@
       });
 
       if (response.ok) {
-        toast.success(`${provider} account disconnected`);
+        toast.success(`${providerName} account disconnected`);
         invalidateAll();
       } else {
         const error = await response.json();
-        toast.error(error.message || `Failed to disconnect ${provider}`);
+        toast.error(error.message || `Failed to disconnect ${providerName}`);
       }
     } catch (err) {
-      toast.error(`Failed to disconnect ${provider}`);
+      toast.error(`Failed to disconnect ${providerName}`);
+    } finally {
+      disconnectingProvider = null;
     }
   }
 
@@ -502,7 +517,7 @@
                     variant="outline" 
                     size="sm"
                     disabled={!canDisconnect}
-                    onclick={() => disconnectOAuth('google')}
+                    onclick={() => openDisconnectDialog('google')}
                   >
                     Disconnect
                   </Button>
@@ -537,7 +552,7 @@
                     variant="outline" 
                     size="sm"
                     disabled={!canDisconnect}
-                    onclick={() => disconnectOAuth('discord')}
+                    onclick={() => openDisconnectDialog('discord')}
                   >
                     Disconnect
                   </Button>
@@ -855,3 +870,19 @@
     </form>
   </Dialog.Content>
 </Dialog.Root>
+
+<!-- Disconnect Account Confirmation -->
+<AlertDialog.Root bind:open={isDisconnectDialogOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Disconnect {disconnectingProvider === 'google' ? 'Google' : 'Discord'} Account</AlertDialog.Title>
+      <AlertDialog.Description>
+        Are you sure you want to disconnect your {disconnectingProvider === 'google' ? 'Google' : 'Discord'} account? You can reconnect it later.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel onclick={() => disconnectingProvider = null}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action onclick={confirmDisconnect}>Disconnect</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
