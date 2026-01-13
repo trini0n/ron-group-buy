@@ -23,12 +23,27 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 /**
  * Interpolates template variables into a template string
  * Replaces {{variable_name}} with the corresponding value
+ * Lines containing unreplaced variables are removed entirely
  */
 export function interpolateTemplate(template: string, variables: TemplateVariables): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+  // First pass: replace variables with values, mark undefined ones
+  const UNDEFINED_MARKER = '___UNDEFINED___';
+  
+  let result = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const value = variables[key as keyof TemplateVariables];
-    return value !== undefined ? String(value) : match;
+    return value !== undefined ? String(value) : UNDEFINED_MARKER;
   });
+  
+  // Second pass: remove lines containing the undefined marker
+  result = result
+    .split('\n')
+    .filter(line => !line.includes(UNDEFINED_MARKER))
+    .join('\n');
+  
+  // Clean up any double blank lines that may have been created
+  result = result.replace(/\n{3,}/g, '\n\n');
+  
+  return result.trim();
 }
 
 /**

@@ -32,14 +32,9 @@ export const ORDER_STATUS_CONFIG = {
     description: 'PayPal invoice sent, awaiting payment'
   },
   paid: {
-    label: 'Paid',
+    label: 'Paid & Processing',
     color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-    description: 'Payment received, awaiting processing'
-  },
-  processing: {
-    label: 'Processing',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-    description: 'Order is being prepared'
+    description: 'Payment received, order is being prepared'
   },
   shipped: {
     label: 'Shipped',
@@ -70,8 +65,6 @@ export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
     case 'invoiced':
       return ['paid', 'cancelled']
     case 'paid':
-      return ['processing', 'cancelled']
-    case 'processing':
       return ['shipped', 'cancelled']
     case 'shipped':
       return ['delivered']
@@ -83,3 +76,4 @@ export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
       return []
   }
 }
+

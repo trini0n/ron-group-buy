@@ -27,7 +27,7 @@ async function verifyAdmin(locals: App.Locals) {
 }
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-  const { adminClient } = await verifyAdmin(locals)
+  const { user, adminClient } = await verifyAdmin(locals)
 
   const body = await request.json()
   const { tracking_number, tracking_carrier, admin_notes, paypal_invoice_url } = body
@@ -35,11 +35,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   // Get current order to check if tracking is being added
   const { data: currentOrder } = await adminClient
     .from('orders')
-    .select('id, order_number, user_id, tracking_number')
+    .select('id, order_number, user_id, tracking_number, status')
     .eq('id', params.id)
     .single()
 
   const isAddingTracking = tracking_number && !currentOrder?.tracking_number
+  const previousStatus = currentOrder?.status
 
   // Build update object
   const updateData: Record<string, unknown> = {}
@@ -61,6 +62,29 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (updateError) {
     logger.error({ orderId: params.id, error: updateError }, 'Error updating order')
     throw error(500, 'Failed to update order')
+  }
+
+  // Add status history entries when tracking is added
+  if (isAddingTracking && currentOrder) {
+    // If status changed, add status change entry
+    if (previousStatus && previousStatus !== 'shipped') {
+      await adminClient.from('order_status_history').insert({
+        order_id: params.id,
+        old_status: previousStatus,
+        new_status: 'shipped',
+        changed_by: user.id,
+        notes: 'Status auto-updated when tracking number was added'
+      })
+    }
+
+    // Add tracking number entry
+    await adminClient.from('order_status_history').insert({
+      order_id: params.id,
+      old_status: 'shipped',
+      new_status: 'shipped',
+      changed_by: user.id,
+      notes: `Tracking number added to order: ${tracking_number}`
+    })
   }
 
   // Send tracking notification if tracking number was just added
