@@ -195,8 +195,21 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-  <title>Group Buy - Card Catalog</title>
-  <meta name="description" content="Browse and purchase Magic: The Gathering cards" />
+  <title>Ron's Group Buy</title>
+  <meta name="description" content="Browse and order cards for Ron's monthly group buy" />
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Ron's Group Buy" />
+  <meta property="og:description" content="Browse and order cards for Ron's monthly group buy" />
+  <meta property="og:image" content="/ron-gb.png" />
+  <meta property="og:site_name" content="Ron GB" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Ron's Group Buy" />
+  <meta name="twitter:description" content="Browse and order cards for Ron's monthly group buy" />
+  <meta name="twitter:image" content="/ron-gb.png" />
 </svelte:head>
 
 <div class="container py-8">
