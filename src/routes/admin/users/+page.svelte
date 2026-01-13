@@ -14,7 +14,7 @@
   import { ORDER_STATUS_CONFIG, type OrderStatus } from '$lib/admin-shared';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
-  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag, Shield, Crown, Eye, MapPin, Mail, MessageSquare, Save, Loader2, Key } from 'lucide-svelte';
+  import { Search, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert, ShoppingBag, Shield, Crown, Eye, MapPin, Mail, MessageSquare, Save, Loader2, Key, Maximize2 } from 'lucide-svelte';
 
   let { data } = $props();
 
@@ -427,12 +427,24 @@
             <Dialog.Title>{selectedUser.name || 'Unnamed User'}</Dialog.Title>
             <Dialog.Description>{selectedUser.email}</Dialog.Description>
           </div>
-          {#if isBlocked}
-            <Badge variant="destructive" class="flex items-center gap-1">
-              <ShieldAlert class="h-3 w-3" />
-              Blocked
-            </Badge>
-          {/if}
+          <div class="flex items-center gap-2">
+            {#if isBlocked}
+              <Badge variant="destructive" class="flex items-center gap-1">
+                <ShieldAlert class="h-3 w-3" />
+                Blocked
+              </Badge>
+            {/if}
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                <Button variant="ghost" size="icon" href="/admin/users/{selectedUser.id}">
+                  <Maximize2 class="h-4 w-4" />
+                </Button>
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                <p>Open full page</p>
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </div>
         </div>
       </Dialog.Header>
 
