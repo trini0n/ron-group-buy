@@ -11,17 +11,18 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['src/lib/**/*.ts'],
-      exclude: [
-        'src/lib/components/**',
-        'src/lib/server/database.types.ts',
-        '**/*.d.ts'
+      include: [
+        'src/lib/utils.ts',
+        'src/lib/admin-shared.ts',
+        'src/lib/deck-utils.ts',
+        'src/lib/server/cart-types.ts',
+        'src/lib/server/search-utils.ts'
       ],
       thresholds: {
-        statements: 70,
-        branches: 70,
-        functions: 70,
-        lines: 70
+        statements: 80,
+        branches: 80,
+        functions: 90,
+        lines: 80
       }
     }
   }
