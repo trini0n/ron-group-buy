@@ -8,9 +8,10 @@ import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
 import { createNotificationService } from '$lib/server/notifications'
 import type { NotificationType, TemplateVariables } from '$lib/server/notifications'
+import { PUBLIC_APP_URL } from '$env/static/public'
 
-// Base URL for order links (should match your app's URL)
-const getOrderUrl = (orderId: string) => `/orders/${orderId}`
+// Base URL for order links (full URL for Discord)
+const getOrderUrl = (orderId: string) => `${PUBLIC_APP_URL}/orders/${orderId}`
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -72,20 +73,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Otherwise, send a templated notification based on type
   const notificationType = type || 'order_status_change'
   
-  // Build tracking URL if tracking exists
-  let trackingUrl = ''
-  if (order.tracking_number && order.tracking_carrier) {
-    const carrier = order.tracking_carrier.toLowerCase()
-    if (carrier.includes('usps')) {
-      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${order.tracking_number}`
-    } else if (carrier.includes('ups')) {
-      trackingUrl = `https://www.ups.com/track?tracknum=${order.tracking_number}`
-    } else if (carrier.includes('fedex')) {
-      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${order.tracking_number}`
-    } else {
-      trackingUrl = `https://parcelsapp.com/en/tracking/${order.tracking_number}`
-    }
-  }
+  // Build tracking URL if tracking exists (use 17track.net as universal tracker)
+  const trackingUrl = order.tracking_number 
+    ? `https://t.17track.net/en#nums=${order.tracking_number}`
+    : ''
 
   const variables: TemplateVariables = {
     order_number: order.order_number,

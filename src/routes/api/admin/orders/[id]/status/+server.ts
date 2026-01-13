@@ -4,9 +4,10 @@ import { createAdminClient, isAdminDiscordId, ORDER_STATUS_CONFIG, type OrderSta
 import { createNotificationService } from '$lib/server/notifications'
 import type { TemplateVariables } from '$lib/server/notifications'
 import { logger } from '$lib/server/logger'
+import { PUBLIC_APP_URL } from '$env/static/public'
 
-// Base URL for order links
-const getOrderUrl = (orderId: string) => `/orders/${orderId}`
+// Base URL for order links (full URL for Discord)
+const getOrderUrl = (orderId: string) => `${PUBLIC_APP_URL}/orders/${orderId}`
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {

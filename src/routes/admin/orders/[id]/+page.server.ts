@@ -10,7 +10,7 @@ export const load = async ({ params }) => {
     .select(
       `
       *,
-      user:users(id, name, email, discord_username, discord_id, admin_notes),
+      user:users(id, name, email, paypal_email, discord_username, discord_id, admin_notes),
       items:order_items(
         id,
         card_id,

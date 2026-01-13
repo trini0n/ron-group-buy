@@ -4,9 +4,10 @@ import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
 import { createNotificationService } from '$lib/server/notifications'
 import type { TemplateVariables } from '$lib/server/notifications'
 import { logger } from '$lib/server/logger'
+import { PUBLIC_APP_URL } from '$env/static/public'
 
-// Base URL for order links
-const getOrderUrl = (orderId: string) => `/orders/${orderId}`
+// Base URL for order links (full URL for Discord)
+const getOrderUrl = (orderId: string) => `${PUBLIC_APP_URL}/orders/${orderId}`
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -48,6 +49,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (admin_notes !== undefined) updateData.admin_notes = admin_notes
   if (paypal_invoice_url !== undefined) updateData.paypal_invoice_url = paypal_invoice_url
 
+  // Auto-update status to 'shipped' when tracking number is added
+  if (isAddingTracking) {
+    updateData.status = 'shipped'
+    updateData.shipped_at = new Date().toISOString()
+  }
+
   // Update order
   const { error: updateError } = await adminClient.from('orders').update(updateData).eq('id', params.id)
 
@@ -60,24 +67,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   if (isAddingTracking && currentOrder) {
     const notificationService = createNotificationService(adminClient)
     
-    // Build tracking URL
-    let trackingUrl = ''
-    const carrier = (tracking_carrier || '').toLowerCase()
-    if (carrier.includes('usps')) {
-      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${tracking_number}`
-    } else if (carrier.includes('ups')) {
-      trackingUrl = `https://www.ups.com/track?tracknum=${tracking_number}`
-    } else if (carrier.includes('fedex')) {
-      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${tracking_number}`
-    } else {
-      trackingUrl = `https://parcelsapp.com/en/tracking/${tracking_number}`
-    }
+    // Build tracking URL (use 17track.net as universal tracker)
+    const trackingUrl = `https://t.17track.net/en#nums=${tracking_number}`
 
     const variables: TemplateVariables = {
       order_number: currentOrder.order_number,
       order_url: getOrderUrl(currentOrder.id),
       tracking_number,
-      tracking_carrier: tracking_carrier || 'Carrier',
+      tracking_carrier: tracking_carrier || undefined, // Don't pass 'Carrier' fallback
       tracking_url: trackingUrl
     }
 

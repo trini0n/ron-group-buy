@@ -14,7 +14,7 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
     '📦 **Order Update**\n\nYour order **#{{order_number}}** is now **{{status}}**.\n\n[View Order Details]({{order_url}})',
   
   'tracking_added:discord': 
-    '🚚 **Your Order Has Shipped!**\n\nOrder **#{{order_number}}** is on its way.\n\n**Tracking:** {{tracking_number}}\n**Carrier:** {{tracking_carrier}}\n\n[Track Your Package]({{tracking_url}})',
+    '🚚 **Your Order Has Shipped!**\n\nOrder **#{{order_number}}** is on its way.\n\n**Tracking:** {{tracking_number}}\n\n[Track Your Package]({{tracking_url}})',
   
   'payment_reminder:discord':
     '💳 **Payment Reminder**\n\nYour order **#{{order_number}}** is awaiting payment.\n\n[Pay Invoice]({{invoice_url}})'
