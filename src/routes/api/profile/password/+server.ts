@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { checkEmailConflict } from '$lib/auth/conflicts'
+import { AUTH_ERROR_CODES, createAuthError, AUTH_ERROR_HTTP_STATUS } from '$lib/auth/errors'
 
 // Add password to account
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -21,6 +23,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     
     if (hasPassword) {
       throw error(400, 'Account already has a password. Use PATCH to change it.')
+    }
+
+    // Check if email is used by another account
+    const userEmail = locals.user.email
+    if (userEmail) {
+      const conflict = await checkEmailConflict(locals.supabase, locals.user.id, userEmail)
+      if (conflict) {
+        // Return conflict error with details for UI
+        return json(
+          createAuthError(AUTH_ERROR_CODES.EMAIL_ALREADY_IN_USE, {
+            conflictUserId: conflict.conflictingUserId,
+            conflictingEmail: conflict.conflictingUserEmail
+          }),
+          { status: AUTH_ERROR_HTTP_STATUS[AUTH_ERROR_CODES.EMAIL_ALREADY_IN_USE] }
+        )
+      }
     }
 
     // Add password to account

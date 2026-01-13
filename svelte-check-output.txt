@@ -1,0 +1,99 @@
+Loading svelte-check in workspace: d:\Desktop\Files\Card Search\group-buy
+Getting Svelte diagnostics...
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardItem.svelte[39m:23:35
+[33mWarn[39m: This reference only captures the initial value of `card`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m  // Track selected finish variant (default to first in finishVariants)
+  let selectedCard = $state<Card>([35mcard[36m);[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:57:15
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m  let prevFilters = $state({
+    setCodes: [35mfilters[36m.setCodes.join(','),
+    colorIdentity: filters.colorIdentity.join(','),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:58:20
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    setCodes: filters.setCodes.join(','),
+    colorIdentity: [35mfilters[36m.colorIdentity.join(','),
+    colorIdentityStrict: filters.colorIdentityStrict,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:59:26
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    colorIdentity: filters.colorIdentity.join(','),
+    colorIdentityStrict: [35mfilters[36m.colorIdentityStrict,
+    priceCategories: filters.priceCategories.join(','),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:60:22
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    colorIdentityStrict: filters.colorIdentityStrict,
+    priceCategories: [35mfilters[36m.priceCategories.join(','),
+    cardTypes: filters.cardTypes.join(','),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:61:16
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    priceCategories: filters.priceCategories.join(','),
+    cardTypes: [35mfilters[36m.cardTypes.join(','),
+    frameTypes: filters.frameTypes.join(','),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:62:17
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    cardTypes: filters.cardTypes.join(','),
+    frameTypes: [35mfilters[36m.frameTypes.join(','),
+    inStockOnly: filters.inStockOnly,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:63:18
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    frameTypes: filters.frameTypes.join(','),
+    inStockOnly: [35mfilters[36m.inStockOnly,
+    isNew: filters.isNew,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:64:12
+[33mWarn[39m: This reference only captures the initial value of `filters`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    inStockOnly: filters.inStockOnly,
+    isNew: [35mfilters[36m.isNew,
+    viewMode: viewMode[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\+page.svelte[39m:65:15
+[33mWarn[39m: This reference only captures the initial value of `viewMode`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m    isNew: filters.isNew,
+    viewMode: [35mviewMode[36m
+  });[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\admin\settings\notifications\+page.svelte[39m:174:81
+[31mError[39m: Argument of type '{ body_template: string; channel: string; created_at: string | null; id: string; is_active: boolean | null; subject: string | null; type: string; updated_at: string | null; }' is not assignable to parameter of type 'NotificationTemplate'.
+  Types of property 'is_active' are incompatible.
+    Type 'boolean | null' is not assignable to type 'boolean'.
+      Type 'null' is not assignable to type 'boolean'. (ts)
+[36m            <div class="flex gap-2">
+              <Button variant="outline" size="sm" onclick={() => openEditDialog([35mtemplate[36m)}>
+                <Edit class="mr-2 h-4 w-4" />[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\admin\settings\notifications\+page.svelte[39m:181:45
+[31mError[39m: Argument of type '{ body_template: string; channel: string; created_at: string | null; id: string; is_active: boolean | null; subject: string | null; type: string; updated_at: string | null; }' is not assignable to parameter of type 'NotificationTemplate'.
+  Types of property 'is_active' are incompatible.
+    Type 'boolean | null' is not assignable to type 'boolean'.
+      Type 'null' is not assignable to type 'boolean'. (ts)
+[36m                size="sm"
+                onclick={() => toggleActive([35mtemplate[36m)}
+              >[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[slug]\+page.svelte[39m:18:39
+[33mWarn[39m: This reference only captures the initial value of `data`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m  // Track selected finish variant
+  let selectedCard = $state<CardType>([35mdata[36m.card);[39m
+
+====================================
+[31msvelte-check found 2 errors and 11 warnings in 4 files
+[39m

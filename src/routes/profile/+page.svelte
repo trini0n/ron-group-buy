@@ -8,7 +8,7 @@
   import * as Dialog from '$components/ui/dialog';
   import * as Avatar from '$components/ui/avatar';
   import { Separator } from '$components/ui/separator';
-  import { invalidateAll } from '$app/navigation';
+  import { invalidateAll, goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
   import {
     User,
@@ -340,13 +340,18 @@
         body: JSON.stringify(body)
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         toast.success(passwordMode === 'add' ? 'Password added' : 'Password changed');
         isPasswordDialogOpen = false;
         invalidateAll();
+      } else if (result.error?.code === 'EMAIL_ALREADY_IN_USE') {
+        // Redirect to conflict resolution page
+        isPasswordDialogOpen = false;
+        goto(`/profile/conflict?type=EMAIL_ALREADY_IN_USE&conflictUserId=${result.error.conflictUserId}&returnTo=/profile`);
       } else {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to save password');
+        toast.error(result.error?.message || result.message || 'Failed to save password');
       }
     } catch (err) {
       toast.error('Failed to save password');
@@ -576,9 +581,6 @@
                 </Button>
               </div>
             </div>
-            <p class="mt-2 text-xs text-muted-foreground">
-              <strong>Note:</strong> Password management coming soon.
-            </p>
           </div>
 
           <Separator />
@@ -816,7 +818,7 @@
             type="password"
             bind:value={passwordForm.newPassword}
             required
-            minlength="8"
+            minlength={8}
             autocomplete="new-password"
           />
           <p class="text-xs text-muted-foreground">
@@ -831,7 +833,7 @@
             type="password"
             bind:value={passwordForm.confirmPassword}
             required
-            minlength="8"
+            minlength={8}
             autocomplete="new-password"
           />
         </div>

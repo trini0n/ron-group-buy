@@ -1,17 +1,32 @@
 import { redirect } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient } from '$lib/server/admin'
+import { checkProviderConflict, buildConflictRedirectUrl } from '$lib/auth/conflicts'
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const code = url.searchParams.get('code')
   const next = url.searchParams.get('next') ?? '/'
   const type = url.searchParams.get('type')
+  const action = url.searchParams.get('action') // 'link' when linking a provider
 
   if (code) {
     const { error, data } = await locals.supabase.auth.exchangeCodeForSession(code)
     if (!error && data.user) {
-      // Sync user data to users table (especially Discord ID)
-      await syncUserData(data.user)
+      // Fetch fresh user data including all identities
+      // (the session data may not have updated identities after linkIdentity)
+      const { data: userData } = await locals.supabase.auth.getUser()
+      const userWithIdentities = userData?.user || data.user
+
+      // Check for provider conflicts if this is a link action
+      if (action === 'link') {
+        const conflict = await checkForNewProviderConflict(locals.supabase, userWithIdentities)
+        if (conflict) {
+          throw redirect(303, buildConflictRedirectUrl(conflict, next))
+        }
+      }
+
+      // Sync user data to users table
+      await syncUserData(userWithIdentities)
 
       // If this is a password recovery, redirect to reset password page
       if (type === 'recovery') {
@@ -27,6 +42,29 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   // Return to home on error
   throw redirect(303, '/')
+}
+
+/**
+ * Check if any newly linked provider conflicts with an existing user
+ */
+async function checkForNewProviderConflict(
+  supabase: any,
+  user: { id: string; identities?: Array<{ provider: string; identity_data?: Record<string, unknown> }> }
+) {
+  // Check each identity for conflicts
+  for (const identity of user.identities || []) {
+    if (identity.provider === 'google' || identity.provider === 'discord') {
+      const providerId = (identity.identity_data?.provider_id as string) || 
+                         (identity.identity_data?.sub as string)
+      if (providerId) {
+        const conflict = await checkProviderConflict(supabase, user.id, identity.provider, providerId)
+        if (conflict) {
+          return conflict
+        }
+      }
+    }
+  }
+  return null
 }
 
 async function syncUserData(user: {

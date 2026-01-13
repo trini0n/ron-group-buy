@@ -190,7 +190,7 @@
 
       <Card.Content class="space-y-6">
         <div class="flex flex-wrap gap-2">
-          <Badge variant={selectedCard.is_in_stock ? 'default' : 'destructive'}>
+          <Badge variant={selectedCard.is_in_stock === false ? 'destructive' : 'default'}>
             {selectedCard.is_in_stock ? 'In Stock' : 'Out of Stock'}
           </Badge>
           <Badge class={getFinishBadgeClasses(getFinishLabel(selectedCard))}>{getFinishLabel(selectedCard)}</Badge>
@@ -265,7 +265,7 @@
       </Card.Content>
 
       <Card.Footer class="flex gap-4">
-        <Button size="lg" onclick={addToCart} disabled={!selectedCard.is_in_stock}>
+        <Button size="lg" onclick={addToCart} disabled={selectedCard.is_in_stock !== true}>
           <ShoppingCart class="mr-2 h-4 w-4" />
           Add to Cart
         </Button>

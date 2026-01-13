@@ -23,9 +23,9 @@
     channel: string;
     subject: string | null;
     body_template: string;
-    is_active: boolean;
-    updated_at: string;
-    created_at: string;
+    is_active: boolean | null;
+    updated_at: string | null;
+    created_at: string | null;
   }
 
   let { data } = $props();
@@ -70,7 +70,7 @@
   function openEditDialog(template: NotificationTemplate) {
     editingTemplate = template;
     formBody = template.body_template;
-    formIsActive = template.is_active;
+    formIsActive = template.is_active ?? true;
     isEditing = true;
   }
 

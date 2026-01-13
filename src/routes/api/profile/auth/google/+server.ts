@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ locals, url }) => {
     const { data, error: linkError } = await locals.supabase.auth.linkIdentity({
       provider: 'google',
       options: {
-        redirectTo: `${url.origin}/auth/callback?next=/profile`
+        redirectTo: `${url.origin}/auth/callback?next=/profile&action=link`
       }
     })
 
