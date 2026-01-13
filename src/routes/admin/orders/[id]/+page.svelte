@@ -371,6 +371,11 @@
         <Card.Content class="space-y-2">
           <p class="font-medium">{order.user?.name || 'Unknown'}</p>
           <p class="text-sm text-muted-foreground">{order.user?.email}</p>
+          {#if order.user?.paypal_email && order.user.paypal_email !== order.user.email}
+            <p class="text-sm text-muted-foreground">PayPal: {order.user.paypal_email}</p>
+          {:else}
+            <p class="text-sm text-muted-foreground">PayPal: {order.user?.email}</p>
+          {/if}
           {#if order.user?.discord_username}
             <p class="text-sm text-muted-foreground">Discord: {order.user.discord_username}</p>
           {/if}
