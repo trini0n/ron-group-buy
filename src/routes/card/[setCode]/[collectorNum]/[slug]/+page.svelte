@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Card as CardType } from '$lib/server/types';
   import { Button } from '$components/ui/button';
   import { Badge } from '$components/ui/badge';
   import * as Card from '$components/ui/card';
@@ -10,9 +11,21 @@
 
   let { data } = $props();
 
+  // Get finish variants from server data
+  const finishVariants = $derived(data.finishVariants as CardType[] || [data.card]);
+  
+  // Track selected finish variant
+  let selectedCard = $state<CardType>(data.card);
+  
+  // Reset selectedCard when page data changes (navigation)
+  $effect(() => {
+    const newCard = data.card;
+    selectedCard = newCard;
+  });
+
   // Extract the primary card type from type_line (exclude supertypes)
   const primaryCardType = $derived.by(() => {
-    const typeLine = data.card?.type_line || '';
+    const typeLine = selectedCard?.type_line || '';
     // Card types in MTG (the ones we want to extract)
     const cardTypes = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Planeswalker', 'Battle', 'Kindred', 'Tribal'];
     
@@ -29,7 +42,7 @@
   });
 
   // Build breadcrumb URLs with filters applied
-  const setFilterUrl = $derived(`/?set=${data.card?.set_code?.toLowerCase() || ''}`);
+  const setFilterUrl = $derived(`/?set=${selectedCard?.set_code?.toLowerCase() || ''}`);
   const typeFilterUrl = $derived.by(() => {
     if (!primaryCardType) return setFilterUrl;
     return `${setFilterUrl}&types=${primaryCardType}`;
@@ -37,17 +50,15 @@
 
   // Compute images array - ensure it's always valid
   const images = $derived.by(() => {
-    const cardData = data.card;
-    if (!cardData) return [{ url: '/images/card-placeholder.png', label: 'Placeholder' }];
-    return getCardImages(cardData.ron_image_url, cardData.scryfall_id, 'large');
+    if (!selectedCard) return [{ url: '/images/card-placeholder.png', label: 'Placeholder' }];
+    return getCardImages(selectedCard.ron_image_url, selectedCard.scryfall_id, 'large');
   });
 
   let currentImageIndex = $state(0);
   
   const price = $derived.by(() => {
-    const cardData = data.card;
-    if (!cardData) return 0;
-    return getCardPrice(cardData.card_type);
+    if (!selectedCard) return 0;
+    return getCardPrice(selectedCard.card_type);
   });
 
   // Reset image index when card changes or if index is out of bounds
@@ -68,7 +79,7 @@
   }
 
   function addToCart() {
-    cartStore.addItem(data.card);
+    cartStore.addItem(selectedCard);
   }
 
   // Current image with safety check
@@ -94,7 +105,7 @@
       
       <Breadcrumb.Item>
         <Breadcrumb.Link href={setFilterUrl}>
-          {data.card.set_name} ({data.card.set_code?.toUpperCase()})
+          {selectedCard.set_name} ({selectedCard.set_code?.toUpperCase()})
         </Breadcrumb.Link>
       </Breadcrumb.Item>
       
@@ -111,7 +122,7 @@
       <Breadcrumb.Separator />
       
       <Breadcrumb.Item>
-        <Breadcrumb.Page>{data.card.card_name}</Breadcrumb.Page>
+        <Breadcrumb.Page>{selectedCard.card_name}</Breadcrumb.Page>
       </Breadcrumb.Item>
     </Breadcrumb.List>
   </Breadcrumb.Root>
@@ -123,7 +134,7 @@
         {#if currentImage}
           <img
             src={currentImage.url}
-            alt={data.card.card_name}
+            alt={selectedCard.card_name}
             class="max-w-sm rounded-lg shadow-lg"
             loading="lazy"
             referrerpolicy="no-referrer"
@@ -173,70 +184,94 @@
     <!-- Card Details -->
     <Card.Root>
       <Card.Header>
-        <Card.Title class="text-3xl">{data.card.card_name}</Card.Title>
-        <Card.Description class="text-lg">{data.card.set_name}</Card.Description>
+        <Card.Title class="text-3xl">{selectedCard.card_name}</Card.Title>
+        <Card.Description class="text-lg">{selectedCard.set_name}</Card.Description>
       </Card.Header>
 
       <Card.Content class="space-y-6">
         <div class="flex flex-wrap gap-2">
-          <Badge variant={data.card.is_in_stock ? 'default' : 'destructive'}>
-            {data.card.is_in_stock ? 'In Stock' : 'Out of Stock'}
+          <Badge variant={selectedCard.is_in_stock ? 'default' : 'destructive'}>
+            {selectedCard.is_in_stock ? 'In Stock' : 'Out of Stock'}
           </Badge>
-          <Badge class={getFinishBadgeClasses(getFinishLabel(data.card))}>{getFinishLabel(data.card)}</Badge>
-          {#if data.card.is_new}
+          <Badge class={getFinishBadgeClasses(getFinishLabel(selectedCard))}>{getFinishLabel(selectedCard)}</Badge>
+          {#if selectedCard.is_new}
             <Badge variant="outline" class="border-green-500 text-green-500">New</Badge>
           {/if}
-          {#if data.card.is_borderless}
+          {#if selectedCard.is_borderless}
             <Badge variant="outline">Borderless</Badge>
           {/if}
-          {#if data.card.is_showcase}
+          {#if selectedCard.is_showcase}
             <Badge variant="outline">Showcase</Badge>
           {/if}
-          {#if data.card.is_extended}
+          {#if selectedCard.is_extended}
             <Badge variant="outline">Extended Art</Badge>
           {/if}
-          {#if data.card.is_retro}
+          {#if selectedCard.is_retro}
             <Badge variant="outline">Retro</Badge>
           {/if}
         </div>
 
+        <!-- Finish Variant Toggle -->
+        {#if finishVariants.length > 1}
+          <div>
+            <h3 class="mb-2 font-semibold">Finish</h3>
+            <div class="flex rounded-md border overflow-hidden max-w-xs">
+              {#each finishVariants as variant}
+                {@const isActive = selectedCard.serial === variant.serial}
+                <button
+                  onclick={() => selectedCard = variant}
+                  disabled={!variant.is_in_stock}
+                  class="flex-1 py-2 px-3 text-center transition-all text-sm
+                    {isActive 
+                      ? 'bg-primary text-primary-foreground font-medium' 
+                      : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                    {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
+                >
+                  <div>{getFinishLabel(variant)}</div>
+                  <div class="font-semibold">{formatPrice(getCardPrice(variant.card_type))}</div>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <div class="space-y-2">
           <p class="text-3xl font-bold">{formatPrice(price)}</p>
-          <p class="text-sm text-muted-foreground">Serial: {data.card.serial}</p>
+          <p class="text-sm text-muted-foreground">Serial: {selectedCard.serial}</p>
         </div>
 
         <Separator />
 
-        {#if data.card.type_line}
+        {#if selectedCard.type_line}
           <div>
             <h3 class="font-semibold">Type</h3>
-            <p class="text-muted-foreground">{data.card.type_line}</p>
+            <p class="text-muted-foreground">{selectedCard.type_line}</p>
           </div>
         {/if}
 
-        {#if data.card.mana_cost}
+        {#if selectedCard.mana_cost}
           <div>
             <h3 class="font-semibold">Mana Cost</h3>
-            <p class="text-muted-foreground">{data.card.mana_cost}</p>
+            <p class="text-muted-foreground">{selectedCard.mana_cost}</p>
           </div>
         {/if}
 
-        {#if data.card.color_identity}
+        {#if selectedCard.color_identity}
           <div>
             <h3 class="font-semibold">Color Identity</h3>
-            <p class="text-muted-foreground">{data.card.color_identity}</p>
+            <p class="text-muted-foreground">{selectedCard.color_identity}</p>
           </div>
         {/if}
       </Card.Content>
 
       <Card.Footer class="flex gap-4">
-        <Button size="lg" onclick={addToCart} disabled={!data.card.is_in_stock}>
+        <Button size="lg" onclick={addToCart} disabled={!selectedCard.is_in_stock}>
           <ShoppingCart class="mr-2 h-4 w-4" />
           Add to Cart
         </Button>
 
-        {#if data.card.scryfall_link}
-          <Button variant="outline" size="lg" href={data.card.scryfall_link} target="_blank">
+        {#if selectedCard.scryfall_link}
+          <Button variant="outline" size="lg" href={selectedCard.scryfall_link} target="_blank">
             <ExternalLink class="mr-2 h-4 w-4" />
             View on Scryfall
           </Button>
