@@ -417,8 +417,24 @@
 <Dialog.Root bind:open={dialogOpen}>
   <Dialog.Content class="max-w-4xl max-h-[90vh] overflow-y-auto">
     {#if selectedUser}
+      <!-- Expand button positioned next to X close button -->
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          <a 
+            href="/admin/users/{selectedUser.id}"
+            class="absolute right-12 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100"
+          >
+            <Maximize2 class="h-4 w-4" />
+            <span class="sr-only">Open full page</span>
+          </a>
+        </Tooltip.Trigger>
+        <Tooltip.Content>
+          <p>Open full page</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
+
       <Dialog.Header>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 pr-16">
           <Avatar.Root class="h-12 w-12">
             <Avatar.Image src={selectedUser.avatar_url} alt={selectedUser.name || selectedUser.email} />
             <Avatar.Fallback>{getInitials(selectedUser.name, selectedUser.email)}</Avatar.Fallback>
@@ -427,24 +443,12 @@
             <Dialog.Title>{selectedUser.name || 'Unnamed User'}</Dialog.Title>
             <Dialog.Description>{selectedUser.email}</Dialog.Description>
           </div>
-          <div class="flex items-center gap-2">
-            {#if isBlocked}
-              <Badge variant="destructive" class="flex items-center gap-1">
-                <ShieldAlert class="h-3 w-3" />
-                Blocked
-              </Badge>
-            {/if}
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                <Button variant="ghost" size="icon" href="/admin/users/{selectedUser.id}">
-                  <Maximize2 class="h-4 w-4" />
-                </Button>
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                <p>Open full page</p>
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </div>
+          {#if isBlocked}
+            <Badge variant="destructive" class="flex items-center gap-1">
+              <ShieldAlert class="h-3 w-3" />
+              Blocked
+            </Badge>
+          {/if}
         </div>
       </Dialog.Header>
 
