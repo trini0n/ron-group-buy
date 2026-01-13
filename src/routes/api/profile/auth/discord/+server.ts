@@ -2,14 +2,17 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 // Link Discord OAuth account
-export const POST: RequestHandler = async ({ locals }) => {
+export const POST: RequestHandler = async ({ locals, url }) => {
   if (!locals.user) {
     throw error(401, 'Unauthorized')
   }
 
   try {
     const { data, error: linkError } = await locals.supabase.auth.linkIdentity({
-      provider: 'discord'
+      provider: 'discord',
+      options: {
+        redirectTo: `${url.origin}/auth/callback?next=/profile`
+      }
     })
 
     if (linkError) {

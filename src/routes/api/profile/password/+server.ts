@@ -55,16 +55,19 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
       throw error(400, 'New password must be at least 8 characters')
     }
 
-    // Verify current password by attempting to sign in
-    if (currentPassword) {
-      const { error: signInError } = await locals.supabase.auth.signInWithPassword({
-        email: locals.user.email || '',
-        password: currentPassword
-      })
+    // Require current password for verification
+    if (!currentPassword) {
+      throw error(400, 'Current password is required')
+    }
 
-      if (signInError) {
-        throw error(401, 'Current password is incorrect')
-      }
+    // Verify current password by attempting to sign in
+    const { error: signInError } = await locals.supabase.auth.signInWithPassword({
+      email: locals.user.email || '',
+      password: currentPassword
+    })
+
+    if (signInError) {
+      throw error(401, 'Current password is incorrect')
     }
 
     // Update password
