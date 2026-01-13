@@ -85,7 +85,7 @@
         <span class="font-medium">Order placed successfully!</span>
       </div>
       <p class="mt-1 text-sm text-green-600 dark:text-green-500">
-        You'll receive an email with your PayPal invoice shortly.
+        You'll receive an email with your PayPal invoice once the Group Buy has concluded.
       </p>
     </div>
   {/if}

@@ -1,6 +1,12 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
+import { createNotificationService } from '$lib/server/notifications'
+import type { TemplateVariables } from '$lib/server/notifications'
+import { logger } from '$lib/server/logger'
+
+// Base URL for order links
+const getOrderUrl = (orderId: string) => `/orders/${orderId}`
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -25,6 +31,15 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const body = await request.json()
   const { tracking_number, tracking_carrier, admin_notes, paypal_invoice_url } = body
 
+  // Get current order to check if tracking is being added
+  const { data: currentOrder } = await adminClient
+    .from('orders')
+    .select('id, order_number, user_id, tracking_number')
+    .eq('id', params.id)
+    .single()
+
+  const isAddingTracking = tracking_number && !currentOrder?.tracking_number
+
   // Build update object
   const updateData: Record<string, unknown> = {}
 
@@ -37,8 +52,44 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const { error: updateError } = await adminClient.from('orders').update(updateData).eq('id', params.id)
 
   if (updateError) {
-    console.error('Error updating order:', updateError)
+    logger.error({ orderId: params.id, error: updateError }, 'Error updating order')
     throw error(500, 'Failed to update order')
+  }
+
+  // Send tracking notification if tracking number was just added
+  if (isAddingTracking && currentOrder) {
+    const notificationService = createNotificationService(adminClient)
+    
+    // Build tracking URL
+    let trackingUrl = ''
+    const carrier = (tracking_carrier || '').toLowerCase()
+    if (carrier.includes('usps')) {
+      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=${tracking_number}`
+    } else if (carrier.includes('ups')) {
+      trackingUrl = `https://www.ups.com/track?tracknum=${tracking_number}`
+    } else if (carrier.includes('fedex')) {
+      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${tracking_number}`
+    } else {
+      trackingUrl = `https://parcelsapp.com/en/tracking/${tracking_number}`
+    }
+
+    const variables: TemplateVariables = {
+      order_number: currentOrder.order_number,
+      order_url: getOrderUrl(currentOrder.id),
+      tracking_number,
+      tracking_carrier: tracking_carrier || 'Carrier',
+      tracking_url: trackingUrl
+    }
+
+    // Fire and forget
+    notificationService.send({
+      userId: currentOrder.user_id,
+      orderId: currentOrder.id,
+      type: 'tracking_added',
+      variables
+    }).catch(err => {
+      logger.error({ orderId: currentOrder.id, error: err }, 'Failed to send tracking notification')
+    })
   }
 
   return json({ success: true })

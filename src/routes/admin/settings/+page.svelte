@@ -17,7 +17,8 @@
     Calendar,
     Save,
     Power,
-    PowerOff
+    PowerOff,
+    Bell
   } from 'lucide-svelte';
 
   interface GroupBuyConfig {
@@ -175,10 +176,16 @@
       <h1 class="text-3xl font-bold">Group Buy Settings</h1>
       <p class="text-muted-foreground">Manage group buy periods and settings</p>
     </div>
-    <Button onclick={openCreateDialog}>
-      <Plus class="mr-2 h-4 w-4" />
-      Create Group Buy
-    </Button>
+    <div class="flex gap-2">
+      <Button variant="outline" href="/admin/settings/notifications">
+        <Bell class="mr-2 h-4 w-4" />
+        Notification Templates
+      </Button>
+      <Button onclick={openCreateDialog}>
+        <Plus class="mr-2 h-4 w-4" />
+        Create Group Buy
+      </Button>
+    </div>
   </div>
 
   <!-- Active Config Highlight -->

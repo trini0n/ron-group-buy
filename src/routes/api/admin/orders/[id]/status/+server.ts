@@ -1,6 +1,12 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdminDiscordId, ORDER_STATUS_CONFIG, type OrderStatus } from '$lib/server/admin'
+import { createNotificationService } from '$lib/server/notifications'
+import type { TemplateVariables } from '$lib/server/notifications'
+import { logger } from '$lib/server/logger'
+
+// Base URL for order links
+const getOrderUrl = (orderId: string) => `/orders/${orderId}`
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -30,10 +36,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     throw error(400, 'Invalid status')
   }
 
-  // Get current order status
+  // Get current order with user info for notification
   const { data: order, error: fetchError } = await adminClient
     .from('orders')
-    .select('status')
+    .select('id, order_number, status, user_id')
     .eq('id', params.id)
     .single()
 
@@ -62,7 +68,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { error: updateError } = await adminClient.from('orders').update(updateData).eq('id', params.id)
 
   if (updateError) {
-    console.error('Error updating order status:', updateError)
+    logger.error({ orderId: params.id, error: updateError }, 'Error updating order status')
     throw error(500, 'Failed to update order status')
   }
 
@@ -76,8 +82,30 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   })
 
   if (historyError) {
-    console.error('Error inserting status history:', historyError)
+    logger.error({ orderId: params.id, error: historyError }, 'Error inserting status history')
     // Don't fail the request, just log the error
+  }
+
+  // Send notification for status change (async, don't block the response)
+  if (oldStatus !== newStatus) {
+    const notificationService = createNotificationService(adminClient)
+    
+    const variables: TemplateVariables = {
+      order_number: order.order_number,
+      status: ORDER_STATUS_CONFIG[newStatus]?.label || newStatus,
+      previous_status: ORDER_STATUS_CONFIG[oldStatus]?.label || oldStatus,
+      order_url: getOrderUrl(order.id)
+    }
+
+    // Fire and forget - don't await to avoid blocking the response
+    notificationService.send({
+      userId: order.user_id,
+      orderId: order.id,
+      type: 'order_status_change',
+      variables
+    }).catch(err => {
+      logger.error({ orderId: order.id, error: err }, 'Failed to send status change notification')
+    })
   }
 
   return json({

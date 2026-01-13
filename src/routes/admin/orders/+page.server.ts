@@ -99,10 +99,16 @@ export const load = async ({ url }) => {
     }
   }
 
-  // Calculate totals for each order
+  // Shipping pricing constants (same as checkout)
+  const SHIPPING_RATES = {
+    us: { regular: 6.00, express: 40.00, tariff: 9.00 },
+    international: { regular: 6.00, express: 25.00, tariff: 0 }
+  }
+
+  // Calculate totals for each order (including shipping and tariff)
   const ordersWithTotals =
     orders?.map((order) => {
-      const total =
+      const subtotal =
         order.items?.reduce((sum: number, item: { quantity: number | null; unit_price: number | string | null }) => {
           return sum + (item.quantity || 0) * Number(item.unit_price || 0)
         }, 0) || 0
@@ -110,8 +116,19 @@ export const load = async ({ url }) => {
       const itemCount =
         order.items?.reduce((sum: number, item: { quantity: number | null }) => sum + (item.quantity || 0), 0) || 0
 
+      // Calculate shipping and tariff
+      const country = order.shipping_country?.toUpperCase() || ''
+      const isUS = country === 'US' || country === 'USA' || country === 'UNITED STATES'
+      const rates = isUS ? SHIPPING_RATES.us : SHIPPING_RATES.international
+      const shippingCost = order.shipping_type === 'express' ? rates.express : rates.regular
+      const tariffCost = rates.tariff
+
+      // Grand total includes subtotal + shipping + tariff
+      const total = subtotal + shippingCost + tariffCost
+
       return {
         ...order,
+        subtotal,
         total,
         itemCount
       }

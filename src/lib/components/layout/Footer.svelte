@@ -8,7 +8,7 @@
       © {currentYear} Group Buy. All rights reserved.
     </p>
     <div class="flex gap-4 text-sm text-muted-foreground">
-      <a href="https://discord.gg/your-server" target="_blank" class="hover:text-foreground">
+      <a href="https://discord.gg/ASNfFzyTqX" target="_blank" class="hover:text-foreground">
         Discord
       </a>
       <span>•</span>
