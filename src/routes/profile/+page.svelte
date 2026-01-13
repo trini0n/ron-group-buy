@@ -672,20 +672,46 @@
           <Card.Title class="flex items-center gap-2">
             <Bell class="h-5 w-5" />
             Notification Preferences
-            <Badge variant="secondary">Coming Soon</Badge>
           </Card.Title>
           <Card.Description>
-            Notification preferences for email and Discord will be available soon
+            Choose how you want to receive updates about your orders
           </Card.Description>
         </Card.Header>
-        <Card.Content>
-          <div class="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <Bell class="h-12 w-12 mb-4 opacity-30" />
-            <p class="text-sm">
-              We're working on notification preferences. Soon you'll be able to customize
-              how you receive updates about your orders via email and Discord.
-            </p>
-          </div>
+        <Card.Content class="space-y-6">
+          <!-- Discord Notifications -->
+          {#if data.profile?.discord_id}
+            <div>
+              <h4 class="text-sm font-medium mb-3">Discord DM Notifications</h4>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p class="text-sm font-medium">Order Status Updates</p>
+                    <p class="text-xs text-muted-foreground">Get notified when your order status changes</p>
+                  </div>
+                  <Switch bind:checked={discordOrderShipped} />
+                </div>
+                <div class="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p class="text-sm font-medium">Tracking / Shipping</p>
+                    <p class="text-xs text-muted-foreground">Get notified when your order ships with tracking info</p>
+                  </div>
+                  <Switch bind:checked={discordPaymentReminder} />
+                </div>
+              </div>
+            </div>
+          {:else}
+            <div class="rounded-lg bg-muted p-4 text-center">
+              <p class="text-sm text-muted-foreground">
+                <a href="#security" class="text-primary hover:underline">Connect your Discord account</a> 
+                to receive order notifications via Discord DM.
+              </p>
+            </div>
+          {/if}
+          
+          <Button onclick={saveNotifications} disabled={isSavingNotifications} class="w-full">
+            <Save class="mr-2 h-4 w-4" />
+            {isSavingNotifications ? 'Saving...' : 'Save Preferences'}
+          </Button>
         </Card.Content>
       </Card.Root>
     </div>

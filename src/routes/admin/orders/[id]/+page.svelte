@@ -26,7 +26,9 @@
     Clock,
     ExternalLink,
     Truck,
-    Trash2
+    Trash2,
+    Bell,
+    Send
   } from 'lucide-svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -42,6 +44,10 @@
   let trackingCarrier = $state('');
   let adminNotes = $state('');
   let paypalInvoiceUrl = $state('');
+  
+  // Notification state
+  let isSendingNotification = $state(false);
+  let notificationType = $state<'order_status_change' | 'tracking_added' | 'payment_reminder'>('order_status_change');
   
   $effect(() => {
     trackingNumber = data.order.tracking_number || '';
@@ -78,6 +84,29 @@
       style: 'currency',
       currency: 'USD'
     }).format(amount);
+  }
+
+  async function sendNotification() {
+    isSendingNotification = true;
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: notificationType })
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        toast.success('Notification sent successfully');
+      } else {
+        toast.error(result.error || 'Failed to send notification');
+      }
+    } catch (err) {
+      toast.error('Failed to send notification');
+    } finally {
+      isSendingNotification = false;
+    }
   }
 
   // Shipping pricing constants (same as checkout)
@@ -360,7 +389,46 @@
         </Card.Content>
       </Card.Root>
 
-      <!-- Customer Info -->
+      <!-- Send Notification -->
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <Bell class="h-5 w-5" />
+            Send Notification
+          </Card.Title>
+        </Card.Header>
+        <Card.Content class="space-y-3">
+          <Select.Root type="single" bind:value={notificationType}>
+            <Select.Trigger class="w-full">
+              {#if notificationType === 'order_status_change'}
+                Order Status Update
+              {:else if notificationType === 'tracking_added'}
+                Tracking/Shipped
+              {:else if notificationType === 'payment_reminder'}
+                Payment Reminder
+              {:else}
+                Select notification type
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item value="order_status_change">Order Status Update</Select.Item>
+              <Select.Item value="tracking_added">Tracking/Shipped</Select.Item>
+              <Select.Item value="payment_reminder">Payment Reminder</Select.Item>
+            </Select.Content>
+          </Select.Root>
+          <Button 
+            class="w-full" 
+            onclick={sendNotification} 
+            disabled={isSendingNotification || !order.user?.discord_id}
+          >
+            <Send class="mr-2 h-4 w-4" />
+            {isSendingNotification ? 'Sending...' : 'Send Discord DM'}
+          </Button>
+          {#if !order.user?.discord_id}
+            <p class="text-xs text-muted-foreground">User has no Discord account linked</p>
+          {/if}
+        </Card.Content>
+      </Card.Root>
       <Card.Root>
         <Card.Header>
           <Card.Title class="flex items-center gap-2">
