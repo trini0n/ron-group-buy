@@ -41,7 +41,8 @@ describe('isAdminDiscordId', () => {
 
 describe('ORDER_STATUS_CONFIG', () => {
   it('has all expected statuses', () => {
-    const statuses = ['pending', 'invoiced', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']
+    // Note: 'processing' was combined with 'paid' as "Paid & Processing"
+    const statuses = ['pending', 'invoiced', 'paid', 'shipped', 'delivered', 'cancelled']
     for (const status of statuses) {
       expect(ORDER_STATUS_CONFIG).toHaveProperty(status)
       expect(ORDER_STATUS_CONFIG[status as keyof typeof ORDER_STATUS_CONFIG]).toHaveProperty('label')
@@ -65,14 +66,9 @@ describe('getNextStatuses', () => {
     expect(next).toContain('cancelled')
   })
 
-  it('paid can go to processing or cancelled', () => {
+  it('paid can go to shipped or cancelled', () => {
+    // Paid now includes processing, so next step is shipped
     const next = getNextStatuses('paid')
-    expect(next).toContain('processing')
-    expect(next).toContain('cancelled')
-  })
-
-  it('processing can go to shipped or cancelled', () => {
-    const next = getNextStatuses('processing')
     expect(next).toContain('shipped')
     expect(next).toContain('cancelled')
   })
