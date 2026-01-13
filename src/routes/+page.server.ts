@@ -59,18 +59,37 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
   }
 
   const adminClient = createAdminClient()
-  const { data: setsData } = await adminClient
-    .from('cards')
-    .select('set_code, set_name')
-    .not('set_code', 'is', null)
-
-  // Deduplicate sets
   const setsMap = new Map<string, string>()
-  setsData?.forEach((card) => {
-    if (card.set_code && !setsMap.has(card.set_code)) {
-      setsMap.set(card.set_code, card.set_name || card.set_code)
+  const batchSize = 1000
+  let offset = 0
+  let hasMore = true
+
+  // Fetch all cards with pagination to get all unique sets
+  // (Supabase has a 1000 row limit by default)
+  while (hasMore) {
+    const { data: batch, error } = await adminClient
+      .from('cards')
+      .select('set_code, set_name')
+      .not('set_code', 'is', null)
+      .range(offset, offset + batchSize - 1)
+
+    if (error) {
+      console.error('Error fetching sets:', error)
+      break
     }
-  })
+
+    if (batch && batch.length > 0) {
+      batch.forEach((card) => {
+        if (card.set_code && !setsMap.has(card.set_code)) {
+          setsMap.set(card.set_code, card.set_name || card.set_code)
+        }
+      })
+      offset += batchSize
+      hasMore = batch.length === batchSize
+    } else {
+      hasMore = false
+    }
+  }
 
   // Sort alphabetically by set name for better searchability in the dropdown
   const sets = Array.from(setsMap.entries())
