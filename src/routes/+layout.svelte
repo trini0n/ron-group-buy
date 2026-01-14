@@ -75,7 +75,7 @@
 <div class="flex min-h-screen flex-col">
   {#if !data.url?.pathname?.startsWith('/admin') && !data.url?.pathname?.startsWith('/auth')}
     <GroupBuyBanner config={data.groupBuyConfig} />
-    <Header user={data.user} isAdmin={data.isAdmin} />
+    <Header user={data.user} userProfile={data.userProfile} isAdmin={data.isAdmin} />
   {/if}
   
   <main class="flex-1">

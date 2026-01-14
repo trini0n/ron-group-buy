@@ -8,10 +8,16 @@
 
   interface Props {
     user: SupabaseUser | null;
+    userProfile?: { name?: string | null; avatar_url?: string | null } | null;
     isAdmin?: boolean;
   }
 
-  let { user, isAdmin = false }: Props = $props();
+  let { user, userProfile = null, isAdmin = false }: Props = $props();
+
+  // Use avatar from userProfile (synced to public.users) or fallback to user_metadata
+  const avatarUrl = $derived(
+    userProfile?.avatar_url || user?.user_metadata?.avatar_url as string | undefined
+  );
 </script>
 
 <header class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -62,9 +68,9 @@
       {#if user}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger class="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-accent">
-            {#if user.user_metadata?.avatar_url}
+            {#if avatarUrl}
               <img 
-                src={user.user_metadata.avatar_url} 
+                src={avatarUrl} 
                 alt="Avatar" 
                 class="h-8 w-8 rounded-full"
               />

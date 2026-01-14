@@ -71,9 +71,14 @@ async function syncUserData(user: {
   id: string
   email?: string
   user_metadata?: Record<string, unknown>
+  app_metadata?: Record<string, unknown>
   identities?: Array<{ provider: string; identity_data?: Record<string, unknown> }>
 }) {
   const adminClient = createAdminClient()
+
+  // Determine which provider was used for this sign-in
+  // app_metadata.provider contains the most recently used provider
+  const currentProvider = user.app_metadata?.provider as string | undefined
 
   // Extract provider info from identities
   let discordId: string | null = null
@@ -82,37 +87,50 @@ async function syncUserData(user: {
   let name: string | null = null
   let avatarUrl: string | null = null
 
-  // Check identities for Discord provider
+  // Get Discord identity data
   const discordIdentity = user.identities?.find((i) => i.provider === 'discord')
   if (discordIdentity?.identity_data) {
     discordId =
       (discordIdentity.identity_data.provider_id as string) || (discordIdentity.identity_data.sub as string) || null
     discordUsername =
       (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
-    name = (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
-    avatarUrl = (discordIdentity.identity_data.avatar_url as string) || null
   }
 
-  // Check identities for Google provider
+  // Get Google identity data
   const googleIdentity = user.identities?.find((i) => i.provider === 'google')
   if (googleIdentity?.identity_data) {
     googleId =
       (googleIdentity.identity_data.provider_id as string) || (googleIdentity.identity_data.sub as string) || null
-    // Use Google name/avatar if Discord didn't provide them
-    if (!name) {
+  }
+
+  // Use avatar and name from the MOST RECENT sign-in provider
+  if (currentProvider === 'discord' && discordIdentity?.identity_data) {
+    name = (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
+    avatarUrl = (discordIdentity.identity_data.avatar_url as string) || null
+  } else if (currentProvider === 'google' && googleIdentity?.identity_data) {
+    name = (googleIdentity.identity_data.full_name as string) || (googleIdentity.identity_data.name as string) || null
+    avatarUrl = (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
+  } else {
+    // Fallback: use whichever provider has data (prefer Discord, then Google)
+    if (discordIdentity?.identity_data) {
+      name = (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
+      avatarUrl = (discordIdentity.identity_data.avatar_url as string) || null
+    } else if (googleIdentity?.identity_data) {
       name = (googleIdentity.identity_data.full_name as string) || (googleIdentity.identity_data.name as string) || null
-    }
-    if (!avatarUrl) {
       avatarUrl = (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
     }
   }
 
-  // Fallback to user_metadata for Discord (legacy support)
+  // Fallback to user_metadata for legacy support
   if (!discordId && user.user_metadata?.provider_id) {
     discordId = (user.user_metadata.provider_id as string) || (user.user_metadata.sub as string) || null
     discordUsername = (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
-    name = name || (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
-    avatarUrl = avatarUrl || (user.user_metadata.avatar_url as string) || null
+    if (!name) {
+      name = (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
+    }
+    if (!avatarUrl) {
+      avatarUrl = (user.user_metadata.avatar_url as string) || null
+    }
   }
 
   // Upsert user data
