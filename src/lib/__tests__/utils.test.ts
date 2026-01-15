@@ -19,6 +19,7 @@ import {
   getFinishLabel,
   getFinishBadgeClasses,
   getFrameEffectLabel,
+  isDefaultLanguage,
   cn
 } from '../utils'
 
@@ -201,8 +202,37 @@ describe('slugify', () => {
   })
 })
 
+describe('isDefaultLanguage', () => {
+  it('returns true for null/undefined', () => {
+    expect(isDefaultLanguage(null)).toBe(true)
+    expect(isDefaultLanguage(undefined)).toBe(true)
+  })
+
+  it('returns true for English', () => {
+    expect(isDefaultLanguage('en')).toBe(true)
+    expect(isDefaultLanguage('EN')).toBe(true)
+  })
+
+  it('returns true for Quenya (fictional language)', () => {
+    expect(isDefaultLanguage('qya')).toBe(true)
+    expect(isDefaultLanguage('QYA')).toBe(true)
+  })
+
+  it('returns true for Phyrexian (fictional language)', () => {
+    expect(isDefaultLanguage('ph')).toBe(true)
+    expect(isDefaultLanguage('PH')).toBe(true)
+  })
+
+  it('returns false for other languages', () => {
+    expect(isDefaultLanguage('ja')).toBe(false)
+    expect(isDefaultLanguage('de')).toBe(false)
+    expect(isDefaultLanguage('fr')).toBe(false)
+    expect(isDefaultLanguage('zh')).toBe(false)
+  })
+})
+
 describe('getCardUrl', () => {
-  it('generates correct card URL path', () => {
+  it('generates correct card URL path for default language', () => {
     const url = getCardUrl({
       set_code: 'MOM',
       collector_number: '123',
@@ -218,6 +248,46 @@ describe('getCardUrl', () => {
       card_name: 'Test Card'
     })
     expect(url).toBe('/card/unknown/0/test-card/')
+  })
+
+  it('includes language segment for non-default languages', () => {
+    const url = getCardUrl({
+      set_code: 'FIN',
+      collector_number: '525',
+      card_name: 'Cecil Dark Knight',
+      language: 'ja'
+    })
+    expect(url).toBe('/card/fin/525/ja/cecil-dark-knight/')
+  })
+
+  it('omits language segment for English', () => {
+    const url = getCardUrl({
+      set_code: 'FIN',
+      collector_number: '525',
+      card_name: 'Cecil Dark Knight',
+      language: 'en'
+    })
+    expect(url).toBe('/card/fin/525/cecil-dark-knight/')
+  })
+
+  it('omits language segment for Quenya', () => {
+    const url = getCardUrl({
+      set_code: 'LTR',
+      collector_number: '100',
+      card_name: 'Gandalf',
+      language: 'qya'
+    })
+    expect(url).toBe('/card/ltr/100/gandalf/')
+  })
+
+  it('omits language segment for Phyrexian', () => {
+    const url = getCardUrl({
+      set_code: 'INV',
+      collector_number: '306',
+      card_name: 'Phyrexian Altar',
+      language: 'ph'
+    })
+    expect(url).toBe('/card/inv/306/phyrexian-altar/')
   })
 })
 

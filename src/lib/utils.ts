@@ -148,17 +148,37 @@ export function slugify(text: string): string {
 }
 
 /**
+ * Check if a language code is a "default" language that doesn't need a URL segment
+ * Default languages: English (en), Quenya (qya), Phyrexian (ph)
+ * These are either primary English or fictional languages that use English text
+ */
+export function isDefaultLanguage(language: string | null | undefined): boolean {
+  if (!language) return true // null/undefined treated as English
+  const lang = language.toLowerCase()
+  return lang === 'en' || lang === 'qya' || lang === 'ph'
+}
+
+/**
  * Generate the URL path for a card detail page
- * Format: /card/setCode/collectorsNum/card-name-slug/
+ * Format: /card/setCode/collectorsNum/card-name-slug/ (for default languages)
+ * Format: /card/setCode/collectorsNum/lang/card-name-slug/ (for other languages)
  */
 export function getCardUrl(card: {
   set_code: string | null
   collector_number: string | null
   card_name: string
+  language?: string | null
 }): string {
   const setCode = (card.set_code || 'unknown').toLowerCase()
   const collectorNum = card.collector_number || '0'
   const slug = slugify(card.card_name)
+  
+  // Only include language segment for non-default languages
+  if (!isDefaultLanguage(card.language)) {
+    const lang = card.language!.toLowerCase()
+    return `/card/${setCode}/${collectorNum}/${lang}/${slug}/`
+  }
+  
   return `/card/${setCode}/${collectorNum}/${slug}/`
 }
 

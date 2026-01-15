@@ -5,9 +5,23 @@
   import * as Card from '$components/ui/card';
   import * as Breadcrumb from '$components/ui/breadcrumb';
   import { Separator } from '$components/ui/separator';
-  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
-  import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home } from 'lucide-svelte';
+  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses, isDefaultLanguage } from '$lib/utils';
+  import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
+
+  // Language code to display name mapping
+  const LANGUAGE_NAMES: Record<string, string> = {
+    'ja': 'Japanese',
+    'de': 'German',
+    'fr': 'French',
+    'it': 'Italian',
+    'es': 'Spanish',
+    'pt': 'Portuguese',
+    'ko': 'Korean',
+    'ru': 'Russian',
+    'zhs': 'Simplified Chinese',
+    'zht': 'Traditional Chinese'
+  };
 
   let { data } = $props();
 
@@ -84,6 +98,13 @@
 
   // Current image with safety check
   const currentImage = $derived(images[currentImageIndex] ?? images[0]);
+
+  // Get display name for card's language
+  const languageDisplay = $derived.by(() => {
+    const lang = selectedCard?.language?.toLowerCase();
+    if (!lang || isDefaultLanguage(lang)) return null;
+    return LANGUAGE_NAMES[lang] || lang.toUpperCase();
+  });
 </script>
 
 <svelte:head>
@@ -194,6 +215,12 @@
             {selectedCard.is_in_stock ? 'In Stock' : 'Out of Stock'}
           </Badge>
           <Badge class={getFinishBadgeClasses(getFinishLabel(selectedCard))}>{getFinishLabel(selectedCard)}</Badge>
+          {#if languageDisplay}
+            <Badge variant="secondary" class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              <Globe class="mr-1 h-3 w-3" />
+              {languageDisplay}
+            </Badge>
+          {/if}
           {#if selectedCard.is_new}
             <Badge variant="outline" class="border-green-500 text-green-500">New</Badge>
           {/if}
