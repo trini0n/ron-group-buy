@@ -20,7 +20,8 @@
     ChevronsUpDown,
     Check,
     CloudDownload,
-    Loader2
+    Loader2,
+    ImageIcon
   } from 'lucide-svelte';
 
   interface InventoryCard {
@@ -66,6 +67,8 @@
   let selectedCards = $state<Set<string>>(new Set());
   let isUpdating = $state(false);
   let isSyncing = $state(false);
+  let isResyncingImages = $state(false);
+  let resyncingCardId = $state<string | null>(null);
 
   const totalPages = $derived(Math.ceil(data.totalCount / data.perPage));
   
@@ -202,6 +205,61 @@
       toast.error('Failed to sync with Google Sheets');
     } finally {
       isSyncing = false;
+    }
+  }
+
+  async function resyncImages(cardIds: string[]) {
+    isResyncingImages = true;
+    try {
+      const response = await fetch('/api/admin/inventory/resync-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: cardIds })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Resynced ${result.updated} image(s), ${result.errors} error(s)`);
+        selectedCards = new Set();
+        invalidateAll();
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to resync images');
+      }
+    } catch (err) {
+      toast.error('Failed to resync images');
+    } finally {
+      isResyncingImages = false;
+    }
+  }
+
+  async function resyncSingleCardImage(cardId: string) {
+    resyncingCardId = cardId;
+    try {
+      const response = await fetch('/api/admin/inventory/resync-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_ids: [cardId] })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.updated > 0) {
+          toast.success('Image resynced successfully');
+        } else if (result.errors > 0) {
+          toast.error('Failed to resync image');
+        } else {
+          toast.info('No image found in sheet');
+        }
+        invalidateAll();
+      } else {
+        const err = await response.json();
+        toast.error(err.message || 'Failed to resync image');
+      }
+    } catch (err) {
+      toast.error('Failed to resync image');
+    } finally {
+      resyncingCardId = null;
     }
   }
 
@@ -367,6 +425,21 @@
       </Button>
       <Button 
         size="sm" 
+        variant="outline"
+        onclick={() => resyncImages([...selectedCards])}
+        disabled={isResyncingImages}
+        class="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+      >
+        {#if isResyncingImages}
+          <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+          Resyncing...
+        {:else}
+          <ImageIcon class="mr-2 h-4 w-4" />
+          Resync Images
+        {/if}
+      </Button>
+      <Button 
+        size="sm" 
         variant="ghost"
         onclick={() => selectedCards = new Set()}
       >
@@ -471,14 +544,29 @@
                 </Badge>
               {/if}
             </Table.Cell>
-            <Table.Cell>
+            <Table.Cell class="flex gap-1">
               <Button 
                 variant="ghost" 
                 size="sm"
                 onclick={() => toggleSingleCard(card.id, card.is_in_stock ?? false)}
                 disabled={isUpdating}
+                title="Toggle stock status"
               >
                 <RefreshCw class="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onclick={() => resyncSingleCardImage(card.id)}
+                disabled={resyncingCardId === card.id}
+                title="Resync image from Google Sheets"
+                class="text-blue-600 hover:text-blue-700"
+              >
+                {#if resyncingCardId === card.id}
+                  <Loader2 class="h-4 w-4 animate-spin" />
+                {:else}
+                  <ImageIcon class="h-4 w-4" />
+                {/if}
               </Button>
             </Table.Cell>
           </Table.Row>
