@@ -124,11 +124,11 @@ async function searchSingleCard(
   let allMatches = getFromCache(primaryName)
   
   if (!allMatches) {
-    // Query for all cards matching this name
+    // Query for all cards matching this name (check both card_name and flavor_name)
     const { data } = await supabase
       .from('cards')
-      .select(CARD_SELECT_COLUMNS)
-      .ilike('card_name', primaryName)
+      .select(CARD_SELECT_COLUMNS + ', flavor_name')
+      .or(`card_name.ilike.${primaryName},flavor_name.ilike.${primaryName}`)
       .order('is_in_stock', { ascending: false })
       .limit(100)
     
