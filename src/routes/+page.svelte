@@ -8,6 +8,7 @@
   import { Skeleton } from '$components/ui/skeleton';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
   import { untrack } from 'svelte';
+  import { replaceState } from '$app/navigation';
   import type { Card } from '$lib/server/types';
 
   let { data } = $props();
@@ -94,11 +95,11 @@
     return queryString ? `?${queryString}` : '/';
   }
 
-  // Update URL without navigation - use history API directly for instant response
+  // Update URL without navigation - use SvelteKit's replaceState
   function updateUrl() {
     const newUrl = buildFilterUrl();
-    // Use history.replaceState directly to avoid SvelteKit's async navigation
-    history.replaceState(history.state, '', newUrl);
+    // Use SvelteKit's replaceState for proper integration with the router
+    replaceState(newUrl, {});
   }
 
   // Handle page change from CardGrid

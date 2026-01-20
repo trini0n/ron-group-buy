@@ -5,7 +5,13 @@ import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
 
 // GET /api/cart - Get current cart with validation
-export const GET: RequestHandler = async ({ locals, cookies }) => {
+export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
+  // Short private cache for cart to reduce origin hits while keeping data fresh
+  // Private cache ensures user-specific data isn't shared
+  setHeaders({
+    'Cache-Control': 'private, max-age=30'
+  });
+
   // Use admin client for guests to bypass RLS (guest carts don't have user_id)
   const supabase = locals.user ? locals.supabase : createAdminClient()
   const cartService = new CartService(supabase)

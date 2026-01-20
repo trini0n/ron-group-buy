@@ -128,8 +128,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
 
       try {
-        // Convert the URL
-        const directUrl = await getDirectPhotoUrl(ronPrintUrl)
+        // Convert the URL with caching support (reduces external fetches)
+        const directUrl = await getDirectPhotoUrl(ronPrintUrl, adminClient)
 
         if (directUrl) {
           const { error: updateError } = await adminClient

@@ -101,7 +101,13 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
   return sets
 }
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, setHeaders }) => {
+  // Cache homepage for 5 minutes on CDN, allow 30 minutes of stale content with background revalidation
+  // This dramatically improves UX by serving cached content instantly while updating in background
+  setHeaders({
+    'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800'
+  });
+
   // Parse initial filter state from URL
   const initialFilters = {
     search: url.searchParams.get('q') || '',

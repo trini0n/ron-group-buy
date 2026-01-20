@@ -13,8 +13,12 @@ const GOOGLE_CONTENT_PREFIX = 'https://lh3.googleusercontent.com/'
 
 /**
  * Extract direct image URL from a Google Photos sharing page
+ * Now with database caching to avoid redundant external requests
  */
-export async function getDirectPhotoUrl(shareUrl: string): Promise<string | null> {
+export async function getDirectPhotoUrl(
+  shareUrl: string,
+  adminClient?: any
+): Promise<string | null> {
   // Skip if already a direct URL
   if (shareUrl.startsWith(GOOGLE_CONTENT_PREFIX)) {
     return shareUrl
@@ -23,6 +27,25 @@ export async function getDirectPhotoUrl(shareUrl: string): Promise<string | null
   // Only process Google Photos URLs
   if (!shareUrl.includes('photos.google.com/share') && !shareUrl.includes('photos.app.goo.gl')) {
     return null
+  }
+
+  // Check cache first if adminClient provided (reduces origin transfer)
+  if (adminClient) {
+    try {
+      const { data: cached } = await adminClient
+        .from('gphoto_url_cache')
+        .select('direct_url')
+        .eq('share_url', shareUrl)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle()
+
+      if (cached?.direct_url) {
+        console.log(`✅ Cache hit for ${shareUrl.substring(0, 50)}...`)
+        return cached.direct_url
+      }
+    } catch (error) {
+      console.warn('Cache lookup failed, proceeding with fetch:', error)
+    }
   }
 
   try {
@@ -61,6 +84,21 @@ export async function getDirectPhotoUrl(shareUrl: string): Promise<string | null
     // Append =w0 for original size
     directUrl += '=w0'
 
+    // Store in cache if adminClient provided (30 day TTL)
+    if (adminClient && directUrl) {
+      try {
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        await adminClient.from('gphoto_url_cache').upsert({
+          share_url: shareUrl,
+          direct_url: directUrl,
+          expires_at: expiresAt.toISOString()
+        })
+        console.log(`💾 Cached conversion for ${shareUrl.substring(0, 50)}...`)
+      } catch (error) {
+        console.warn('Failed to cache URL:', error)
+      }
+    }
+
     return directUrl
   } catch (error) {
     console.error(`Error converting ${shareUrl}:`, error)
@@ -70,10 +108,12 @@ export async function getDirectPhotoUrl(shareUrl: string): Promise<string | null
 
 /**
  * Convert URLs with rate limiting to avoid being blocked
+ * Now supports caching via adminClient
  */
 export async function convertUrlsWithRateLimit(
   urls: (string | null)[],
-  delayMs: number = 200
+  delayMs: number = 200,
+  adminClient?: any
 ): Promise<(string | null)[]> {
   const results: (string | null)[] = []
 
@@ -91,7 +131,7 @@ export async function convertUrlsWithRateLimit(
       continue
     }
 
-    const directUrl = await getDirectPhotoUrl(url)
+    const directUrl = await getDirectPhotoUrl(url, adminClient)
     results.push(directUrl)
 
     // Rate limit

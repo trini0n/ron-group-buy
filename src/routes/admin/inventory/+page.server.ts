@@ -1,6 +1,11 @@
 import { createAdminClient } from '$lib/server/admin'
 
-export const load = async ({ url }) => {
+export const load = async ({ url, setHeaders }) => {
+  // Short cache for admin pages (1 minute) - balances freshness with reduced origin hits
+  setHeaders({
+    'Cache-Control': 'private, max-age=60'
+  });
+
   const adminClient = createAdminClient()
 
   // Parse filters from URL
@@ -12,64 +17,12 @@ export const load = async ({ url }) => {
   const page = parseInt(url.searchParams.get('page') || '1')
   const perPage = 50
 
-  // First, identify all duplicate card keys (name + set + collector number + finish + language)
-  // Note: Supabase has a default 1000 row limit, so we need to fetch all cards with pagination
-  const allCardsForDupes: Array<{
-    id: string
-    serial: string
-    card_name: string
-    set_code: string | null
-    collector_number: string | null
-    card_type: string
-    foil_type: string | null
-    language: string | null
-  }> = []
-
-  const batchSize = 1000
-  let offset = 0
-  let hasMore = true
-
-  while (hasMore) {
-    const { data: batch } = await adminClient
-      .from('cards')
-      .select('id, serial, card_name, set_code, collector_number, card_type, foil_type, language')
-      .range(offset, offset + batchSize - 1)
-
-    if (batch && batch.length > 0) {
-      allCardsForDupes.push(...batch)
-      offset += batchSize
-      hasMore = batch.length === batchSize
-    } else {
-      hasMore = false
-    }
-  }
-
-  // Build a map of card keys to their serials
-  const cardKeyToSerials = new Map<string, string[]>()
-  const duplicateIds = new Set<string>()
-
-  allCardsForDupes?.forEach((card) => {
-    const finish = card.foil_type || card.card_type
-    const key = `${card.card_name}|${card.set_code}|${card.collector_number}|${finish}|${card.language || 'en'}`
-
-    if (!cardKeyToSerials.has(key)) {
-      cardKeyToSerials.set(key, [])
-    }
-    cardKeyToSerials.get(key)!.push(card.id)
-  })
-
-  // Mark all cards that have duplicates
-  cardKeyToSerials.forEach((ids) => {
-    if (ids.length > 1) {
-      ids.forEach((id) => duplicateIds.add(id))
-    }
-  })
-
-  // Build query
+  // Use SQL view with window functions for duplicate detection (eliminates full table scans)
+  // Build query using cards_with_duplicates view
   let query = adminClient
-    .from('cards')
+    .from('cards_with_duplicates')
     .select(
-      'id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, foil_type, language, scryfall_id, ron_image_url',
+      'id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, foil_type, language, scryfall_id, ron_image_url, duplicate_count',
       { count: 'exact' }
     )
     .order('card_name', { ascending: true })
@@ -89,101 +42,40 @@ export const load = async ({ url }) => {
     query = query.in('set_code', setFilter)
   }
 
-  // For duplicates filtering, we need to fetch all matching cards first and then filter client-side
-  // because Supabase's .in() filter has limitations with large arrays
-  type InventoryCard = {
-    id: string
-    serial: string
-    card_name: string
-    set_name: string | null
-    set_code: string | null
-    collector_number: string | null
-    card_type: string
-    is_in_stock: boolean | null
-    is_new: boolean | null
-    foil_type: string | null
-    language: string | null
-    scryfall_id: string | null
-    ron_image_url: string | null
-  }
-  let cards: InventoryCard[] | null = null
-  let count: number | null = null
-  let error: Error | null = null
-
+  // Filter by duplicates using the pre-calculated duplicate_count column
   if (duplicatesOnly) {
-    // Fetch all cards that match filters (without pagination) so we can filter by duplicates client-side
-    const allMatchingCards: InventoryCard[] = []
-    let fetchOffset = 0
-    const fetchBatchSize = 1000
-    let fetchHasMore = true
-
-    while (fetchHasMore) {
-      let batchQuery = adminClient
-        .from('cards')
-        .select('id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, foil_type, language, scryfall_id, ron_image_url')
-        .order('card_name', { ascending: true })
-        .range(fetchOffset, fetchOffset + fetchBatchSize - 1)
-
-      // Apply same filters
-      if (searchQuery) {
-        batchQuery = batchQuery.or(`card_name.ilike.%${searchQuery}%,serial.ilike.%${searchQuery}%`)
-      }
-      if (stockFilter === 'in') {
-        batchQuery = batchQuery.eq('is_in_stock', true)
-      } else if (stockFilter === 'out') {
-        batchQuery = batchQuery.eq('is_in_stock', false)
-      }
-      if (setFilter.length > 0) {
-        batchQuery = batchQuery.in('set_code', setFilter)
-      }
-
-      const { data: batch, error: batchError } = await batchQuery
-
-      if (batchError) {
-        error = batchError as unknown as Error
-        fetchHasMore = false
-      } else if (batch && batch.length > 0) {
-        allMatchingCards.push(...batch)
-        fetchOffset += fetchBatchSize
-        fetchHasMore = batch.length === fetchBatchSize
-      } else {
-        fetchHasMore = false
-      }
-    }
-
-    // Filter to only duplicates
-    const duplicateCards = allMatchingCards.filter((card) => duplicateIds.has(card.id))
-    count = duplicateCards.length
-
-    // Apply pagination to the filtered results
-    const from = (page - 1) * perPage
-    const to = from + perPage
-    cards = duplicateCards.slice(from, to)
-  } else {
-    // Normal pagination - use Supabase's built-in pagination
-    const from = (page - 1) * perPage
-    const to = from + perPage - 1
-    query = query.range(from, to)
-
-    const result = await query
-    cards = result.data
-    count = result.count
-    error = result.error as Error | null
+    query = query.gt('duplicate_count', 1)
   }
+
+  // Apply pagination
+  const from = (page - 1) * perPage
+  const to = from + perPage - 1
+  query = query.range(from, to)
+
+  // Execute single query (no more full table scans!)
+  const { data: cards, count, error } = await query
 
   if (error) {
     console.error('Error fetching cards:', error)
-    return { cards: [], totalCount: 0, page, perPage, sets: [], duplicateIds: [] }
+    return { cards: [], totalCount: 0, totalDuplicates: 0, page, perPage, sets: [], searchQuery, stockFilter, setFilter: setsParam || '', duplicatesOnly }
   }
 
-  // Add isDuplicate flag to each card
+  // Get total duplicate count using SQL function (fast, no table scan)
+  const { data: duplicateCountData } = await adminClient.rpc('get_duplicate_cards_count')
+  const totalDuplicates = duplicateCountData || 0
+
+  // Add isDuplicate flag based on duplicate_count
   const cardsWithDupeFlag = (cards || []).map((card) => ({
     ...card,
-    isDuplicate: duplicateIds.has(card.id)
+    isDuplicate: card.duplicate_count > 1
   }))
 
-  // Get unique sets for filter dropdown
-  const { data: setsData } = await adminClient.from('cards').select('set_code, set_name').not('set_code', 'is', null)
+  // Get unique sets for filter dropdown (optimized query)
+  const { data: setsData } = await adminClient
+    .from('cards')
+    .select('set_code, set_name')
+    .not('set_code', 'is', null)
+    .limit(1000) // Reasonable limit instead of fetching all
 
   // Deduplicate sets
   const setsMap = new Map<string, string>()
@@ -200,7 +92,7 @@ export const load = async ({ url }) => {
   return {
     cards: cardsWithDupeFlag,
     totalCount: count || 0,
-    totalDuplicates: duplicateIds.size,
+    totalDuplicates,
     page,
     perPage,
     searchQuery,
