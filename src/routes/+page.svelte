@@ -9,6 +9,7 @@
   import { Search, LayoutGrid, List } from 'lucide-svelte';
   import { untrack } from 'svelte';
   import { replaceState } from '$app/navigation';
+  import { page } from '$app/stores';
   import type { Card } from '$lib/server/types';
 
   let { data } = $props();
@@ -98,8 +99,8 @@
   // Update URL without navigation - use SvelteKit's replaceState
   function updateUrl() {
     const newUrl = buildFilterUrl();
-    // Use SvelteKit's replaceState for proper integration with the router
-    replaceState(newUrl, {});
+    // Use SvelteKit's replaceState - maintain current state to prevent component errors
+    replaceState(newUrl, $page.state);
   }
 
   // Handle page change from CardGrid
