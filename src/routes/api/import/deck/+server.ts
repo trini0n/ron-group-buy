@@ -86,6 +86,7 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ name: deckName, cards })
   } catch (err) {
     console.error('Error fetching deck:', err)
+    // Return the actual error message to help debug
     throw error(500, err instanceof Error ? err.message : 'Failed to fetch deck')
   }
 }
@@ -134,20 +135,25 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
     return zone as Record<string, MoxfieldCard>
   }
 
-  // Collect cards from all zones
-  const zones = hasBoards
-    ? [deck.boards.mainboard, deck.boards.sideboard, deck.boards.commanders, deck.boards.companions]
-    : [deck.mainboard, deck.sideboard, deck.commanders, deck.companions]
+  // Collect cards from all zones with proper board type tracking
+  const boardTypeMap = hasBoards
+    ? [
+        { zone: deck.boards.mainboard, type: 'mainboard' as DeckCard['boardType'] },
+        { zone: deck.boards.sideboard, type: 'sideboard' as DeckCard['boardType'] },
+        { zone: deck.boards.commanders, type: 'commanders' as DeckCard['boardType'] },
+        { zone: deck.boards.companions, type: 'companions' as DeckCard['boardType'] }
+      ]
+    : [
+        { zone: deck.mainboard, type: 'mainboard' as DeckCard['boardType'] },
+        { zone: deck.sideboard, type: 'sideboard' as DeckCard['boardType'] },
+        { zone: deck.commanders, type: 'commanders' as DeckCard['boardType'] },
+        { zone: deck.companions, type: 'companions' as DeckCard['boardType'] }
+      ]
 
-  for (const zone of zones) {
+  for (const { zone, type: boardType } of boardTypeMap) {
     const cards_map = getCards(zone)
     for (const [, entry] of Object.entries(cards_map)) {
       if (!entry.card) continue
-      // Determine board type
-      let boardType: DeckCard['boardType'] = 'mainboard'
-      if (zone === deck.boards?.commanders || zone === deck.commanders) boardType = 'commanders'
-      else if (zone === deck.boards?.companions || zone === deck.companions) boardType = 'companions'
-      else if (zone === deck.boards?.sideboard || zone === deck.sideboard) boardType = 'sideboard'
       
       cards.push({
         quantity: entry.quantity,
