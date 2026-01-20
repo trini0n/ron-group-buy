@@ -7,6 +7,7 @@ interface MoxfieldCard {
     name: string
     set: string
     cn: string // collector number
+    type_line?: string
   }
 }
 
@@ -55,6 +56,8 @@ interface DeckCard {
   name: string
   set?: string
   collectorNumber?: string
+  boardType?: string
+  typeLine?: string
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -140,11 +143,19 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
     const cards_map = getCards(zone)
     for (const [, entry] of Object.entries(cards_map)) {
       if (!entry.card) continue
+      // Determine board type
+      let boardType: DeckCard['boardType'] = 'mainboard'
+      if (zone === deck.boards?.commanders || zone === deck.commanders) boardType = 'commanders'
+      else if (zone === deck.boards?.companions || zone === deck.companions) boardType = 'companions'
+      else if (zone === deck.boards?.sideboard || zone === deck.sideboard) boardType = 'sideboard'
+      
       cards.push({
         quantity: entry.quantity,
         name: entry.card.name,
         set: entry.card.set?.toUpperCase(),
-        collectorNumber: entry.card.cn
+        collectorNumber: entry.card.cn,
+        boardType,
+        typeLine: entry.card.type_line
       })
     }
   }

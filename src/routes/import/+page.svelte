@@ -397,13 +397,19 @@
     cardsSearched = 0;
 
     try {
-      let data: { name: string; cards: DeckCard[] };
+      // Use server-side API to avoid CORS issues
+      const deckResponse = await fetch('/api/import/deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: deckUrl, source })
+      });
 
-      if (source === 'moxfield') {
-        data = await fetchMoxfieldDeckClient(deckUrl);
-      } else {
-        data = await fetchArchidektDeckClient(deckUrl);
+      if (!deckResponse.ok) {
+        throw new Error(`Failed to fetch deck (status ${deckResponse.status})`);
       }
+
+      const data: { name: string; cards: DeckCard[] } = await deckResponse.json();
+
 
       deckName = data.name || 'Imported Deck';
       isParsing = true;
