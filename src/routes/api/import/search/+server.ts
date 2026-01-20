@@ -125,14 +125,36 @@ async function searchSingleCard(
   
   if (!allMatches) {
     // Query for all cards matching this name (check both card_name and flavor_name)
-    const { data } = await supabase
+    const { data: initialMatches } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
       .or(`card_name.ilike.${primaryName},flavor_name.ilike.${primaryName}`)
       .order('is_in_stock', { ascending: false })
       .limit(100)
     
-    allMatches = data || []
+    allMatches = initialMatches || []
+    
+    // If we found matches via flavor_name, expand to include ALL variants of the canonical card
+    if (allMatches.length > 0) {
+      const firstMatch = allMatches[0] as any
+      // Check if this was a flavor name match (searched name doesn't match card_name)
+      if (firstMatch.card_name.toLowerCase() !== primaryName.toLowerCase()) {
+        // This was a flavor name match - fetch all variants of the canonical card
+        const canonicalName = firstMatch.card_name
+        const { data: allVariants } = await supabase
+          .from('cards')
+          .select(CARD_SELECT_COLUMNS + ', flavor_name')
+          .ilike('card_name', canonicalName)
+          .order('is_in_stock', { ascending: false })
+          .limit(100)
+        
+        // Use all variants instead of just the flavor match
+        if (allVariants && allVariants.length > 0) {
+          allMatches = allVariants
+        }
+      }
+    }
+    
     setInCache(primaryName, allMatches)
   }
   
