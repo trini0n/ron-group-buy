@@ -15,7 +15,9 @@
     ExternalLink,
     ChevronLeft,
     ChevronRight,
-    Check
+    Check,
+    AlertTriangle,
+    X
   } from 'lucide-svelte';
   import { Textarea } from '$components/ui/textarea';
   import * as Accordion from '$components/ui/accordion';
@@ -146,6 +148,7 @@
   let searchResults = $state<SearchResult[]>([]);
   let deckName = $state('');
   let deckSource = $state<'moxfield' | 'archidekt' | null>(null);
+  let showMoxfieldWarning = $state(false); // Show warning when Moxfield import fails
   
   // Progress tracking
   let totalCardsToSearch = $state(0);
@@ -257,11 +260,10 @@
 
     const deckId = match[1];
     const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`;
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+    // Try cors.bridged.cc proxy
+    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`;
 
-    const response = await fetch(proxyUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch deck (status ${response.status})`);
@@ -318,11 +320,9 @@
 
     const deckId = match[1];
     const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
+    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`;
 
-    const response = await fetch(proxyUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch deck (status ${response.status})`);
@@ -397,7 +397,7 @@
     cardsSearched = 0;
 
     try {
-      // Use server-side API to avoid CORS issues
+      // Use server-side API with retry logic and caching
       const deckResponse = await fetch('/api/import/deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -405,11 +405,11 @@
       });
 
       if (!deckResponse.ok) {
-        throw new Error(`Failed to fetch deck (status ${deckResponse.status})`);
+        const errorData = await deckResponse.text();
+        throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`);
       }
 
       const data: { name: string; cards: DeckCard[] } = await deckResponse.json();
-
 
       deckName = data.name || 'Imported Deck';
       isParsing = true;
@@ -446,8 +446,18 @@
       const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
       const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
       toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
+      
+      // Clear warning on successful import
+      showMoxfieldWarning = false;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to import deck');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to import deck';
+      
+      // Check if it's the Moxfield paste suggestion error
+      if (errorMessage.includes('copy the deck list') || errorMessage.includes('Paste Deck List')) {
+        showMoxfieldWarning = true;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       isLoading = false;
       isParsing = false;
@@ -462,7 +472,7 @@
     
     // Regex logic: Priority for strictly formatted lines
     // ^(\d+) -> Quantity
-    // \s+(.+?) -> Name (non-greedy)
+    // \s+(.+?) -> Name (non-greedy) - may include " / " for MDFC
     // (?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)? -> Optional Set group: (set) followed optionally by CN
     // (?:\s+\*(.+?)\*)? -> Optional Foil group
     // $ -> End of line check
@@ -474,10 +484,15 @@
 
       const match = trimmed.match(regex);
       if (match) {
-        const [, qty, name, set, cn, foil] = match;
+        const [, qty, fullName, set, cn, foil] = match;
+        
+        // Handle MDFC (Modal Double-Faced Cards) - extract first face only
+        // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
+        const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName.trim();
+        
         cards.push({
           quantity: parseInt(qty),
-          name: name.trim(),
+          name,
           set: set?.toUpperCase(),
           collectorNumber: cn,
           boardType: 'mainboard',
@@ -489,11 +504,14 @@
         const simpleRegex = /^(\d+)\s+(.+)$/;
         const simpleMatch = trimmed.match(simpleRegex);
         if (simpleMatch) {
-            cards.push({
-                quantity: parseInt(simpleMatch[1]),
-                name: simpleMatch[2].trim(),
-                boardType: 'mainboard'
-            });
+          const fullName = simpleMatch[2].trim();
+          const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName;
+          
+          cards.push({
+            quantity: parseInt(simpleMatch[1]),
+            name,
+            boardType: 'mainboard'
+          });
         }
       }
     }
@@ -557,6 +575,9 @@
       const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
       const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
       toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
+
+      // Clear warning on successful paste import
+      showMoxfieldWarning = false;
 
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to import deck');
@@ -894,6 +915,27 @@
       <p class="mt-2 text-sm text-muted-foreground">
         Import a deck from Moxfield or Archidekt above
       </p>
+
+      {#if showMoxfieldWarning}
+        <div class="mt-4 flex items-start gap-3 rounded-md border border-yellow-600/50 bg-yellow-500/10 p-4">
+          <AlertTriangle class="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
+          <div class="flex-1 space-y-1">
+            <p class="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+              Moxfield Import Unavailable
+            </p>
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+              Please copy your deck list from Moxfield and use the "Paste Deck List" option below instead.
+            </p>
+          </div>
+          <button
+            onclick={() => showMoxfieldWarning = false}
+            class="shrink-0 rounded-sm opacity-70 hover:opacity-100"
+            aria-label="Close"
+          >
+            <X class="h-4 w-4 text-yellow-900 dark:text-yellow-100" />
+          </button>
+        </div>
+      {/if}
 
       <!-- Paste Decklist Option -->
       <div class="mt-4">
