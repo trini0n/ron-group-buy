@@ -8,7 +8,6 @@
   import { Skeleton } from '$components/ui/skeleton';
   import { Search, LayoutGrid, List } from 'lucide-svelte';
   import { untrack } from 'svelte';
-  import { goto } from '$app/navigation';
   import type { Card } from '$lib/server/types';
 
   let { data } = $props();
@@ -95,11 +94,12 @@
     return queryString ? `?${queryString}` : '/';
   }
 
-  // Update URL without navigation - use goto with replaceState option
+  // Update URL without navigation - use native history.replaceState
   function updateUrl() {
     const newUrl = buildFilterUrl();
-    // Use goto with replaceState: true to avoid Svelte 5 $effect bug
-    goto(newUrl, { replaceState: true, noScroll: true, keepFocus: true });
+    // Use history.replaceState to ONLY update URL without triggering navigation
+    // This prevents full page loads and origin transfer on every filter change
+    history.replaceState(history.state, '', newUrl);
   }
 
   // Handle page change from CardGrid
