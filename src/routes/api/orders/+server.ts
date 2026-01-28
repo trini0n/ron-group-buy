@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items, action, paypalEmail } = body
+  const { addressId, newAddress, shippingType, items, action, paypalEmail, notes } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
@@ -171,7 +171,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       shipping_city: shippingAddress.city,
       shipping_state: shippingAddress.state,
       shipping_postal_code: shippingAddress.postal_code,
-      shipping_country: shippingAddress.country
+      shipping_country: shippingAddress.country,
+      notes: notes || null
     })
     .select()
     .single()

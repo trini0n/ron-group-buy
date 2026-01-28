@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$components/ui/button';
   import { Input } from '$components/ui/input';
+  import { Textarea } from '$components/ui/textarea';
   import { Label } from '$components/ui/label';
   import * as Card from '$components/ui/card';
   import { Separator } from '$components/ui/separator';
@@ -9,6 +10,7 @@
   import { createSupabaseClient } from '$lib/supabase';
   import { browser } from '$app/environment';
   import { ArrowLeft, Check, AlertTriangle, Mail, Package, Truck, ChevronDown, ChevronUp } from 'lucide-svelte';
+
 
   let { data } = $props();
 
@@ -62,6 +64,9 @@
   $effect(() => {
     paypalEmail = data.userPaypalEmail || '';
   });
+
+  // Order note
+  let orderNote = $state('');
 
   // Determine shipping location and calculate costs
   let selectedCountry = $derived.by(() => {
@@ -165,6 +170,7 @@
           cartId: cartStore.cartId,
           cartVersion: cartStore.version,
           action: data.existingPendingOrder ? 'merge' : null, // Auto-merge if existing order
+          notes: orderNote.trim() || null,
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -179,7 +185,8 @@
       const result = await response.json();
 
       if (response.ok) {
-        cartStore.clear();
+        // Clear cart and wait for it to complete before redirecting
+        await cartStore.clear();
         window.location.href = `/orders/${result.orderId}?success=true`;
       } else {
         alert(`Error: ${result.message}`);
@@ -386,6 +393,23 @@
           />
           <p class="text-xs text-muted-foreground">
             We'll send your PayPal invoice to this address. This will be saved to your profile for future orders.
+          </p>
+        </div>
+      </div>
+
+      <!-- Order Notes -->
+      <div class="lg:col-span-2">
+        <h2 class="mb-4 text-xl font-semibold">Order Notes (Optional)</h2>
+        <div class="space-y-2">
+          <Label for="order-note">Add a note to your order</Label>
+          <Textarea 
+            id="order-note" 
+            placeholder="Special instructions, questions, or notes for your order (optional)"
+            bind:value={orderNote}
+            class="min-h-[100px]"
+          />
+          <p class="text-xs text-muted-foreground">
+            This note will be visible to the seller and attached to your order.
           </p>
         </div>
       </div>

@@ -229,21 +229,96 @@ function createCartStore() {
   }
 
   /**
+   * Add multiple items to cart (bulk operation, server-synced)
+   */
+  async function addItems(cardsWithQuantity: Array<{ card: Card; quantity: number }>): Promise<boolean> {
+    if (!browser) return false
+
+    // Optimistic update - add all items locally
+    const previousItems = [...items]
+    const newItems = [...items]
+
+    for (const { card, quantity } of cardsWithQuantity) {
+      const existingIndex = newItems.findIndex((i) => i.card.id === card.id)
+
+      if (existingIndex >= 0) {
+        newItems[existingIndex].quantity += quantity
+      } else {
+        newItems.push({
+          id: 'pending-' + Date.now() + '-' + Math.random(),
+          card,
+          quantity
+        })
+      }
+    }
+
+    items = newItems
+    persistLocal()
+
+    try {
+      const response = await fetch('/api/cart/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cardsWithQuantity.map(({ card, quantity }) => ({
+            card_id: card.id,
+            quantity
+          })),
+          expected_version: version > 0 ? version : undefined
+        })
+      })
+
+      if (response.status === 409) {
+        // Version conflict - resync
+        await syncFromServer()
+        // Retry once
+        return addItems(cardsWithQuantity)
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to add items')
+      }
+
+      const data = await response.json()
+
+      if (data.cart) {
+        cartId = data.cart.id
+        version = data.cart.version
+      }
+      items = data.items || []
+      persistLocal()
+
+      return true
+    } catch (err) {
+      // Rollback
+      items = previousItems
+      persistLocal()
+      console.error('Bulk add to cart error:', err)
+      lastError = 'Failed to add items to cart'
+      return false
+    }
+  }
+
+
+  /**
    * Update item quantity (server-synced)
    */
   async function updateQuantity(itemId: string, quantity: number): Promise<boolean> {
     if (!browser) return false
 
-    // Optimistic update
+    // Optimistic update - create new objects to ensure reactivity
     const previousItems = [...items]
     const itemIndex = items.findIndex((i) => i.id === itemId)
 
     if (itemIndex >= 0) {
       if (quantity <= 0) {
+        // Remove item
         items = items.filter((i) => i.id !== itemId)
       } else {
-        items[itemIndex].quantity = quantity
-        items = [...items]
+        // Create new array with updated item (new object reference for reactivity)
+        items = items.map((i, idx) => 
+          idx === itemIndex ? { ...i, quantity } : i
+        )
       }
       persistLocal()
     }
@@ -482,6 +557,7 @@ function createCartStore() {
     // Actions
     syncFromServer,
     addItem,
+    addItems,
     updateQuantity,
     removeItem,
     clear,

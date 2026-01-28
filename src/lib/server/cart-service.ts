@@ -199,6 +199,146 @@ export class CartService {
   }
 
   /**
+   * Add multiple items to cart in a single transaction
+   */
+  async addItems(
+    cartId: string,
+    items: Array<{ card_id: string; quantity: number }>,
+    expectedVersion?: number
+  ): Promise<{ success: boolean; cart: Cart; error?: string }> {
+    // Get current cart version
+    const { data: cart, error: cartError } = await this.supabase
+      .from('carts')
+      .select('version')
+      .eq('id', cartId)
+      .single()
+
+    if (cartError) {
+      return { success: false, cart: null as any, error: 'Cart not found' }
+    }
+
+    // Optimistic concurrency check
+    if (expectedVersion !== undefined && cart.version !== expectedVersion) {
+      return {
+        success: false,
+        cart: null as any,
+        error: `Version mismatch: expected ${expectedVersion}, got ${cart.version}`
+      }
+    }
+
+    // Fetch all card data and validate
+    const cardIds = items.map((item) => item.card_id)
+    const { data: cards, error: cardsError } = await this.supabase
+      .from('cards')
+      .select('*')
+      .in('id', cardIds)
+
+    if (cardsError) {
+      return { success: false, cart: null as any, error: 'Failed to fetch card data' }
+    }
+
+    // Create a map for quick lookup
+    const cardMap = new Map(cards?.map((card) => [card.id, card]) || [])
+
+    // Validate all cards exist and are in stock
+    const invalidCards: string[] = []
+    const outOfStockCards: string[] = []
+
+    for (const item of items) {
+      const card = cardMap.get(item.card_id)
+      if (!card) {
+        invalidCards.push(item.card_id)
+      } else if (!card.is_in_stock) {
+        outOfStockCards.push(card.card_name)
+      }
+    }
+
+    if (invalidCards.length > 0) {
+      return { success: false, cart: null as any, error: `${invalidCards.length} card(s) not found` }
+    }
+
+    if (outOfStockCards.length > 0) {
+      return {
+        success: false,
+        cart: null as any,
+        error: `${outOfStockCards.length} card(s) out of stock: ${outOfStockCards.slice(0, 3).join(', ')}${outOfStockCards.length > 3 ? '...' : ''}`
+      }
+    }
+
+    // Get existing cart items to check for duplicates
+    const { data: existingItems } = await this.supabase
+      .from('cart_items')
+      .select('id, card_id, quantity')
+      .eq('cart_id', cartId)
+
+    const existingMap = new Map(existingItems?.map((item) => [item.card_id, item]) || [])
+
+    // Prepare items to insert or update
+    const itemsToInsert: Array<{
+      cart_id: string
+      card_id: string
+      quantity: number
+      price_at_add: number
+      card_name_snapshot: string
+      card_type_snapshot: string
+      is_in_stock_snapshot: boolean
+    }> = []
+
+    const itemsToUpdate: Array<{ id: string; quantity: number }> = []
+
+    for (const item of items) {
+      const card = cardMap.get(item.card_id)!
+      const price = getCardPrice(card.card_type)
+      const existing = existingMap.get(item.card_id)
+
+      if (existing) {
+        // Update quantity
+        itemsToUpdate.push({
+          id: existing.id,
+          quantity: existing.quantity + item.quantity
+        })
+      } else {
+        // Insert new item
+        itemsToInsert.push({
+          cart_id: cartId,
+          card_id: item.card_id,
+          quantity: item.quantity,
+          price_at_add: price,
+          card_name_snapshot: card.card_name,
+          card_type_snapshot: card.card_type,
+          is_in_stock_snapshot: card.is_in_stock
+        })
+      }
+    }
+
+    // Execute inserts
+    if (itemsToInsert.length > 0) {
+      const { error: insertError } = await this.supabase.from('cart_items').insert(itemsToInsert)
+
+      if (insertError) {
+        return { success: false, cart: null as any, error: insertError.message }
+      }
+    }
+
+    // Execute updates
+    for (const update of itemsToUpdate) {
+      const { error: updateError } = await this.supabase
+        .from('cart_items')
+        .update({ quantity: update.quantity })
+        .eq('id', update.id)
+
+      if (updateError) {
+        return { success: false, cart: null as any, error: updateError.message }
+      }
+    }
+
+    // Return updated cart
+    const updatedCart = await this.getCartWithItems(cartId)
+    return { success: true, cart: updatedCart }
+  }
+
+
+  /**
    * Update item quantity
    */
   async updateItemQuantity(

@@ -773,16 +773,23 @@
       return;
     }
 
-    let added = 0;
-    for (const [idx, card] of selectedCards.entries()) {
-      const quantity = searchResults[idx].requestedCard.quantity;
-      await cartStore.addItem(card as any, quantity);
-      added++;
-    }
+    // Prepare bulk items array
+    const itemsToAdd = Array.from(selectedCards.entries()).map(([idx, card]) => ({
+      card: card as any,
+      quantity: searchResults[idx].requestedCard.quantity
+    }));
 
-    toast.success(`Added ${added} cards to cart`);
-    selectedCards = new Map();
+    // Add all items in a single API call
+    const success = await cartStore.addItems(itemsToAdd);
+
+    if (success) {
+      toast.success(`Added ${itemsToAdd.length} cards to cart`);
+      selectedCards = new Map();
+    } else {
+      toast.error('Failed to add cards to cart');
+    }
   }
+
 
   function getCardImageUrl(scryfallId: string | null, size: 'small' | 'normal' = 'normal'): string {
     if (!scryfallId) return '/placeholder-card.png';
