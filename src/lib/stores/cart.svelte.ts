@@ -3,6 +3,7 @@
 
 import type { Card } from '$lib/server/types'
 import { browser } from '$app/environment'
+import { cartRequestQueue } from '$lib/utils/request-queue'
 
 // Types
 export interface CartItem {
@@ -186,46 +187,48 @@ function createCartStore() {
     }
     persistLocal()
 
-    try {
-      const response = await fetch('/api/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          card_id: card.id,
-          quantity,
-          expected_version: version > 0 ? version : undefined
+    // Queue the server sync to prevent concurrent modification conflicts
+    return cartRequestQueue.enqueue(async () => {
+      try {
+        const response = await fetch('/api/cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            card_id: card.id,
+            quantity,
+            expected_version: version > 0 ? version : undefined
+          })
         })
-      })
 
-      if (response.status === 409) {
-        // Version conflict - resync
-        await syncFromServer()
-        // Retry once
-        return addItem(card, quantity)
+        if (response.status === 409) {
+          // Version conflict - resync and notify
+          await syncFromServer()
+          throw new Error('Version conflict - please try again')
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to add item')
+        }
+
+        const data = await response.json()
+
+        if (data.cart) {
+          cartId = data.cart.id
+          version = data.cart.version
+        }
+        items = data.items || []
+        persistLocal()
+
+        return true
+      } catch (err) {
+        // Rollback
+        items = previousItems
+        persistLocal()
+        console.error('Add to cart error:', err)
+        lastError = 'Failed to add item to cart'
+        return false
       }
-
-      if (!response.ok) {
-        throw new Error('Failed to add item')
-      }
-
-      const data = await response.json()
-
-      if (data.cart) {
-        cartId = data.cart.id
-        version = data.cart.version
-      }
-      items = data.items || []
-      persistLocal()
-
-      return true
-    } catch (err) {
-      // Rollback
-      items = previousItems
-      persistLocal()
-      console.error('Add to cart error:', err)
-      lastError = 'Failed to add item to cart'
-      return false
-    }
+    })
   }
 
   /**
@@ -255,49 +258,52 @@ function createCartStore() {
     items = newItems
     persistLocal()
 
-    try {
-      const response = await fetch('/api/cart/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: cardsWithQuantity.map(({ card, quantity }) => ({
-            card_id: card.id,
-            quantity
-          })),
-          expected_version: version > 0 ? version : undefined
+    // Queue the server sync to prevent concurrent modification conflicts
+    return cartRequestQueue.enqueue(async () => {
+      try {
+        const response = await fetch('/api/cart/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cardsWithQuantity.map(({ card, quantity }) => ({
+              card_id: card.id,
+              quantity
+            })),
+            expected_version: version > 0 ? version : undefined
+          })
         })
-      })
 
-      if (response.status === 409) {
-        // Version conflict - resync
-        await syncFromServer()
-        // Retry once
-        return addItems(cardsWithQuantity)
+        if (response.status === 409) {
+          // Version conflict - resync and notify
+          await syncFromServer()
+          throw new Error('Version conflict - please try again')
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to add items')
+        }
+
+        const data = await response.json()
+
+        if (data.cart) {
+          cartId = data.cart.id
+          version = data.cart.version
+        }
+        items = data.items || []
+        persistLocal()
+
+        return true
+      } catch (err) {
+        // Rollback
+        items = previousItems
+        persistLocal()
+        console.error('Bulk add to cart error:', err)
+        lastError = 'Failed to add items to cart'
+        return false
       }
-
-      if (!response.ok) {
-        throw new Error('Failed to add items')
-      }
-
-      const data = await response.json()
-
-      if (data.cart) {
-        cartId = data.cart.id
-        version = data.cart.version
-      }
-      items = data.items || []
-      persistLocal()
-
-      return true
-    } catch (err) {
-      // Rollback
-      items = previousItems
-      persistLocal()
-      console.error('Bulk add to cart error:', err)
-      lastError = 'Failed to add items to cart'
-      return false
-    }
+    })
   }
+
 
 
   /**
@@ -323,41 +329,46 @@ function createCartStore() {
       persistLocal()
     }
 
-    try {
-      const response = await fetch(`/api/cart/${itemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quantity,
-          expected_version: version > 0 ? version : undefined
+    // Queue the server sync to prevent concurrent modification conflicts
+    return cartRequestQueue.enqueue(async () => {
+      try {
+        const response = await fetch(`/api/cart/${itemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quantity,
+            expected_version: version > 0 ? version : undefined
+          })
         })
-      })
 
-      if (response.status === 409) {
-        await syncFromServer()
-        return updateQuantity(itemId, quantity)
+        if (response.status === 409) {
+          // Version conflict - resync and retry
+          await syncFromServer()
+          // Retry is already queued, don't call recursively
+          throw new Error('Version conflict - please try again')
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to update item')
+        }
+
+        const data = await response.json()
+
+        if (data.cart) {
+          version = data.cart.version
+        }
+        items = data.items || []
+        persistLocal()
+
+        return true
+      } catch (err) {
+        items = previousItems
+        persistLocal()
+        console.error('Update quantity error:', err)
+        lastError = 'Failed to update quantity'
+        return false
       }
-
-      if (!response.ok) {
-        throw new Error('Failed to update item')
-      }
-
-      const data = await response.json()
-
-      if (data.cart) {
-        version = data.cart.version
-      }
-      items = data.items || []
-      persistLocal()
-
-      return true
-    } catch (err) {
-      items = previousItems
-      persistLocal()
-      console.error('Update quantity error:', err)
-      lastError = 'Failed to update quantity'
-      return false
-    }
+    })
   }
 
   /**
