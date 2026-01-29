@@ -124,11 +124,13 @@ async function searchSingleCard(
   let allMatches = getFromCache(primaryName)
   
   if (!allMatches) {
-    // Query for all cards matching this name (check both card_name and flavor_name)
+    // Query for all cards matching this name
+    // Check: card_name exact match, flavor_name match, OR card_name starts with "searchTerm // "
+    // This handles double-faced cards like "Overgrown Tomb // Overgrown Tomb"
     const { data: initialMatches } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
-      .or(`card_name.ilike.${primaryName},flavor_name.ilike.${primaryName}`)
+      .or(`card_name.ilike.${primaryName},flavor_name.ilike.${primaryName},card_name.ilike.${primaryName} // %`)
       .order('is_in_stock', { ascending: false })
       .limit(100)
     
