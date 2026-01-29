@@ -19,13 +19,11 @@
   // Quantity state
   let quantity = $state(1);
   
-  // Track selected finish variant (default to first in finishVariants)
-  let selectedCard = $state<Card>(card);
+  // Track selected finish variant (can be changed by user or props)
+  let selectedCard = $state<Card>({} as Card);
   
-  // Reset selectedCard when card changes
+  // Set selectedCard when card or finishVariants changes
   $effect(() => {
-    // When primary card changes, reset to the first in-stock variant or the first one
-    const _ = card.serial;
     const inStock = finishVariants.find(v => v.is_in_stock);
     selectedCard = inStock || finishVariants[0] || card;
   });
@@ -71,6 +69,9 @@
   
   // Check if any variant is in stock
   const anyInStock = $derived(finishVariants.some(v => v.is_in_stock));
+
+  // Check if this card is already in the cart
+  const isInCart = $derived(cartStore.isInCart(selectedCard.id));
 
   function addToCart(e: Event) {
     e.preventDefault();
@@ -204,7 +205,11 @@
           <Tooltip.Root>
             <Tooltip.Trigger>
               <Button size="icon" class="h-8 w-8" onclick={addToCart}>
-                <ShoppingCart class="h-4 w-4" />
+                {#if isInCart}
+                  <ShoppingCart class="h-4 w-4 text-green-600" fill="currentColor" />
+                {:else}
+                  <ShoppingCart class="h-4 w-4" />
+                {/if}
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content>

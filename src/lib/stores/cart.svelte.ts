@@ -519,6 +519,10 @@ function createCartStore() {
     return items.reduce((count, item) => count + item.quantity, 0)
   }
 
+  function isInCart(cardId: string): boolean {
+    return items.some((item) => item.card.id === cardId)
+  }
+
   return {
     // State (read-only)
     get items() {
@@ -565,7 +569,10 @@ function createCartStore() {
     executeMerge,
     skipMerge,
     validate,
-    onAuthChange
+    onAuthChange,
+
+    // Helpers
+    isInCart
   }
 }
 

@@ -129,9 +129,9 @@
 
       // Color identity filter
       if (f.colorIdentity.length > 0) {
-        const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
+        const cardColors = (card.color_identity?.split(', ') || []).filter((c: string) => c);
         if (f.colorIdentityStrict) {
-          const hasDisallowedColor = cardColors.some((c) => !f.colorIdentity.includes(c));
+          const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c));
           if (hasDisallowedColor) return false;
         } else {
           const hasMatchingColor = f.colorIdentity.some((c) => cardColors.includes(c));
@@ -158,7 +158,7 @@
         if (!card.type_line) return false;
         const typeLine = card.type_line.toLowerCase();
         const mainTypes = typeLine.split('—')[0].trim();
-        const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t));
         const hasMatchingType = f.cardTypes.some((selectedType) =>
           cardTypeWords.includes(selectedType.toLowerCase())
         );
@@ -524,26 +524,33 @@
               />
             </Table.Cell>
             <Table.Cell>
-              <div class="flex items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="h-6 w-6"
-                  onclick={() => setRowQuantity(card.serial, rowQty - 1)}
-                  disabled={!card.is_in_stock || rowQty <= 1}
-                >
-                  <Minus class="h-3 w-3" />
-                </Button>
-                <span class="w-6 text-center text-sm">{rowQty}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="h-6 w-6"
-                  onclick={() => setRowQuantity(card.serial, rowQty + 1)}
-                  disabled={!card.is_in_stock || rowQty >= 99}
-                >
-                  <Plus class="h-3 w-3" />
-                </Button>
+              <div class="flex items-center gap-2">
+                <div class="flex items-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-6 w-6"
+                    onclick={() => setRowQuantity(card.serial, rowQty - 1)}
+                    disabled={!card.is_in_stock || rowQty <= 1}
+                  >
+                    <Minus class="h-3 w-3" />
+                  </Button>
+                  <span class="w-6 text-center text-sm">{rowQty}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-6 w-6"
+                    onclick={() => setRowQuantity(card.serial, rowQty + 1)}
+                    disabled={!card.is_in_stock || rowQty >= 99}
+                  >
+                    <Plus class="h-3 w-3" />
+                  </Button>
+                </div>
+                {#if cartStore.isInCart(card.id)}
+                  <div title="In cart">
+                    <ShoppingCart class="h-3.5 w-3.5 text-green-600" fill="currentColor" />
+                  </div>
+                {/if}
               </div>
             </Table.Cell>
             <Table.Cell 
