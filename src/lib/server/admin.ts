@@ -30,6 +30,31 @@ export function createAdminClient() {
 }
 
 /**
+ * Check if a Discord ID has admin access (checks both hardcoded and database)
+ * This is the unified admin check that should be used server-side
+ */
+export async function isAdmin(discordId: string | null | undefined): Promise<boolean> {
+  if (!discordId) {
+    return false
+  }
+
+  // First check hardcoded super admins (for bootstrap and safety)
+  if (isAdminDiscordId(discordId)) {
+    return true
+  }
+
+  // Then check database admins table
+  const adminClient = createAdminClient()
+  const { data } = await adminClient
+    .from('admins')
+    .select('discord_id')
+    .eq('discord_id', discordId)
+    .single()
+
+  return !!data
+}
+
+/**
  * Check if a request is from an authenticated admin user
  * Use this in API routes to verify admin access
  */
@@ -45,5 +70,5 @@ export async function isAdminRequest(locals: App.Locals): Promise<boolean> {
     .eq('id', locals.user.id)
     .single()
 
-  return isAdminDiscordId(userData?.discord_id)
+  return isAdmin(userData?.discord_id)
 }

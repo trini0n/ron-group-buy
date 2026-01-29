@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from './$types'
-import { isAdminDiscordId } from '$lib/admin-shared'
+import { isAdmin } from '$lib/server/admin'
 
 export const load: LayoutServerLoad = async ({ locals, url }) => {
   // Get current group buy config
@@ -10,7 +10,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     .single()
 
   // Check if user is admin and get profile data (including avatar_url)
-  let isAdmin = false
+  let isAdminUser = false
   let userProfile: { name?: string | null; avatar_url?: string | null; discord_id?: string | null } | null = null
   
   if (locals.user) {
@@ -20,7 +20,8 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
       .eq('id', locals.user.id)
       .single()
 
-    isAdmin = isAdminDiscordId(userData?.discord_id)
+    // Use unified admin check that queries both hardcoded and database admins
+    isAdminUser = await isAdmin(userData?.discord_id)
     userProfile = userData
   }
 
@@ -28,7 +29,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     session: locals.session,
     user: locals.user,
     userProfile,
-    isAdmin,
+    isAdmin: isAdminUser,
     groupBuyConfig,
     url: { pathname: url.pathname }
   }
