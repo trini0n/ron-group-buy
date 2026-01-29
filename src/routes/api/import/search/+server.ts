@@ -125,16 +125,47 @@ async function searchSingleCard(
   
   if (!allMatches) {
     // Query for all cards matching this name
-    // Check: card_name exact match, flavor_name match, OR card_name starts with "searchTerm // "
-    // This handles double-faced cards like "Overgrown Tomb // Overgrown Tomb"
-    const { data: initialMatches } = await supabase
+    // Use separate queries to avoid issues with special characters in OR syntax
+    
+    // Query 1: Exact card_name match
+    const { data: exactMatches } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
-      .or(`card_name.ilike.${primaryName},flavor_name.ilike.${primaryName},card_name.ilike.${primaryName} // %`)
+      .ilike('card_name', primaryName)
       .order('is_in_stock', { ascending: false })
       .limit(100)
     
-    allMatches = initialMatches || []
+    // Query 2: Flavor name match
+    const { data: flavorMatches } = await supabase
+      .from('cards')
+      .select(CARD_SELECT_COLUMNS + ', flavor_name')
+      .ilike('flavor_name', primaryName)
+      .order('is_in_stock', { ascending: false })
+      .limit(100)
+    
+    // Query 3: Double-faced card match (card_name starts with "primaryName // ")
+    const { data: doubleFacedMatches } = await supabase
+      .from('cards')
+      .select(CARD_SELECT_COLUMNS + ', flavor_name')
+      .ilike('card_name', `${primaryName} // %`)
+      .order('is_in_stock', { ascending: false })
+      .limit(100)
+    
+    // Combine results and deduplicate by ID
+    const allResults = [
+      ...(exactMatches || []),
+      ...(flavorMatches || []),
+      ...(doubleFacedMatches || [])
+    ]
+    
+    // Deduplicate by card ID
+    const seen = new Set<string>()
+    allMatches = allResults.filter((card: any) => {
+      if (seen.has(card.id)) return false
+      seen.add(card.id)
+      return true
+    })
+    
     
     // If we found matches via flavor_name, expand to include ALL variants of the canonical card
     if (allMatches.length > 0) {
