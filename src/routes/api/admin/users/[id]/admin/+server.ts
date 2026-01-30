@@ -1,24 +1,13 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
+import { createAdminClient, requireAdmin } from '$lib/server/admin'
 
 // Toggle admin status for a user
 export const POST: RequestHandler = async ({ request, params, locals }) => {
   // Verify admin access
-  if (!locals.user) {
-    throw error(401, 'Unauthorized')
-  }
+  await requireAdmin(locals)
 
   const adminClient = createAdminClient()
-  const { data: currentUserData } = await adminClient
-    .from('users')
-    .select('discord_id')
-    .eq('id', locals.user.id)
-    .single()
-
-  if (!isAdminDiscordId(currentUserData?.discord_id)) {
-    throw error(403, 'Forbidden')
-  }
 
   // Get the target user
   const { data: targetUser, error: userError } = await adminClient

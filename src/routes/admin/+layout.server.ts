@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit'
-import { isAdminDiscordId, createAdminClient } from '$lib/server/admin'
+import { isAdmin, createAdminClient } from '$lib/server/admin'
 
 export const load = async ({ locals, url }) => {
   const user = locals.user
@@ -19,8 +19,8 @@ export const load = async ({ locals, url }) => {
 
   const discordId = userData?.discord_id
 
-  // Check if user has admin access
-  if (!isAdminDiscordId(discordId)) {
+  // Check if user has admin access (checks both hardcoded and database admins)
+  if (!(await isAdmin(discordId))) {
     throw redirect(303, '/?error=unauthorized')
   }
 

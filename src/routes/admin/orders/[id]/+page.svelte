@@ -483,6 +483,18 @@
         </Card.Content>
       </Card.Root>
 
+      <!-- Customer Notes -->
+      {#if order.notes}
+        <Card.Root>
+          <Card.Header>
+            <Card.Title>Customer Notes</Card.Title>
+          </Card.Header>
+          <Card.Content>
+            <p class="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{order.notes}</p>
+          </Card.Content>
+        </Card.Root>
+      {/if}
+
       <!-- Tracking & Invoice -->
       <Card.Root>
         <Card.Header>

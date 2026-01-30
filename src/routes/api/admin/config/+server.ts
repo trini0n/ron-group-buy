@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
+import { createAdminClient, isAdmin } from '$lib/server/admin'
 
 // Create a new group buy config
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -12,7 +12,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const adminClient = createAdminClient()
   const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', locals.user.id).single()
 
-  if (!isAdminDiscordId(userData?.discord_id)) {
+  if (!(await isAdmin(userData?.discord_id))) {
     throw error(403, 'Forbidden')
   }
 

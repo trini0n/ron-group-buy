@@ -4,7 +4,7 @@
  */
 
 import { json, error, type RequestEvent } from '@sveltejs/kit'
-import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
+import { createAdminClient, isAdmin } from '$lib/server/admin'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -16,7 +16,7 @@ async function verifyAdmin(locals: App.Locals) {
   const adminClient = createAdminClient()
   const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', user.id).single()
 
-  if (!isAdminDiscordId(userData?.discord_id)) {
+  if (!(await isAdmin(userData?.discord_id))) {
     throw error(403, 'Not authorized')
   }
 

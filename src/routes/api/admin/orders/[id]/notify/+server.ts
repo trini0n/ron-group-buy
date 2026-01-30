@@ -5,7 +5,7 @@
 
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
-import { createAdminClient, isAdminDiscordId } from '$lib/server/admin'
+import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { createNotificationService } from '$lib/server/notifications'
 import type { NotificationType, TemplateVariables } from '$lib/server/notifications'
 import { PUBLIC_APP_URL } from '$env/static/public'
@@ -23,7 +23,7 @@ async function verifyAdmin(locals: App.Locals) {
   const adminClient = createAdminClient()
   const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', user.id).single()
 
-  if (!isAdminDiscordId(userData?.discord_id)) {
+  if (!(await isAdmin(userData?.discord_id))) {
     throw error(403, 'Not authorized')
   }
 

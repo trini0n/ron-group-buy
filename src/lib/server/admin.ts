@@ -72,3 +72,27 @@ export async function isAdminRequest(locals: App.Locals): Promise<boolean> {
 
   return isAdmin(userData?.discord_id)
 }
+
+/**
+ * Require admin access for API routes
+ * Throws 401 if not authenticated, 403 if not admin
+ * Use this at the start of admin API endpoints
+ */
+export async function requireAdmin(locals: App.Locals): Promise<void> {
+  if (!locals.user) {
+    const { error } = await import('@sveltejs/kit')
+    throw error(401, 'Unauthorized')
+  }
+
+  const adminClient = createAdminClient()
+  const { data: userData } = await adminClient
+    .from('users')
+    .select('discord_id')
+    .eq('id', locals.user.id)
+    .single()
+
+  if (!(await isAdmin(userData?.discord_id))) {
+    const { error } = await import('@sveltejs/kit')
+    throw error(403, 'Forbidden')
+  }
+}
