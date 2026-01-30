@@ -177,7 +177,13 @@
             name: item.card.card_name,
             cardType: item.card.card_type,
             quantity: item.quantity,
-            unitPrice: getCardPrice(item.card.card_type)
+            unitPrice: getCardPrice(item.card.card_type),
+            // Identity fields for stable matching across inventory resyncs
+            setCode: item.card.set_code,
+            collectorNumber: item.card.collector_number,
+            isFoil: item.card.is_foil,
+            isEtched: item.card.is_etched,
+            language: item.card.language || 'en'
           }))
         })
       });
