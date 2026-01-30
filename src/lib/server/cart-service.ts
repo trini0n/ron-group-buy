@@ -21,6 +21,7 @@ import {
   generateCartHash,
   isCartFresh
 } from './cart-types'
+import { extractCardIdentity, findCardsByIdentity, type CardIdentity } from './card-identity'
 
 export class CartService {
   constructor(private supabase: SupabaseClient) {}
@@ -785,5 +786,170 @@ export class CartService {
         completed_at: new Date().toISOString()
       })
       .eq('id', sessionId)
+  }
+
+  /**
+   * Merge an order into a cart using identity-based matching
+   * 
+   * This resolves order items by card identity rather than card_id/serial,
+   * allowing correct merging even after inventory resyncs that change serial numbers.
+   * 
+   * @param orderId - The order to merge
+   * @param targetCartId - The cart to merge into
+   * @param options - Merge options (dry_run, etc)
+   * @returns MergeReport with details of added/combined/removed items
+   */
+  async mergeOrderIntoCart(
+    orderId: string,
+    targetCartId: string,
+    options: CartMergeOptions = {}
+  ): Promise<MergeReport> {
+    // Fetch order with items
+    const { data: order, error: orderError } = await this.supabase
+      .from('orders')
+      .select(`
+        id,
+        order_items (
+          id,
+          card_id,
+          card_serial,
+          card_name,
+          card_type,
+          quantity,
+          set_code,
+          collector_number,
+          is_foil,
+          is_etched,
+          language
+        )
+      `)
+      .eq('id', orderId)
+      .single()
+
+    if (orderError || !order) {
+      throw new Error('Order not found')
+    }
+
+    // Get target cart with items
+    const targetCart = await this.getCartWithItems(targetCartId)
+
+    const items_added: MergeAddedItem[] = []
+    const items_combined: MergeCombinedItem[] = []
+    const items_removed: MergeRemovedItem[] = []
+    const qty_adjusted: MergeQtyAdjusted[] = []
+
+    // Build map of current cart items by card_id for quick lookup
+    const cartItemsByCardId = new Map<string, CartItem & { card: Card }>()
+    for (const item of targetCart.items) {
+      cartItemsByCardId.set(item.card_id, item)
+    }
+
+    // Process each order item
+    for (const orderItem of order.order_items) {
+      // Extract card identity from order item snapshot
+      const identity: CardIdentity = {
+        set_code: orderItem.set_code || null,
+        collector_number: orderItem.collector_number || null,
+        card_name: orderItem.card_name,
+        is_foil: orderItem.is_foil || false,
+        is_etched: orderItem.is_etched || false,
+        language: orderItem.language || 'en'
+      }
+
+      // Find current cards matching this identity
+      const matchingCards = await findCardsByIdentity(this.supabase, identity)
+
+      if (matchingCards.length === 0) {
+        // No matching cards found in current inventory
+        items_removed.push({
+          card_name: orderItem.card_name,
+          quantity: orderItem.quantity || 1,
+          reason: 'sold_out'
+        })
+        continue
+      }
+
+      // Use the best match (highest serial)
+      const currentCard = matchingCards[0]
+
+      // Check if this card is already in cart
+      const existingCartItem = cartItemsByCardId.get(currentCard.id)
+      const requestedQty = orderItem.quantity || 1
+
+      if (!options.dry_run) {
+        if (existingCartItem) {
+          // Combine quantities
+          const newQuantity = existingCartItem.quantity + requestedQty
+
+          await this.supabase
+            .from('cart_items')
+            .update({ quantity: newQuantity })
+            .eq('id', existingCartItem.id)
+
+          items_combined.push({
+            card_name: currentCard.card_name,
+            previous_quantity: existingCartItem.quantity,
+            added_quantity: requestedQty,
+            new_quantity: newQuantity
+          })
+        } else {
+          // Add new item to cart
+          const currentPrice = getCardPrice(currentCard.card_type || 'Normal')
+
+          await this.supabase.from('cart_items').insert({
+            cart_id: targetCartId,
+            card_id: currentCard.id,
+            quantity: requestedQty,
+            price_at_add: currentPrice,
+            card_name_snapshot: currentCard.card_name,
+            card_type_snapshot: currentCard.card_type,
+            is_in_stock_snapshot: true
+          })
+
+          items_added.push({
+            card_name: currentCard.card_name,
+            quantity: requestedQty,
+            price: currentPrice
+          })
+        }
+      } else {
+        // Dry run - just report what would happen
+        if (existingCartItem) {
+          items_combined.push({
+            card_name: currentCard.card_name,
+            previous_quantity: existingCartItem.quantity,
+            added_quantity: requestedQty,
+            new_quantity: existingCartItem.quantity + requestedQty
+          })
+        } else {
+          const currentPrice = getCardPrice(currentCard.card_type || 'Normal')
+          items_added.push({
+            card_name: currentCard.card_name,
+            quantity: requestedQty,
+            price: currentPrice
+          })
+        }
+      }
+    }
+
+    // Get final cart version
+    let new_cart_version = 0
+    if (!options.dry_run) {
+      const { data: finalCart } = await this.supabase
+        .from('carts')
+        .select('version')
+        .eq('id', targetCartId)
+        .single()
+      new_cart_version = finalCart?.version || 0
+    }
+
+    return {
+      success: true,
+      items_added,
+      items_combined,
+      items_removed,
+      qty_adjusted,
+      new_cart_version
+    }
   }
 }

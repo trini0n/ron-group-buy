@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getCardTypeFromSerial } from '$lib/utils'
+import { detectDuplicatesInBatch, resolveDuplicates, type CardWithIdentity } from '$lib/server/card-identity'
 
 // Published CSV URL for the Library sheet
 const LIBRARY_CSV_URL =
@@ -200,6 +201,45 @@ export const POST: RequestHandler = async ({ locals }) => {
       return card
     })
 
+    // Detect duplicate card identities before upserting
+    console.log('🔍 Detecting duplicate card identities...')
+    const cardsWithIdentity: CardWithIdentity[] = cardsToUpsert.map((card) => ({
+      id: '', // Will be assigned by DB
+      serial: card.serial,
+      card_name: card.card_name,
+      set_code: card.set_code,
+      collector_number: card.collector_number,
+      is_foil: card.is_foil,
+      is_etched: card.is_etched,
+      language: card.language,
+      is_in_stock: card.is_in_stock
+    }))
+
+    const duplicateGroups = detectDuplicatesInBatch(cardsWithIdentity)
+    
+    let duplicatesResolved = 0
+    let alertsCreated = 0
+
+    if (duplicateGroups.length > 0) {
+      console.log(`⚠️  Found ${duplicateGroups.length} duplicate identity groups`)
+      
+      // Update cards array to mark lower serials as OOS
+      const oosSerials = new Set<string>()
+      duplicateGroups.forEach(group => {
+        group.markedOosSerials.forEach(serial => oosSerials.add(serial))
+      })
+
+      // Mark duplicates as out of stock in the cards to upsert
+      cardsToUpsert.forEach(card => {
+        if (oosSerials.has(card.serial)) {
+          card.is_in_stock = false
+        }
+      })
+
+      duplicatesResolved = oosSerials.size
+      console.log(`📝 Marked ${duplicatesResolved} duplicate serials as out of stock`)
+    }
+
     // Upsert in batches
     const batchSize = 100
     let successCount = 0
@@ -224,12 +264,28 @@ export const POST: RequestHandler = async ({ locals }) => {
     // Get final count
     const { count } = await adminClient.from('cards').select('*', { count: 'exact', head: true })
 
+    // Create admin alerts for duplicates after successful upsert
+    if (duplicateGroups.length > 0) {
+      console.log(`🚨 Creating ${duplicateGroups.length} admin alerts for duplicates...`)
+      const result = await resolveDuplicates(adminClient, duplicateGroups)
+      alertsCreated = result.alertsCreated
+      
+      if (result.errors.length > 0) {
+        console.error(`❌ ${result.errors.length} errors creating alerts:`, result.errors)
+      } else {
+        console.log(`✅ Created ${alertsCreated} duplicate alerts for admin review`)
+      }
+    }
+
     console.log(`🎉 Sync complete! Success: ${successCount}, Errors: ${errorCount}, Total: ${count}`)
+    console.log(`   Duplicates resolved: ${duplicatesResolved}, Alerts created: ${alertsCreated}`)
 
     return json({
       success: successCount,
       errors: errorCount,
-      total: count || 0
+      total: count || 0,
+      duplicates_resolved: duplicatesResolved,
+      alerts_created: alertsCreated
     })
   } catch (err) {
     console.error('❌ Sync failed:', err)

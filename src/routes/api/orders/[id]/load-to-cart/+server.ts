@@ -1,9 +1,10 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { CartService } from '$lib/server/cart-service'
 
 /**
- * Load a pending order's items back into the user's cart for editing.
- * This clears the current cart and replaces it with the order's items.
+ * Merge a submitted order back into the user's cart using identity-based matching.
+ * This preserves the order as a snapshot and uses card identity to find current cards.
  */
 export const POST: RequestHandler = async ({ params, locals }) => {
   // Require authentication
@@ -16,20 +17,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   // Fetch the order and verify ownership
   const { data: order, error: orderError } = await locals.supabase
     .from('orders')
-    .select(`
-      id,
-      user_id,
-      status,
-      group_buy_id,
-      order_items (
-        card_id,
-        card_serial,
-        card_name,
-        card_type,
-        quantity,
-        unit_price
-      )
-    `)
+    .select('id, user_id, status')
     .eq('id', orderId)
     .single()
 
@@ -39,25 +27,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
   // Verify ownership
   if (order.user_id !== locals.user.id) {
-    throw error(403, 'Not authorized to edit this order')
-  }
-
-  // Verify order is still pending
-  if (order.status !== 'pending') {
-    throw error(400, 'Only pending orders can be edited')
-  }
-
-  // Verify the group buy is still active
-  if (order.group_buy_id) {
-    const { data: groupBuy } = await locals.supabase
-      .from('group_buy_config')
-      .select('is_active')
-      .eq('id', order.group_buy_id)
-      .single()
-
-    if (!groupBuy?.is_active) {
-      throw error(400, 'The group buy for this order is no longer active')
-    }
+    throw error(403, 'Not authorized to load this order')
   }
 
   // Get or create the user's cart
@@ -80,50 +50,36 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     cart = newCart
   }
 
-  // Clear current cart items
-  await locals.supabase
-    .from('cart_items')
-    .delete()
-    .eq('cart_id', cart.id)
+  // Use CartService to merge order into cart with identity-based matching
+  const cartService = new CartService(locals.supabase)
 
-  // Copy order items to cart, filtering out items with null card_id
-  const cartItems = order.order_items
-    .filter((item: { card_id: string | null }) => item.card_id !== null)
-    .map((item: {
-      card_id: string | null
-      quantity: number | null
-    }) => ({
-      cart_id: cart.id,
-      card_id: item.card_id!,
-      quantity: item.quantity ?? 1
-    }))
+  try {
+    const mergeReport = await cartService.mergeOrderIntoCart(orderId, cart.id)
 
-  if (cartItems.length > 0) {
-    const { error: insertError } = await locals.supabase
-      .from('cart_items')
-      .insert(cartItems)
+    // Build user-friendly response message
+    const messages: string[] = []
 
-    if (insertError) {
-      console.error('Error copying items to cart:', insertError)
-      throw error(500, 'Failed to load order items to cart')
+    if (mergeReport.items_added.length > 0) {
+      messages.push(`Added ${mergeReport.items_added.length} new item(s) to cart`)
     }
+
+    if (mergeReport.items_combined.length > 0) {
+      messages.push(`Combined ${mergeReport.items_combined.length} item(s) with existing cart items`)
+    }
+
+    if (mergeReport.items_removed.length > 0) {
+      const removedNames = mergeReport.items_removed.slice(0, 3).map(i => i.card_name)
+      const more = mergeReport.items_removed.length > 3 ? ` and ${mergeReport.items_removed.length - 3} more` : ''
+      messages.push(`⚠️  ${removedNames.join(', ')}${more} no longer available`)
+    }
+
+    return json({
+      success: true,
+      message: messages.join('. ') || 'Order merged successfully',
+      report: mergeReport
+    })
+  } catch (err) {
+    console.error('Error merging order into cart:', err)
+    throw error(500, err instanceof Error ? err.message : 'Failed to merge order into cart')
   }
-
-  // Delete the pending order since we're loading it for editing
-  // The user will create a new order when they checkout
-  await locals.supabase
-    .from('order_items')
-    .delete()
-    .eq('order_id', order.id)
-
-  await locals.supabase
-    .from('orders')
-    .delete()
-    .eq('id', order.id)
-
-  return json({
-    success: true,
-    itemsLoaded: cartItems.length,
-    message: 'Order loaded to cart for editing. Your original order has been removed.'
-  })
 }

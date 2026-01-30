@@ -14,6 +14,12 @@ interface OrderItem {
   cardType: string
   quantity: number
   unitPrice: number
+  // Identity fields for stable matching across resyncs
+  setCode?: string | null
+  collectorNumber?: string | null
+  isFoil?: boolean
+  isEtched?: boolean
+  language?: string
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -182,7 +188,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(500, 'Failed to create order')
   }
 
-  // Create order items
+  // Create order items with identity snapshot
   const orderItems = items.map((item: OrderItem) => ({
     order_id: order.id,
     card_id: item.cardId,
@@ -190,7 +196,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     card_name: item.name,
     card_type: item.cardType,
     quantity: item.quantity,
-    unit_price: item.unitPrice
+    unit_price: item.unitPrice,
+    // Snapshot card identity for future merge operations
+    set_code: item.setCode || null,
+    collector_number: item.collectorNumber || null,
+    is_foil: item.isFoil ?? false,
+    is_etched: item.isEtched ?? false,
+    language: item.language || 'en'
   }))
 
   const { error: itemsError } = await locals.supabase.from('order_items').insert(orderItems)
