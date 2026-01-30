@@ -218,6 +218,18 @@
         </Card.Content>
       </Card.Root>
 
+      <!-- Order Notes -->
+      {#if data.order.notes}
+        <Card.Root>
+          <Card.Header class="pb-3">
+            <Card.Title class="text-base">Order Notes</Card.Title>
+          </Card.Header>
+          <Card.Content>
+            <p class="text-sm text-muted-foreground whitespace-pre-wrap">{data.order.notes}</p>
+          </Card.Content>
+        </Card.Root>
+      {/if}
+
       <!-- Payment -->
       {#if data.order.paypal_invoice_url}
         <Card.Root>
