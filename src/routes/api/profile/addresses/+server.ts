@@ -9,6 +9,26 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const addressData = await request.json()
 
+  // Verify user exists in users table (diagnose potential sync issue)
+  const { data: userExists, error: userCheckError } = await locals.supabase
+    .from('users')
+    .select('id, email')
+    .eq('id', locals.user.id)
+    .single()
+
+  if (userCheckError || !userExists) {
+    console.error('User existence check failed:', {
+      authUserId: locals.user.id,
+      authUserEmail: locals.user.email,
+      error: userCheckError,
+      errorCode: userCheckError?.code,
+      errorMessage: userCheckError?.message,
+      errorDetails: userCheckError?.details,
+      errorHint: userCheckError?.hint
+    })
+    throw error(500, 'User account not properly synced. Please sign out and sign back in.')
+  }
+
   // If setting as default, unset other defaults first
   if (addressData.is_default) {
     await locals.supabase.from('addresses').update({ is_default: false }).eq('user_id', locals.user.id)
@@ -31,8 +51,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   if (insertError) {
-    console.error('Error creating address:', insertError)
-    throw error(500, 'Failed to create address')
+    console.error('Error creating address:', {
+      error: insertError,
+      errorCode: insertError.code,
+      errorMessage: insertError.message,
+      errorDetails: insertError.details,
+      errorHint: insertError.hint,
+      userId: locals.user.id,
+      userEmail: locals.user.email,
+      addressData: {
+        name: addressData.name,
+        city: addressData.city,
+        country: addressData.country
+      }
+    })
+    throw error(500, `Failed to create address: ${insertError.message || 'Unknown error'}`)
   }
 
   return json(address)

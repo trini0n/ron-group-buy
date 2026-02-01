@@ -147,7 +147,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .single()
 
     if (saveError) {
-      throw error(500, 'Failed to save address')
+      console.error('Error saving address in checkout:', {
+        error: saveError,
+        errorCode: saveError.code,
+        errorMessage: saveError.message,
+        errorDetails: saveError.details,
+        errorHint: saveError.hint,
+        userId: locals.user.id,
+        addressData: newAddress
+      })
+      throw error(500, `Failed to save address: ${saveError.message || 'Unknown error'}`)
     }
     shippingAddress = savedAddress
   } else {

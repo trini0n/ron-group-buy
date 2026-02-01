@@ -27,8 +27,16 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     .single()
 
   if (updateError) {
-    console.error('Error updating address:', updateError)
-    throw error(500, 'Failed to update address')
+    console.error('Error updating address:', {
+      error: updateError,
+      errorCode: updateError.code,
+      errorMessage: updateError.message,
+      errorDetails: updateError.details,
+      errorHint: updateError.hint,
+      userId: locals.user.id,
+      addressId: params.id
+    })
+    throw error(500, `Failed to update address: ${updateError.message || 'Unknown error'}`)
   }
 
   return json(address)
@@ -47,8 +55,16 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     .eq('user_id', locals.user.id)
 
   if (deleteError) {
-    console.error('Error deleting address:', deleteError)
-    throw error(500, 'Failed to delete address')
+    console.error('Error deleting address:', {
+      error: deleteError,
+      errorCode: deleteError.code,
+      errorMessage: deleteError.message,
+      errorDetails: deleteError.details,
+      errorHint: deleteError.hint,
+      userId: locals.user.id,
+      addressId: params.id
+    })
+    throw error(500, `Failed to delete address: ${deleteError.message || 'Unknown error'}`)
   }
 
   return json({ success: true })
