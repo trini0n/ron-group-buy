@@ -10,6 +10,8 @@ interface Order {
   order_number: string;
   status: string;
   created_at: string;
+  notes: string | null;
+  admin_notes: string | null;
   shipping_name: string;
   shipping_line1: string;
   shipping_line2: string | null;
@@ -262,6 +264,40 @@ async function buildOrderWorksheet(
   
   // Blank row
   currentRow++;
+  
+  // Customer Notes (if present)
+  if (order.notes) {
+    worksheet.getCell(`A${currentRow}`).value = 'Customer Notes:';
+    worksheet.getCell(`A${currentRow}`).font = { bold: true };
+    currentRow++;
+    
+    // Notes can be multi-line, so split and add each line
+    const noteLines = order.notes.split('\n');
+    for (const line of noteLines) {
+      worksheet.getCell(`B${currentRow}`).value = line;
+      currentRow++;
+    }
+    
+    // Blank row after notes
+    currentRow++;
+  }
+  
+  // Admin Notes (if present)
+  if (order.admin_notes) {
+    worksheet.getCell(`A${currentRow}`).value = 'Admin Notes:';
+    worksheet.getCell(`A${currentRow}`).font = { bold: true };
+    currentRow++;
+    
+    // Admin notes can be multi-line, so split and add each line
+    const adminNoteLines = order.admin_notes.split('\n');
+    for (const line of adminNoteLines) {
+      worksheet.getCell(`B${currentRow}`).value = line;
+      currentRow++;
+    }
+    
+    // Blank row after admin notes
+    currentRow++;
+  }
   
   // Order Summary
   worksheet.getCell(`A${currentRow}`).value = 'Order Summary:';
