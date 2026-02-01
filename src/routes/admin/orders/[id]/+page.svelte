@@ -28,7 +28,8 @@
     Truck,
     Trash2,
     Bell,
-    Send
+    Send,
+    Download
   } from 'lucide-svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -67,6 +68,7 @@
 
   let isSaving = $state(false);
   let isChangingStatus = $state(false);
+  let isExporting = $state(false);
 
   function formatDate(dateString: string | null) {
     if (!dateString) return '—';
@@ -207,6 +209,30 @@
       isDeleting = false;
     }
   }
+
+  async function exportOrder() {
+    isExporting = true;
+    try {
+      const response = await fetch(`/api/admin/exports/order/${order.id}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.headers.get('content-disposition')?.split('filename="')[1]?.slice(0, -1) || 'order.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success('Order exported successfully');
+      } else {
+        toast.error('Failed to export order');
+      }
+    } catch (err) {
+      toast.error('Failed to export order');
+    } finally {
+      isExporting = false;
+    }
+  }
 </script>
 
 <div class="p-8">
@@ -224,6 +250,15 @@
     <Badge class="{statusConfig?.color} text-lg px-4 py-1">
       {statusConfig?.label || order.status}
     </Badge>
+    <Button 
+      variant="outline" 
+      size="sm"
+      onclick={exportOrder}
+      disabled={isExporting}
+    >
+      <Download class="h-4 w-4 mr-2" />
+      {isExporting ? 'Exporting...' : 'Export Order'}
+    </Button>
     <Button variant="destructive" size="sm" onclick={() => deleteDialogOpen = true}>
       <Trash2 class="h-4 w-4 mr-2" />
       Delete Order

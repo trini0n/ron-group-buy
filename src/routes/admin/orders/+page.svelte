@@ -20,7 +20,8 @@
     Truck, 
     Folder,
     FolderOpen,
-    X
+    X,
+    Download
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -33,6 +34,7 @@
   let bulkDialogOpen = $state(false);
   let bulkNewStatus = $state<OrderStatus | ''>('');
   let isBulkUpdating = $state(false);
+  let isExporting = $state(false);
   
   // Accordion state for status sections
   let expandedSections = $state<string[]>(['pending', 'invoiced']);
@@ -178,6 +180,32 @@
     const gb = data.groupBuys.find((g: any) => g.id === data.groupBuyFilter);
     return gb?.name || null;
   }
+
+  async function exportGroupBuy() {
+    if (!data.groupBuyFilter || data.groupBuyFilter === 'unassigned') return;
+    
+    isExporting = true;
+    try {
+      const response = await fetch(`/api/admin/exports/groupbuy/${data.groupBuyFilter}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.headers.get('content-disposition')?.split('filename="')[1]?.slice(0, -1) || 'export.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success('Group buy exported successfully');
+      } else {
+        toast.error('Failed to export group buy');
+      }
+    } catch (err) {
+      toast.error('Failed to export group buy');
+    } finally {
+      isExporting = false;
+    }
+  }
 </script>
 
 <div class="flex h-full">
@@ -304,6 +332,19 @@
               Clear
             </Button>
           </div>
+        {/if}
+        
+        <!-- Bulk Export Button (only show when group buy is selected) -->
+        {#if data.groupBuyFilter && data.groupBuyFilter !== 'unassigned'}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onclick={exportGroupBuy}
+            disabled={isExporting}
+          >
+            <Download class="mr-2 h-4 w-4" />
+            {isExporting ? 'Exporting...' : 'Export Group Buy'}
+          </Button>
         {/if}
       </div>
 
