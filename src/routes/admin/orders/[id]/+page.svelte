@@ -29,7 +29,8 @@
     Trash2,
     Bell,
     Send,
-    Download
+    Download,
+    Folder
   } from 'lucide-svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -45,6 +46,7 @@
   let trackingCarrier = $state('');
   let adminNotes = $state('');
   let paypalInvoiceUrl = $state('');
+  let selectedGroupBuyId = $state<string | null>(null);
   
   // Notification state
   let isSendingNotification = $state(false);
@@ -55,6 +57,7 @@
     trackingCarrier = data.order.tracking_carrier || '';
     adminNotes = data.order.admin_notes || '';
     paypalInvoiceUrl = data.order.paypal_invoice_url || '';
+    selectedGroupBuyId = data.order.group_buy_id || null;
   });
   
   // Status change dialog
@@ -69,6 +72,7 @@
   let isSaving = $state(false);
   let isChangingStatus = $state(false);
   let isExporting = $state(false);
+  let isUpdatingGroupBuy = $state(false);
 
   function formatDate(dateString: string | null) {
     if (!dateString) return '—';
@@ -231,6 +235,28 @@
       toast.error('Failed to export order');
     } finally {
       isExporting = false;
+    }
+  }
+
+  async function updateGroupBuy() {
+    isUpdatingGroupBuy = true;
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/group-buy`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_buy_id: selectedGroupBuyId })
+      });
+
+      if (response.ok) {
+        toast.success('Group buy updated successfully');
+        await invalidateAll();
+      } else {
+        toast.error('Failed to update group buy');
+      }
+    } catch (err) {
+      toast.error('Failed to update group buy');
+    } finally {
+      isUpdatingGroupBuy = false;
     }
   }
 </script>
@@ -464,6 +490,54 @@
           {/if}
         </Card.Content>
       </Card.Root>
+
+      <!-- Group Buy Assignment -->
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <Folder class="h-5 w-5" />
+            Group Buy
+          </Card.Title>
+        </Card.Header>
+        <Card.Content class="space-y-3">
+          <div class="space-y-2">
+            <Label>Assign to Group Buy</Label>
+            <Select.Root 
+              type="single" 
+              value={selectedGroupBuyId || 'unassigned'}
+              onValueChange={(v) => selectedGroupBuyId = v === 'unassigned' ? null : v}
+            >
+              <Select.Trigger class="w-full">
+                {#if selectedGroupBuyId}
+                  {data.groupBuys.find(gb => gb.id === selectedGroupBuyId)?.name || 'Select group buy'}
+                {:else}
+                  Unassigned
+                {/if}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="unassigned">Unassigned</Select.Item>
+                {#each data.groupBuys as groupBuy}
+                  <Select.Item value={groupBuy.id}>
+                    {groupBuy.name}
+                    {#if groupBuy.is_active}
+                      <Badge variant="outline" class="ml-2 text-xs">Active</Badge>
+                    {/if}
+                  </Select.Item>
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          </div>
+          <Button 
+            class="w-full" 
+            onclick={updateGroupBuy}
+            disabled={isUpdatingGroupBuy || selectedGroupBuyId === (order.group_buy_id || null)}
+          >
+            <Save class="mr-2 h-4 w-4" />
+            {isUpdatingGroupBuy ? 'Updating...' : 'Update Group Buy'}
+          </Button>
+        </Card.Content>
+      </Card.Root>
+
       <Card.Root>
         <Card.Header>
           <Card.Title class="flex items-center gap-2">

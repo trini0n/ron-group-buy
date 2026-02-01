@@ -63,12 +63,19 @@ export const load = async ({ params }) => {
   const itemCount =
     order.items?.reduce((sum: number, item: { quantity: number | null }) => sum + (item.quantity || 0), 0) || 0
 
+  // Fetch all group buys for selection dropdown
+  const { data: groupBuys } = await adminClient
+    .from('group_buy_config')
+    .select('id, name, is_active')
+    .order('created_at', { ascending: false })
+
   return {
     order: {
       ...order,
       subtotal,
       itemCount
     },
-    statusHistory: statusHistory || []
+    statusHistory: statusHistory || [],
+    groupBuys: groupBuys || []
   }
 }
