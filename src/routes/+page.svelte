@@ -53,16 +53,17 @@
   let isInitialized = $state(false);
   
   // Track previous filter state to detect actual filter changes (not page changes)
+  // Use a simple object that will be updated in the effect
   let prevFilters = $state({
-    setCodes: filters.setCodes.join(','),
-    colorIdentity: filters.colorIdentity.join(','),
-    colorIdentityStrict: filters.colorIdentityStrict,
-    priceCategories: filters.priceCategories.join(','),
-    cardTypes: filters.cardTypes.join(','),
-    frameTypes: filters.frameTypes.join(','),
-    inStockOnly: filters.inStockOnly,
-    isNew: filters.isNew,
-    viewMode: viewMode
+    setCodes: '',
+    colorIdentity: '',
+    colorIdentityStrict: false,
+    priceCategories: '',
+    cardTypes: '',
+    frameTypes: '',
+    inStockOnly: false,
+    isNew: false,
+    viewMode: 'grid' as 'grid' | 'table'
   });
 
   // Debounce timer for search input

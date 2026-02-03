@@ -174,8 +174,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         authUserId: locals.user.id,
         authUserEmail: locals.user.email,
         error: userCheckError,
-        errorCode: userCheckError?.code,
-        errorMessage: userCheckError?.message
+        errorCode: (userCheckError as any)?.code,
+        errorMessage: (userCheckError as any)?.message
       })
       throw error(500, 'Failed to verify user account')
     }

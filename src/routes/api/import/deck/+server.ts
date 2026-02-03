@@ -82,7 +82,9 @@ function setCache(key: string, data: any) {
   // Limit cache size
   if (deckCache.size > 100) {
     const firstKey = deckCache.keys().next().value
-    deckCache.delete(firstKey)
+    if (firstKey) {
+      deckCache.delete(firstKey)
+    }
   }
 }
 

@@ -39,9 +39,13 @@
     scryfall_id: string | null;
     ron_image_url: string | null;
     isDuplicate: boolean;
+    duplicate_count: number | null;
   }
 
   let { data } = $props();
+
+  // Filtered cards with guaranteed non-null IDs
+  const filteredCards = $derived(data.cards.filter((c): c is InventoryCard => c.id !== null));
 
   let searchInput = $state('');
   let selectedStock = $state('');
@@ -147,10 +151,10 @@
   }
 
   function toggleSelectAll() {
-    if (selectedCards.size === data.cards.length) {
+    if (selectedCards.size === filteredCards.length) {
       selectedCards = new Set();
     } else {
-      selectedCards = new Set(data.cards.map(c => c.id));
+      selectedCards = new Set(filteredCards.map(c => c.id));
     }
   }
 
@@ -450,7 +454,7 @@
 
   <!-- Results count -->
   <p class="mb-4 text-sm text-muted-foreground">
-    Showing {data.cards.length} of {data.totalCount} cards
+    Showing {filteredCards.length} of {data.totalCount} cards
   </p>
 
   <!-- Cards Table -->
@@ -460,7 +464,7 @@
         <Table.Row>
           <Table.Head class="w-[50px]">
             <Checkbox 
-              checked={selectedCards.size === data.cards.length && data.cards.length > 0}
+              checked={selectedCards.size === filteredCards.length && filteredCards.length > 0}
               onCheckedChange={toggleSelectAll}
             />
           </Table.Head>
@@ -476,7 +480,7 @@
         </Table.Row>
       </Table.Header>
       <Table.Body>
-        {#each data.cards as card}
+        {#each filteredCards as card}
           <Table.Row 
             class="{selectedCards.has(card.id) ? 'bg-muted/50' : ''} {card.isDuplicate ? 'border-l-4 border-l-orange-500' : ''}"
             onmouseleave={handleRowMouseLeave}

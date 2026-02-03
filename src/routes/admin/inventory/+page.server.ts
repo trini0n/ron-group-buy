@@ -67,7 +67,7 @@ export const load = async ({ url, setHeaders }) => {
   // Add isDuplicate flag based on duplicate_count
   const cardsWithDupeFlag = (cards || []).map((card) => ({
     ...card,
-    isDuplicate: card.duplicate_count > 1
+    isDuplicate: (card.duplicate_count ?? 0) > 1
   }))
 
   // Get unique sets for filter dropdown (optimized query)

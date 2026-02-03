@@ -164,11 +164,11 @@ async function searchSingleCard(
       if (seen.has(card.id)) return false
       seen.add(card.id)
       return true
-    })
+    }) as unknown as CardMatch[]
     
     
     // If we found matches via flavor_name, expand to include ALL variants of the canonical card
-    if (allMatches.length > 0) {
+    if (allMatches && allMatches.length > 0) {
       const firstMatch = allMatches[0] as any
       // Check if this was a flavor name match (searched name doesn't match card_name)
       if (firstMatch.card_name.toLowerCase() !== primaryName.toLowerCase()) {
@@ -183,12 +183,17 @@ async function searchSingleCard(
         
         // Use all variants instead of just the flavor match
         if (allVariants && allVariants.length > 0) {
-          allMatches = allVariants
+          allMatches = allVariants as unknown as CardMatch[]
         }
       }
     }
     
-    setInCache(primaryName, allMatches)
+    setInCache(primaryName, allMatches || [])
+  }
+  
+  // Ensure allMatches is never null
+  if (!allMatches) {
+    allMatches = []
   }
   
   let exactMatch: CardMatch | null = null

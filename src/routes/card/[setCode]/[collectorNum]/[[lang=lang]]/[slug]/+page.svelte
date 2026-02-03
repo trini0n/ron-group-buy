@@ -8,6 +8,7 @@
   import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses, isDefaultLanguage } from '$lib/utils';
   import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
+  import { untrack } from 'svelte';
 
   // Language code to display name mapping
   const LANGUAGE_NAMES: Record<string, string> = {
@@ -28,8 +29,8 @@
   // Get finish variants from server data
   const finishVariants = $derived(data.finishVariants as CardType[] || [data.card]);
   
-  // Track selected finish variant
-  let selectedCard = $state<CardType>(data.card);
+  // Track selected finish variant - use untrack to explicitly capture initial value
+  let selectedCard = $state<CardType>(untrack(() => data.card));
   
   // Reset selectedCard when page data changes (navigation)
   $effect(() => {
