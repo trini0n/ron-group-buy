@@ -19,11 +19,11 @@ export interface TemplateVariables {
   group_buy_name?: string;
   status?: string;
   previous_status?: string;
+  invoiced_message?: string;
   tracking_number?: string;
   tracking_carrier?: string;
   tracking_url?: string;
   order_url: string;
-  invoice_url?: string;
   user_name?: string;
 }
 

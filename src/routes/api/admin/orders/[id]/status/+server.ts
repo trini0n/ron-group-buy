@@ -95,7 +95,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       order_number: order.order_number,
       status: ORDER_STATUS_CONFIG[newStatus]?.label || newStatus,
       previous_status: ORDER_STATUS_CONFIG[oldStatus]?.label || oldStatus,
-      order_url: getOrderUrl(order.id)
+      order_url: getOrderUrl(order.id),
+      // Add PayPal inbox reminder when status is Invoiced
+      invoiced_message: newStatus === 'invoiced' 
+        ? '\n\nPlease check your PayPal email inbox for the invoice.' 
+        : undefined
     }
 
     // Fire and forget - don't await to avoid blocking the response

@@ -84,8 +84,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     order_url: getOrderUrl(order.id),
     tracking_number: order.tracking_number || undefined,
     tracking_carrier: order.tracking_carrier || undefined,
-    tracking_url: trackingUrl || undefined,
-    invoice_url: order.paypal_invoice_url || undefined
+    tracking_url: trackingUrl || undefined
   }
 
   const result = await notificationService.send({

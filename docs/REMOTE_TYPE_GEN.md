@@ -19,7 +19,7 @@ supabase gen types typescript --linked > src/lib/server/database.types.ts
 
 Then run:
 ```bash
-supabase gen types typescript --project-id abcdefghijklmnop > src/lib/server/database.types.ts
+supabase gen types typescript --project-id ritpdjwomrvkfogqanlj > src/lib/server/database.types.ts
 ```
 
 This will pull the schema from your production database and generate fresh types!
