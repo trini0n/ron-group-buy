@@ -24,6 +24,8 @@ export interface TemplateVariables {
   tracking_carrier?: string;
   tracking_url?: string;
   order_url: string;
+  paypal_email?: string;
+  paypal_email_text?: string;
   user_name?: string;
 }
 

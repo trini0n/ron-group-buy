@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Get current order with user info for notification
   const { data: order, error: fetchError } = await adminClient
     .from('orders')
-    .select('id, order_number, status, user_id')
+    .select('id, order_number, status, user_id, paid_at, shipped_at, user:users(paypal_email, email)')
     .eq('id', params.id)
     .single()
 
@@ -51,26 +51,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   const oldStatus = order.status as OrderStatus
   const newStatus = status as OrderStatus
 
-  // Update order status
-  const updateData: Record<string, unknown> = {
-    status: newStatus
-  }
-
-  // Set shipped_at timestamp when marking as shipped
-  if (newStatus === 'shipped' && oldStatus !== 'shipped') {
-    updateData.shipped_at = new Date().toISOString()
-  }
-
-  // Set paid_at timestamp when marking as paid
-  if (newStatus === 'paid' && oldStatus !== 'paid') {
-    updateData.paid_at = new Date().toISOString()
-  }
-
-  const { error: updateError } = await adminClient.from('orders').update(updateData).eq('id', params.id)
+  // Update status
+  const { error: updateError } = await adminClient
+    .from('orders')
+    .update({
+      status: newStatus,
+      // Update paid_at/shipped_at timestamps if applicable
+      paid_at: newStatus === 'paid' && !order.paid_at ? new Date().toISOString() : undefined,
+      shipped_at: newStatus === 'shipped' && !order.shipped_at ? new Date().toISOString() : undefined
+    })
+    .eq('id', params.id)
 
   if (updateError) {
     logger.error({ orderId: params.id, error: updateError }, 'Error updating order status')
-    throw error(500, 'Failed to update order status')
+    throw error(500, 'Failed to update status')
   }
 
   // Insert status history record
@@ -91,14 +85,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (oldStatus !== newStatus) {
     const notificationService = createNotificationService(adminClient)
     
+    // Get user's PayPal email (fallback to regular email if not set)
+    const paypalEmail = order.user?.paypal_email || order.user?.email
+    
     const variables: TemplateVariables = {
       order_number: order.order_number,
       status: ORDER_STATUS_CONFIG[newStatus]?.label || newStatus,
       previous_status: ORDER_STATUS_CONFIG[oldStatus]?.label || oldStatus,
       order_url: getOrderUrl(order.id),
+      paypal_email: paypalEmail,
+      paypal_email_text: paypalEmail ? ` (**${paypalEmail}**)` : undefined,
       // Add PayPal inbox reminder when status is Invoiced
-      invoiced_message: newStatus === 'invoiced' 
-        ? '\n\nPlease check your PayPal email inbox for the invoice.' 
+      invoiced_message: newStatus === 'invoiced' && paypalEmail
+        ? `\n\nPlease check your PayPal email inbox (**${paypalEmail}**) for the invoice.` 
         : undefined
     }
 

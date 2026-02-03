@@ -17,7 +17,7 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
     '🚚 **Your Order Has Shipped!**\n\nOrder **#{{order_number}}** from {{group_buy_name}} is on its way.\n\n**Tracking:** {{tracking_number}}\n\n[Track Your Package]({{tracking_url}})',
   
   'payment_reminder:discord':
-    '💳 **Payment Reminder**\n\nYour order **#{{order_number}}** from {{group_buy_name}} is awaiting payment.\n\nPlease check your PayPal email inbox for the invoice.\n\n[View Order Details]({{order_url}})'
+    '💳 **Payment Reminder**\n\nYour order **#{{order_number}}** from {{group_buy_name}} is awaiting payment.\n\nPlease check your PayPal email inbox{{paypal_email_text}} for the invoice.\n\n[View Order Details]({{order_url}})'
 };
 
 /**
