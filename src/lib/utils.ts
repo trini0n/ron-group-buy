@@ -238,3 +238,83 @@ export function getFrameEffectLabel(card: {
   return effects.length > 0 ? effects.join(', ') : null
 }
 
+/**
+ * Parse a card serial into its components for natural sorting
+ * Examples: N-47 => { prefix: 'N', number: 47, suffix: '' }
+ *          H-100a => { prefix: 'H', number: 100, suffix: 'a' }
+ */
+export function parseCardSerial(serial: string): { prefix: string; number: number; suffix: string } {
+  // Match pattern: PREFIX-NUMBER[SUFFIX]
+  const match = serial.match(/^([A-Z])-(\d+)([a-z]*)$/)
+  
+  if (!match) {
+    // Fallback for non-standard format
+    return { prefix: '', number: 0, suffix: serial }
+  }
+  
+  return {
+    prefix: match[1],
+    number: parseInt(match[2], 10),
+    suffix: match[3] || ''
+  }
+}
+
+/**
+ * Compare two card serials using natural sort order
+ * Sort priority: prefix (N < H < F), then number, then suffix
+ */
+export function compareSerials(a: string, b: string): number {
+  const parsedA = parseCardSerial(a)
+  const parsedB = parseCardSerial(b)
+  
+  // Define prefix order: Normal < Holo < Foil
+  const prefixOrder: Record<string, number> = { 'N': 1, 'H': 2, 'F': 3 }
+  const orderA = prefixOrder[parsedA.prefix] || 0
+  const orderB = prefixOrder[parsedB.prefix] || 0
+  
+  if (orderA !== orderB) {
+    return orderA - orderB
+  }
+  
+  // Same prefix, compare numbers
+  if (parsedA.number !== parsedB.number) {
+    return parsedA.number - parsedB.number
+  }
+  
+  // Same number, compare suffix (a < b < c)
+  return parsedA.suffix.localeCompare(parsedB.suffix)
+}
+
+/**
+ * Sort order items by card type (N/H/F) and then by serial number
+ * Used for displaying order items in admin views and exports
+ */
+export function groupAndSortOrderItems<T extends { card_serial: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => compareSerials(a.card_serial, b.card_serial))
+}
+
+/**
+ * Sort orders by shipping type (express first) then by created_at date
+ * Used for admin order lists and exports
+ */
+export function sortOrdersByShippingAndDate<T extends { shipping_type: string | null; created_at: string | null }>(
+  orders: T[]
+): T[] {
+  return [...orders].sort((a, b) => {
+    const shippingA = a.shipping_type || 'regular'
+    const shippingB = b.shipping_type || 'regular'
+    
+    // Express shipping comes first
+    if (shippingA === 'express' && shippingB !== 'express') {
+      return -1
+    }
+    if (shippingA !== 'express' && shippingB === 'express') {
+      return 1
+    }
+    
+    // Within same shipping type, sort by created_at ascending
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+    return dateA - dateB
+  })
+}

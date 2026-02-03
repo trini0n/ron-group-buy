@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { createAdminClient } from './admin';
-import { getFrameEffectLabel, getFinishLabel } from '$lib/utils';
+import { getFrameEffectLabel, getFinishLabel, sortOrdersByShippingAndDate, groupAndSortOrderItems } from '$lib/utils';
 
 // Type definitions for export data structures
 // Using explicit types instead of Database types to avoid import issues
@@ -136,7 +136,7 @@ async function fetchOrderData(orderId: string): Promise<OrderExportData> {
 }
 
 /**
- * Fetch all orders for a group buy, sorted by creation date
+ * Fetch all orders for a group buy, sorted by shipping type then creation date
  */
 async function fetchGroupBuyOrders(groupBuyId: string): Promise<OrderExportData[]> {
   const adminClient = createAdminClient();
@@ -162,14 +162,16 @@ async function fetchGroupBuyOrders(groupBuyId: string): Promise<OrderExportData[
         )
       )
     `)
-    .eq('group_buy_id', groupBuyId)
-    .order('created_at', { ascending: true });
+    .eq('group_buy_id', groupBuyId);
   
   if (error) {
     throw new Error(`Failed to fetch orders for group buy: ${groupBuyId}`);
   }
   
-  return (orders || []) as unknown as OrderExportData[];
+  const typedOrders = (orders || []) as unknown as OrderExportData[];
+  
+  // Sort orders by shipping type (express first) then by created_at
+  return sortOrdersByShippingAndDate(typedOrders);
 }
 
 /**
@@ -369,8 +371,9 @@ async function buildOrderWorksheet(
   
   currentRow++;
   
-  // Line items data
-  for (const item of order.items || []) {
+  // Line items data - sort by card type and serial number
+  const sortedItems = groupAndSortOrderItems(order.items || []);
+  for (const item of sortedItems) {
     const rowData = buildLineItemRow(item);
     
     rowData.forEach((value, index) => {

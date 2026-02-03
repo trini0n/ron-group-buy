@@ -20,6 +20,10 @@ import {
   getFinishBadgeClasses,
   getFrameEffectLabel,
   isDefaultLanguage,
+  parseCardSerial,
+  compareSerials,
+  groupAndSortOrderItems,
+  sortOrdersByShippingAndDate,
   cn
 } from '../utils'
 
@@ -367,5 +371,170 @@ describe('cn', () => {
     expect(result).toContain('base')
     expect(result).toContain('other')
     expect(result).not.toContain('conditional')
+  })
+})
+
+describe('parseCardSerial', () => {
+  it('parses standard serial format', () => {
+    expect(parseCardSerial('N-47')).toEqual({ prefix: 'N', number: 47, suffix: '' })
+    expect(parseCardSerial('H-100')).toEqual({ prefix: 'H', number: 100, suffix: '' })
+    expect(parseCardSerial('F-5')).toEqual({ prefix: 'F', number: 5, suffix: '' })
+  })
+
+  it('parses serials with letter suffixes', () => {
+    expect(parseCardSerial('N-47a')).toEqual({ prefix: 'N', number: 47, suffix: 'a' })
+    expect(parseCardSerial('N-47b')).toEqual({ prefix: 'N', number: 47, suffix: 'b' })
+    expect(parseCardSerial('H-100abc')).toEqual({ prefix: 'H', number: 100, suffix: 'abc' })
+  })
+
+  it('handles non-standard format with fallback', () => {
+    const result = parseCardSerial('INVALID')
+    expect(result.prefix).toBe('')
+    expect(result.number).toBe(0)
+    expect(result.suffix).toBe('INVALID')
+  })
+})
+
+describe('compareSerials', () => {
+  it('sorts by prefix order: Normal < Holo < Foil', () => {
+    expect(compareSerials('N-50', 'H-10')).toBeLessThan(0)
+    expect(compareSerials('H-50', 'F-10')).toBeLessThan(0)
+    expect(compareSerials('F-50', 'N-100')).toBeGreaterThan(0)
+  })
+
+  it('sorts by number within same prefix (natural sort)', () => {
+    expect(compareSerials('H-5', 'H-50')).toBeLessThan(0)
+    expect(compareSerials('H-50', 'H-100')).toBeLessThan(0)
+    expect(compareSerials('N-9', 'N-100')).toBeLessThan(0)
+  })
+
+  it('sorts by suffix when prefix and number are same', () => {
+    expect(compareSerials('N-47a', 'N-47b')).toBeLessThan(0)
+    expect(compareSerials('N-47b', 'N-47a')).toBeGreaterThan(0)
+    expect(compareSerials('N-47a', 'N-47a')).toBe(0)
+  })
+
+  it('sorts complete example correctly', () => {
+    const serials = ['H-100', 'N-50', 'F-25', 'H-5', 'N-5', 'N-47a', 'N-47b', 'N-47']
+    const sorted = [...serials].sort(compareSerials)
+    expect(sorted).toEqual(['N-5', 'N-47', 'N-47a', 'N-47b', 'N-50', 'H-5', 'H-100', 'F-25'])
+  })
+})
+
+describe('groupAndSortOrderItems', () => {
+  it('groups and sorts items by prefix then number', () => {
+    const items = [
+      { card_serial: 'H-100', card_name: 'Card 1' },
+      { card_serial: 'N-50', card_name: 'Card 2' },
+      { card_serial: 'F-25', card_name: 'Card 3' },
+      { card_serial: 'N-5', card_name: 'Card 4' },
+      { card_serial: 'H-5', card_name: 'Card 5' }
+    ]
+    
+    const sorted = groupAndSortOrderItems(items)
+    
+    expect(sorted.map(item => item.card_serial)).toEqual([
+      'N-5',
+      'N-50',
+      'H-5',
+      'H-100',
+      'F-25'
+    ])
+  })
+
+  it('handles items with suffixes', () => {
+    const items = [
+      { card_serial: 'N-47b', card_name: 'Card 1' },
+      { card_serial: 'N-47', card_name: 'Card 2' },
+      { card_serial: 'N-47a', card_name: 'Card 3' }
+    ]
+    
+    const sorted = groupAndSortOrderItems(items)
+    
+    expect(sorted.map(item => item.card_serial)).toEqual([
+      'N-47',
+      'N-47a',
+      'N-47b'
+    ])
+  })
+
+  it('does not mutate original array', () => {
+    const items = [
+      { card_serial: 'H-100', card_name: 'Card 1' },
+      { card_serial: 'N-50', card_name: 'Card 2' }
+    ]
+    
+    const original = [...items]
+    groupAndSortOrderItems(items)
+    
+    expect(items).toEqual(original)
+  })
+})
+
+describe('sortOrdersByShippingAndDate', () => {
+  it('sorts express shipping before regular', () => {
+    const orders = [
+      { shipping_type: 'regular', created_at: '2024-01-01T00:00:00Z', id: '1' },
+      { shipping_type: 'express', created_at: '2024-01-02T00:00:00Z', id: '2' }
+    ]
+    
+    const sorted = sortOrdersByShippingAndDate(orders)
+    
+    expect(sorted[0].shipping_type).toBe('express')
+    expect(sorted[1].shipping_type).toBe('regular')
+  })
+
+  it('sorts by created_at within same shipping type', () => {
+    const orders = [
+      { shipping_type: 'regular', created_at: '2024-01-03T00:00:00Z', id: '3' },
+      { shipping_type: 'regular', created_at: '2024-01-01T00:00:00Z', id: '1' },
+      { shipping_type: 'regular', created_at: '2024-01-02T00:00:00Z', id: '2' }
+    ]
+    
+    const sorted = sortOrdersByShippingAndDate(orders)
+    
+    expect(sorted[0].id).toBe('1')
+    expect(sorted[1].id).toBe('2')
+    expect(sorted[2].id).toBe('3')
+  })
+
+  it('handles mixed shipping types with dates', () => {
+    const orders = [
+      { shipping_type: 'regular', created_at: '2024-01-02T00:00:00Z', id: 'R2' },
+      { shipping_type: 'express', created_at: '2024-01-04T00:00:00Z', id: 'E2' },
+      { shipping_type: 'regular', created_at: '2024-01-01T00:00:00Z', id: 'R1' },
+      { shipping_type: 'express', created_at: '2024-01-03T00:00:00Z', id: 'E1' }
+    ]
+    
+    const sorted = sortOrdersByShippingAndDate(orders)
+    
+    expect(sorted.map(o => o.id)).toEqual(['E1', 'E2', 'R1', 'R2'])
+  })
+
+  it('handles null values gracefully', () => {
+    const orders = [
+      { shipping_type: null, created_at: '2024-01-02T00:00:00Z', id: '1' },
+      { shipping_type: 'express', created_at: null, id: '2' },
+      { shipping_type: 'regular', created_at: '2024-01-01T00:00:00Z', id: '3' }
+    ]
+    
+    // Should not throw
+    const sorted = sortOrdersByShippingAndDate(orders)
+    
+    expect(sorted.length).toBe(3)
+    // Express should be first (even with null date)
+    expect(sorted[0].shipping_type).toBe('express')
+  })
+
+  it('does not mutate original array', () => {
+    const orders = [
+      { shipping_type: 'regular', created_at: '2024-01-01T00:00:00Z', id: '1' },
+      { shipping_type: 'express', created_at: '2024-01-02T00:00:00Z', id: '2' }
+    ]
+    
+    const original = [...orders]
+    sortOrdersByShippingAndDate(orders)
+    
+    expect(orders).toEqual(original)
   })
 })

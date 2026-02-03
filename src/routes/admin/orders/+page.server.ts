@@ -1,4 +1,5 @@
 import { createAdminClient } from '$lib/server/admin'
+import { sortOrdersByShippingAndDate } from '$lib/utils'
 
 export const load = async ({ url }) => {
   const adminClient = createAdminClient()
@@ -39,7 +40,7 @@ export const load = async ({ url }) => {
   // Total order count (unfiltered) for the "All Orders" display
   const allOrdersCount = orderCountsRaw?.length || 0
 
-  // Build query
+  // Build query - remove .order() call, we'll sort in JavaScript
   let query = adminClient
     .from('orders')
     .select(
@@ -57,7 +58,6 @@ export const load = async ({ url }) => {
     `,
       { count: 'exact' }
     )
-    .order('created_at', { ascending: true })
 
   // Apply filters
   if (statusFilter) {
@@ -75,12 +75,8 @@ export const load = async ({ url }) => {
     query = query.eq('group_buy_id', groupBuyFilter)
   }
 
-  // Pagination
-  const from = (page - 1) * perPage
-  const to = from + perPage - 1
-  query = query.range(from, to)
-
-  const { data: orders, count, error } = await query
+  // Fetch all matching orders without pagination (we'll sort and paginate in JavaScript)
+  const { data: allOrders, count, error } = await query
 
   if (error) {
     console.error('Error fetching orders:', error)
@@ -107,7 +103,7 @@ export const load = async ({ url }) => {
 
   // Calculate totals for each order (including shipping and tariff)
   const ordersWithTotals =
-    orders?.map((order) => {
+    allOrders?.map((order) => {
       const subtotal =
         order.items?.reduce((sum: number, item: { quantity: number | null; unit_price: number | string | null }) => {
           return sum + (item.quantity || 0) * Number(item.unit_price || 0)
@@ -134,8 +130,16 @@ export const load = async ({ url }) => {
       }
     }) || []
 
+  // Sort orders by shipping type (express first) then created_at
+  const sortedOrders = sortOrdersByShippingAndDate(ordersWithTotals)
+  
+  // Apply pagination
+  const from = (page - 1) * perPage
+  const to = from + perPage
+  const paginatedOrders = sortedOrders.slice(from, to)
+
   return {
-    orders: ordersWithTotals,
+    orders: paginatedOrders,
     totalCount: count || 0,
     allOrdersCount,
     page,

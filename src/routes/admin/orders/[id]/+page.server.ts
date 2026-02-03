@@ -1,5 +1,6 @@
 import { createAdminClient } from '$lib/server/admin'
 import { error } from '@sveltejs/kit'
+import { groupAndSortOrderItems } from '$lib/utils'
 
 export const load = async ({ params }) => {
   const adminClient = createAdminClient()
@@ -72,6 +73,7 @@ export const load = async ({ params }) => {
   return {
     order: {
       ...order,
+      items: groupAndSortOrderItems(order.items || []),
       subtotal,
       itemCount
     },
