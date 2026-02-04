@@ -27,7 +27,6 @@
   let { data } = $props();
 
   let searchInput = $state('');
-  let selectedStatus = $state('');
   
   // Multi-select state
   let selectedOrders = $state<Set<string>>(new Set());
@@ -39,30 +38,25 @@
   // Accordion state for status sections
   let expandedSections = $state<string[]>(['pending', 'invoiced']);
   
+  // Get all visible orders across all statuses for selection logic
+  const allVisibleOrders = $derived(() => {
+    const orders: any[] = [];
+    for (const statusData of Object.values(data.ordersByStatus)) {
+      orders.push(...statusData.orders);
+    }
+    return orders;
+  });
+  
   const allSelected = $derived(
-    data.orders.length > 0 && selectedOrders.size === data.orders.length
+    allVisibleOrders().length > 0 && selectedOrders.size === allVisibleOrders().length
   );
   const someSelected = $derived(selectedOrders.size > 0);
   
-  // Group orders by status for accordion display
-  const ordersByStatus = $derived(() => {
-    const groups: Record<string, typeof data.orders> = {};
-    for (const order of data.orders) {
-      const status = order.status || 'pending';
-      if (!groups[status]) groups[status] = [];
-      groups[status].push(order);
-    }
-    return groups;
-  });
-  
   $effect(() => {
     searchInput = data.searchQuery || '';
-    selectedStatus = data.statusFilter || '';
     // Clear selection on page change
     selectedOrders = new Set();
   });
-
-  const totalPages = $derived(Math.ceil(data.totalCount / data.perPage));
 
   function toggleOrder(orderId: string) {
     const newSet = new Set(selectedOrders);
@@ -78,7 +72,7 @@
     if (allSelected) {
       selectedOrders = new Set();
     } else {
-      selectedOrders = new Set(data.orders.map((o: any) => o.id));
+      selectedOrders = new Set(allVisibleOrders().map((o: any) => o.id));
     }
   }
 
@@ -118,41 +112,50 @@
     const params = new URLSearchParams();
     
     const q = overrides.q !== undefined ? overrides.q : searchInput;
-    const status = overrides.status !== undefined ? overrides.status : selectedStatus;
     const groupBuy = overrides.groupBuy !== undefined ? overrides.groupBuy : data.groupBuyFilter;
     
     if (q) params.set('q', q);
-    if (status) params.set('status', status);
     if (groupBuy) params.set('groupBuy', groupBuy);
-    params.set('page', '1');
+    
+    // Preserve all status page parameters unless we're resetting (e.g., applying new filters)
+    if (!overrides.resetPages) {
+      const url = new URL(window.location.href);
+      for (const [key, value] of url.searchParams.entries()) {
+        if (key.endsWith('_page')) {
+          params.set(key, value);
+        }
+      }
+    }
     
     return `/admin/orders?${params.toString()}`;
   }
 
   function applyFilters() {
-    goto(buildFilterUrl());
+    // Reset pagination when applying new filters
+    goto(buildFilterUrl({ resetPages: 'true' }));
   }
 
   function selectGroupBuy(groupBuyId: string | null) {
-    goto(buildFilterUrl({ groupBuy: groupBuyId === null ? 'unassigned' : groupBuyId }));
+    goto(buildFilterUrl({ groupBuy: groupBuyId === null ? 'unassigned' : groupBuyId, resetPages: 'true' }));
   }
 
   function clearGroupBuyFilter() {
-    goto(buildFilterUrl({ groupBuy: null }));
+    goto(buildFilterUrl({ groupBuy: null, resetPages: 'true' }));
   }
 
-  function changePage(newPage: number) {
-    const params = new URLSearchParams();
+  function changePage(status: string, newPage: number) {
+    const params = new URLSearchParams(window.location.search);
     if (searchInput) params.set('q', searchInput);
-    if (selectedStatus) params.set('status', selectedStatus);
     if (data.groupBuyFilter) params.set('groupBuy', data.groupBuyFilter);
-    params.set('page', newPage.toString());
+    
+    // Update the specific status page parameter
+    params.set(`${status}_page`, newPage.toString());
+    
     goto(`/admin/orders?${params.toString()}`);
   }
 
   function clearFilters() {
     searchInput = '';
-    selectedStatus = '';
     goto('/admin/orders');
   }
 
@@ -294,25 +297,9 @@
           />
         </div>
 
-        <Select.Root 
-          type="single"
-          value={selectedStatus}
-          onValueChange={(v) => { selectedStatus = v || ''; applyFilters(); }}
-        >
-          <Select.Trigger class="w-[160px]">
-            {selectedStatus ? ORDER_STATUS_CONFIG[selectedStatus as OrderStatus]?.label : 'All Statuses'}
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="">All Statuses</Select.Item>
-            {#each Object.entries(ORDER_STATUS_CONFIG) as [value, config]}
-              <Select.Item {value}>{config.label}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-
         <Button variant="outline" size="sm" onclick={applyFilters}>Search</Button>
         
-        {#if data.searchQuery || data.statusFilter}
+        {#if data.searchQuery}
           <Button variant="ghost" size="sm" onclick={clearFilters}>Clear</Button>
         {/if}
       </div>
@@ -320,7 +307,7 @@
       <!-- Results count & bulk actions -->
       <div class="mb-3 flex items-center justify-between">
         <p class="text-sm text-muted-foreground">
-          Showing {data.orders.length} of {data.totalCount} orders
+          Showing {allVisibleOrders().length} orders
         </p>
         {#if someSelected}
           <div class="flex items-center gap-2">
@@ -349,17 +336,17 @@
       </div>
 
       <!-- Orders by Status Accordion -->
-      {#if data.orders.length > 0}
+      {#if Object.keys(data.ordersByStatus).length > 0}
         <Accordion.Root type="multiple" bind:value={expandedSections} class="space-y-3">
           {#each Object.entries(ORDER_STATUS_CONFIG) as [status, config]}
-            {@const statusOrders = ordersByStatus()[status] || []}
-            {#if statusOrders.length > 0}
+            {@const statusData = data.ordersByStatus[status]}
+            {#if statusData && statusData.orders.length > 0}
               <Accordion.Item value={status} class="rounded-lg border">
                 <Accordion.Trigger class="px-4 py-2.5 hover:no-underline">
                   <div class="flex items-center gap-3">
                     <Badge class={config.color}>{config.label}</Badge>
                     <span class="text-sm text-muted-foreground">
-                      {statusOrders.length} order{statusOrders.length !== 1 ? 's' : ''}
+                      {statusData.totalCount} order{statusData.totalCount !== 1 ? 's' : ''}
                     </span>
                   </div>
                 </Accordion.Trigger>
@@ -370,11 +357,11 @@
                         <Table.Row>
                           <Table.Head class="w-10">
                             <Checkbox 
-                              checked={statusOrders.every((o: any) => selectedOrders.has(o.id))} 
+                              checked={statusData.orders.every((o: any) => selectedOrders.has(o.id))} 
                               onCheckedChange={() => {
-                                const allInSection = statusOrders.every((o: any) => selectedOrders.has(o.id));
+                                const allInSection = statusData.orders.every((o: any) => selectedOrders.has(o.id));
                                 const newSet = new Set(selectedOrders);
-                                statusOrders.forEach((o: any) => {
+                                statusData.orders.forEach((o: any) => {
                                   if (allInSection) {
                                     newSet.delete(o.id);
                                   } else {
@@ -396,7 +383,7 @@
                         </Table.Row>
                       </Table.Header>
                       <Table.Body>
-                        {#each statusOrders as order}
+                        {#each statusData.orders as order}
                           <Table.Row class={selectedOrders.has(order.id) ? 'bg-muted/50' : ''}>
                             <Table.Cell>
                               <Checkbox 
@@ -445,6 +432,35 @@
                         {/each}
                       </Table.Body>
                     </Table.Root>
+                    
+                    <!-- Per-status pagination -->
+                    {#if statusData.totalPages > 1}
+                      <div class="mt-3 px-4 pb-3 flex items-center justify-between border-t pt-3">
+                        <p class="text-sm text-muted-foreground">
+                          Page {statusData.currentPage} of {statusData.totalPages}
+                        </p>
+                        <div class="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            disabled={statusData.currentPage <= 1}
+                            onclick={() => changePage(status, statusData.currentPage - 1)}
+                          >
+                            <ChevronLeft class="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            disabled={statusData.currentPage >= statusData.totalPages}
+                            onclick={() => changePage(status, statusData.currentPage + 1)}
+                          >
+                            Next
+                            <ChevronRight class="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    {/if}
                   </div>
                 </Accordion.Content>
               </Accordion.Item>
@@ -454,35 +470,6 @@
       {:else}
         <div class="rounded-md border py-12 text-center text-muted-foreground">
           No orders found
-        </div>
-      {/if}
-
-      <!-- Pagination -->
-      {#if totalPages > 1}
-        <div class="mt-4 flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">
-            Page {data.page} of {totalPages}
-          </p>
-          <div class="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              disabled={data.page <= 1}
-              onclick={() => changePage(data.page - 1)}
-            >
-              <ChevronLeft class="h-4 w-4" />
-              Previous
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              disabled={data.page >= totalPages}
-              onclick={() => changePage(data.page + 1)}
-            >
-              Next
-              <ChevronRight class="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       {/if}
     </div>

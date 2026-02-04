@@ -4,12 +4,19 @@ import { sortOrdersByShippingAndDate } from '$lib/utils'
 export const load = async ({ url }) => {
   const adminClient = createAdminClient()
 
-  // Parse filters from URL
-  const statusFilter = url.searchParams.get('status')
+  // Parse filters from URL (no status filter - we show all statuses now)
   const searchQuery = url.searchParams.get('q')
   const groupBuyFilter = url.searchParams.get('groupBuy')
-  const page = parseInt(url.searchParams.get('page') || '1')
   const perPage = 25
+
+  // Parse status-specific page parameters (e.g., pending_page=1, invoiced_page=2)
+  const statusPages: Record<string, number> = {}
+  for (const [key, value] of url.searchParams.entries()) {
+    if (key.endsWith('_page')) {
+      const status = key.replace('_page', '')
+      statusPages[status] = parseInt(value) || 1
+    }
+  }
 
   // Fetch all group buys with order counts
   const { data: groupBuys } = await adminClient
@@ -40,7 +47,7 @@ export const load = async ({ url }) => {
   // Total order count (unfiltered) for the "All Orders" display
   const allOrdersCount = orderCountsRaw?.length || 0
 
-  // Build query - remove .order() call, we'll sort in JavaScript
+  // Build query - fetch all orders without status filter
   let query = adminClient
     .from('orders')
     .select(
@@ -55,15 +62,10 @@ export const load = async ({ url }) => {
         quantity,
         unit_price
       )
-    `,
-      { count: 'exact' }
+    `
     )
 
-  // Apply filters
-  if (statusFilter) {
-    query = query.eq('status', statusFilter as 'pending' | 'invoiced' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled')
-  }
-
+  // Apply search filter
   if (searchQuery) {
     query = query.or(`order_number.ilike.%${searchQuery}%,shipping_name.ilike.%${searchQuery}%`)
   }
@@ -75,21 +77,17 @@ export const load = async ({ url }) => {
     query = query.eq('group_buy_id', groupBuyFilter)
   }
 
-  // Fetch all matching orders without pagination (we'll sort and paginate in JavaScript)
-  const { data: allOrders, count, error } = await query
+  // Fetch all matching orders
+  const { data: allOrders, error } = await query
 
   if (error) {
     console.error('Error fetching orders:', error)
     // Still return groupBuys even if orders query fails
     return { 
-      orders: [], 
-      totalCount: 0, 
+      ordersByStatus: {},
       allOrdersCount,
-      page, 
-      perPage, 
       groupBuys: groupBuysWithCounts, 
       unassignedCount,
-      statusFilter,
       searchQuery,
       groupBuyFilter
     }
@@ -130,21 +128,61 @@ export const load = async ({ url }) => {
       }
     }) || []
 
-  // Sort orders by shipping type (express first) then created_at
+  // Sort all orders by shipping type (express first) then created_at
   const sortedOrders = sortOrdersByShippingAndDate(ordersWithTotals)
-  
-  // Apply pagination
-  const from = (page - 1) * perPage
-  const to = from + perPage
-  const paginatedOrders = sortedOrders.slice(from, to)
+
+  // Group orders by status
+  const ordersByStatus: Record<string, typeof sortedOrders> = {}
+  for (const order of sortedOrders) {
+    const status = order.status || 'pending'
+    if (!ordersByStatus[status]) {
+      ordersByStatus[status] = []
+    }
+    ordersByStatus[status].push(order)
+  }
+
+  // Sort within each status group by updated_at (ascending - earliest updates first, newest last)
+  // This ensures newly updated orders appear at the end (on the last page)
+  for (const status in ordersByStatus) {
+    ordersByStatus[status].sort((a, b) => {
+      const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
+      const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
+      return dateA - dateB
+    })
+  }
+
+  // Apply per-status pagination
+  const paginatedByStatus: Record<string, {
+    orders: typeof sortedOrders
+    totalCount: number
+    currentPage: number
+    totalPages: number
+  }> = {}
+
+  for (const [status, orders] of Object.entries(ordersByStatus)) {
+    const requestedPage = statusPages[status] || 1
+    const totalCount = orders.length
+    const totalPages = Math.ceil(totalCount / perPage)
+    
+    // Clamp current page to valid range [1, totalPages]
+    // If user was on page 2 but now there's only 1 page, show page 1
+    const currentPage = Math.min(Math.max(requestedPage, 1), totalPages || 1)
+    
+    const from = (currentPage - 1) * perPage
+    const to = from + perPage
+    const paginatedOrders = orders.slice(from, to)
+
+    paginatedByStatus[status] = {
+      orders: paginatedOrders,
+      totalCount,
+      currentPage,
+      totalPages
+    }
+  }
 
   return {
-    orders: paginatedOrders,
-    totalCount: count || 0,
+    ordersByStatus: paginatedByStatus,
     allOrdersCount,
-    page,
-    perPage,
-    statusFilter,
     searchQuery,
     groupBuyFilter,
     groupBuys: groupBuysWithCounts,
