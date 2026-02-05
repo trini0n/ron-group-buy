@@ -15,25 +15,21 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }) as unknown as SupabaseClient<Database>
 
-  // Safe session getter
+  // Safe session getter - uses getUser() to verify authentication with Supabase Auth server
   event.locals.safeGetSession = async () => {
-    const {
-      data: { session }
-    } = await event.locals.supabase.auth.getSession()
-
-    if (!session) {
-      return { session: null, user: null }
-    }
-
-    // Verify the JWT
     const {
       data: { user },
       error
     } = await event.locals.supabase.auth.getUser()
 
-    if (error) {
+    if (error || !user) {
       return { session: null, user: null }
     }
+
+    // Get the session after verifying the user
+    const {
+      data: { session }
+    } = await event.locals.supabase.auth.getSession()
 
     return { session, user }
   }

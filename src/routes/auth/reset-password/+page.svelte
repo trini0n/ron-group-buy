@@ -28,9 +28,9 @@
 
   onMount(async () => {
     // Check if we have a valid session from the reset link
-    // Supabase automatically handles the token from the URL hash
-    const { data: { session } } = await getSupabase().auth.getSession();
-    hasValidSession = !!session;
+    // Use getUser() to verify the session with Supabase Auth server
+    const { data: { user }, error } = await getSupabase().auth.getUser();
+    hasValidSession = !!user && !error;
     isCheckingSession = false;
   });
 
