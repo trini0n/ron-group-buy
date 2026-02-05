@@ -53,7 +53,7 @@ export const load = async ({ url }) => {
     .select(
       `
       *,
-      user:users(id, name, email, discord_username),
+      user:users(id, name, email, discord_username, paypal_email),
       items:order_items(
         id,
         card_serial,

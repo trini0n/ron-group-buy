@@ -397,9 +397,9 @@
                             </Table.Cell>
                             <Table.Cell>
                               <div>
-                                <p class="font-medium">{order.shipping_name}</p>
+                                <p class="font-medium">{order.user?.name || 'Unknown'}</p>
                                 <p class="text-sm text-muted-foreground">
-                                  {order.user?.discord_username || order.user?.email}
+                                  {order.user?.paypal_email || order.user?.email || '—'}
                                 </p>
                               </div>
                             </Table.Cell>

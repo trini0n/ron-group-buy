@@ -1,0 +1,165 @@
+﻿2026-02-04T17:57:16.9712184Z ##[group]Run npm run test:ci
+2026-02-04T17:57:16.9712455Z [36;1mnpm run test:ci[0m
+2026-02-04T17:57:16.9744350Z shell: /usr/bin/bash -e {0}
+2026-02-04T17:57:16.9744588Z env:
+2026-02-04T17:57:16.9744820Z   PUBLIC_SUPABASE_URL: https://test.supabase.co
+2026-02-04T17:57:16.9745141Z   PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+2026-02-04T17:57:16.9745442Z   SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+2026-02-04T17:57:16.9745745Z ##[endgroup]
+2026-02-04T17:57:17.0785986Z 
+2026-02-04T17:57:17.0786328Z > group-buy@0.1.0 test:ci
+2026-02-04T17:57:17.0786823Z > vitest run --coverage
+2026-02-04T17:57:17.0787077Z 
+2026-02-04T17:57:18.5459240Z 
+2026-02-04T17:57:18.5461529Z [1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/home/runner/work/ron-group-buy/ron-group-buy[39m
+2026-02-04T17:57:18.5462631Z       [2mCoverage enabled with [22m[33mv8[39m
+2026-02-04T17:57:18.5463011Z 
+2026-02-04T17:57:19.5855871Z [90mstderr[2m | src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22m[2mExport API Endpoints[2m > [22m[2mGET /api/admin/exports/order/[id][2m > [22m[2mshould return 404 if order not found
+2026-02-04T17:57:19.5859121Z [22m[39mExport error: HttpError { status: [33m404[39m, body: { message: [32m'Order not found'[39m } }
+2026-02-04T17:57:19.5860360Z 
+2026-02-04T17:57:19.5918924Z [90mstderr[2m | src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22m[2mExport API Endpoints[2m > [22m[2mGET /api/admin/exports/groupbuy/[id][2m > [22m[2mshould return 404 if group buy not found
+2026-02-04T17:57:19.5921981Z [22m[39mExport error: HttpError { status: [33m404[39m, body: { message: [32m'Group buy not found'[39m } }
+2026-02-04T17:57:19.5923309Z 
+2026-02-04T17:57:19.6004788Z [90mstderr[2m | src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22m[2mExport API Endpoints[2m > [22m[2mGET /api/admin/exports/cleanup[2m > [22m[2mshould require CRON_SECRET authorization
+2026-02-04T17:57:19.6007360Z [22m[39mCleanup error: TypeError: Cannot read properties of undefined (reading 'deleted')
+2026-02-04T17:57:19.6017101Z     at Module.GET [90m(/home/runner/work/ron-group-buy/ron-group-buy/[39msrc/routes/api/admin/exports/cleanup/+server.ts:22:23[90m)[39m
+2026-02-04T17:57:19.6020100Z [90m    at processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+2026-02-04T17:57:19.6021746Z     at [90m/home/runner/work/ron-group-buy/ron-group-buy/[39msrc/routes/api/admin/exports/__tests__/exports.test.ts:273:24
+2026-02-04T17:57:19.6023743Z     at [90mfile:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:20
+2026-02-04T17:57:19.6024675Z 
+2026-02-04T17:57:19.6026574Z [90mstderr[2m | src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22m[2mExport API Endpoints[2m > [22m[2mGET /api/admin/exports/cleanup[2m > [22m[2mshould deny access with wrong CRON_SECRET
+2026-02-04T17:57:19.6028993Z [22m[39mCleanup error: TypeError: Cannot read properties of undefined (reading 'deleted')
+2026-02-04T17:57:19.6030767Z     at Module.GET [90m(/home/runner/work/ron-group-buy/ron-group-buy/[39msrc/routes/api/admin/exports/cleanup/+server.ts:22:23[90m)[39m
+2026-02-04T17:57:19.6032521Z [90m    at processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+2026-02-04T17:57:19.6034166Z     at [90m/home/runner/work/ron-group-buy/ron-group-buy/[39msrc/routes/api/admin/exports/__tests__/exports.test.ts:289:24
+2026-02-04T17:57:19.6036140Z     at [90mfile:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:20
+2026-02-04T17:57:19.6037065Z 
+2026-02-04T17:57:19.6104530Z [90mstderr[2m | src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22m[2mExport API Endpoints[2m > [22m[2mGET /api/admin/exports/cleanup[2m > [22m[2mshould handle cleanup errors
+2026-02-04T17:57:19.6106215Z [22m[39mCleanup error: Error: Filesystem error
+2026-02-04T17:57:19.6107533Z     at [90m/home/runner/work/ron-group-buy/ron-group-buy/[39msrc/routes/api/admin/exports/__tests__/exports.test.ts:345:9
+2026-02-04T17:57:19.6110120Z     at [90mfile:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:155:11
+2026-02-04T17:57:19.6112006Z     at [90mfile:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:752:26
+2026-02-04T17:57:19.6113876Z     at [90mfile:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1897:20
+2026-02-04T17:57:19.6115162Z     at new Promise (<anonymous>)
+2026-02-04T17:57:19.6116687Z     at runWithTimeout [90m(file:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1863:10[90m)[39m
+2026-02-04T17:57:19.6136170Z     at runTest [90m(file:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1574:12[90m)[39m
+2026-02-04T17:57:19.6138111Z [90m    at processTicksAndRejections (node:internal/process/task_queues:95:5)[39m
+2026-02-04T17:57:19.6139915Z     at runSuite [90m(file:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+2026-02-04T17:57:19.6142047Z     at runSuite [90m(file:///home/runner/work/ron-group-buy/ron-group-buy/[39mnode_modules/[4m@vitest/runner[24m/dist/chunk-hooks.js:1729:8[90m)[39m
+2026-02-04T17:57:19.6143051Z 
+2026-02-04T17:57:19.6460235Z  [32m✓[39m src/lib/server/__tests__/card-identity.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+2026-02-04T17:57:19.6745828Z  [31m❯[39m src/routes/api/admin/exports/__tests__/exports.test.ts [2m([22m[2m17 tests[22m[2m | [22m[31m7 failed[39m[2m)[22m[32m 36[2mms[22m[39m
+2026-02-04T17:57:19.6761145Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould require admin permission[32m 5[2mms[22m[39m
+2026-02-04T17:57:19.6763396Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould return 400 if order ID is missing[39m[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6764649Z [31m     → undefined[39m
+2026-02-04T17:57:19.6766200Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould return 404 if order not found[39m[32m 4[2mms[22m[39m
+2026-02-04T17:57:19.6767369Z [31m     → undefined[39m
+2026-02-04T17:57:19.6768986Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould return Excel file with correct headers[32m 4[2mms[22m[39m
+2026-02-04T17:57:19.6771133Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould call exportSingleOrder with correct order ID[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6773170Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould require admin permission[32m 0[2mms[22m[39m
+2026-02-04T17:57:19.6775463Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould return 400 if group buy ID is missing[39m[32m 0[2mms[22m[39m
+2026-02-04T17:57:19.6776697Z [31m     → undefined[39m
+2026-02-04T17:57:19.6778444Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould return 404 if group buy not found[39m[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6779812Z [31m     → undefined[39m
+2026-02-04T17:57:19.6781267Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould return Excel file with slugified filename[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6782637Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould call exportGroupBuyOrders with correct group buy ID[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6784022Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould require CRON_SECRET authorization[39m[32m 7[2mms[22m[39m
+2026-02-04T17:57:19.6785000Z [31m     → undefined[39m
+2026-02-04T17:57:19.6785873Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould deny access with wrong CRON_SECRET[39m[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6786535Z [31m     → undefined[39m
+2026-02-04T17:57:19.6787286Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould allow access with correct CRON_SECRET[32m 6[2mms[22m[39m
+2026-02-04T17:57:19.6788769Z    [32m✓[39m Export API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould return cleanup results[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6789905Z [31m   [31m×[31m Export API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould handle cleanup errors[39m[32m 1[2mms[22m[39m
+2026-02-04T17:57:19.6790527Z [31m     → undefined[39m
+2026-02-04T17:57:19.6791136Z    [32m✓[39m Export File Content Validation[2m > [22mshould generate valid Excel file structure[32m 0[2mms[22m[39m
+2026-02-04T17:57:19.6792106Z    [32m✓[39m Export File Content Validation[2m > [22mshould handle multi-tab export with correct tab ordering[32m 0[2mms[22m[39m
+2026-02-04T17:57:19.6865853Z  [32m✓[39m src/lib/__tests__/utils.test.ts [2m([22m[2m72 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+2026-02-04T17:57:20.6357963Z  [32m✓[39m src/routes/import/__tests__/deck-parsing.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+2026-02-04T17:57:20.6570476Z  [32m✓[39m src/lib/server/__tests__/export-builder.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+2026-02-04T17:57:20.6715235Z  [32m✓[39m src/lib/server/__tests__/search-utils.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+2026-02-04T17:57:21.4205615Z  [32m✓[39m src/lib/server/__tests__/cart-types.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+2026-02-04T17:57:21.4349188Z  [32m✓[39m src/lib/__tests__/admin-shared.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+2026-02-04T17:57:21.9400632Z 
+2026-02-04T17:57:21.9402075Z [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 7 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+2026-02-04T17:57:21.9403549Z 
+2026-02-04T17:57:21.9405533Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould return 400 if order ID is missing
+2026-02-04T17:57:21.9423897Z {
+2026-02-04T17:57:21.9424378Z   status: 400,
+2026-02-04T17:57:21.9425669Z   body: { message: 'Order ID is required' },
+2026-02-04T17:57:21.9427347Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9431735Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9432207Z   stacks: []
+2026-02-04T17:57:21.9432507Z }
+2026-02-04T17:57:21.9433141Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯[22m[39m
+2026-02-04T17:57:21.9433491Z 
+2026-02-04T17:57:21.9435210Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/order/[id][2m > [22mshould return 404 if order not found
+2026-02-04T17:57:21.9436597Z {
+2026-02-04T17:57:21.9436883Z   status: 500,
+2026-02-04T17:57:21.9437367Z   body: { message: 'Failed to export order: undefined' },
+2026-02-04T17:57:21.9438175Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9438686Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9439094Z   stacks: []
+2026-02-04T17:57:21.9439378Z }
+2026-02-04T17:57:21.9439944Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯[22m[39m
+2026-02-04T17:57:21.9440278Z 
+2026-02-04T17:57:21.9442099Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould return 400 if group buy ID is missing
+2026-02-04T17:57:21.9443522Z {
+2026-02-04T17:57:21.9443804Z   status: 400,
+2026-02-04T17:57:21.9444211Z   body: { message: 'Group buy ID is required' },
+2026-02-04T17:57:21.9445177Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9445666Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9446051Z   stacks: []
+2026-02-04T17:57:21.9446333Z }
+2026-02-04T17:57:21.9446871Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯[22m[39m
+2026-02-04T17:57:21.9447203Z 
+2026-02-04T17:57:21.9449103Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/groupbuy/[id][2m > [22mshould return 404 if group buy not found
+2026-02-04T17:57:21.9450727Z {
+2026-02-04T17:57:21.9451017Z   status: 500,
+2026-02-04T17:57:21.9451717Z   body: { message: 'Failed to export group buy: undefined' },
+2026-02-04T17:57:21.9452362Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9452869Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9453264Z   stacks: []
+2026-02-04T17:57:21.9453560Z }
+2026-02-04T17:57:21.9454133Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯[22m[39m
+2026-02-04T17:57:21.9454498Z 
+2026-02-04T17:57:21.9455959Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould require CRON_SECRET authorization
+2026-02-04T17:57:21.9456769Z {
+2026-02-04T17:57:21.9456938Z   status: 500,
+2026-02-04T17:57:21.9457122Z   body: {
+2026-02-04T17:57:21.9457518Z     message: "Cleanup failed: Cannot read properties of undefined (reading 'deleted')"
+2026-02-04T17:57:21.9458202Z   },
+2026-02-04T17:57:21.9458422Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9458707Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9458946Z   stacks: []
+2026-02-04T17:57:21.9459117Z }
+2026-02-04T17:57:21.9459454Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯[22m[39m
+2026-02-04T17:57:21.9459658Z 
+2026-02-04T17:57:21.9460620Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould deny access with wrong CRON_SECRET
+2026-02-04T17:57:21.9461393Z {
+2026-02-04T17:57:21.9461549Z   status: 500,
+2026-02-04T17:57:21.9461731Z   body: {
+2026-02-04T17:57:21.9462103Z     message: "Cleanup failed: Cannot read properties of undefined (reading 'deleted')"
+2026-02-04T17:57:21.9462502Z   },
+2026-02-04T17:57:21.9462716Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9462994Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9463238Z   stacks: []
+2026-02-04T17:57:21.9463409Z }
+2026-02-04T17:57:21.9463711Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯[22m[39m
+2026-02-04T17:57:21.9463907Z 
+2026-02-04T17:57:21.9464798Z [41m[1m FAIL [22m[49m src/routes/api/admin/exports/__tests__/exports.test.ts[2m > [22mExport API Endpoints[2m > [22mGET /api/admin/exports/cleanup[2m > [22mshould handle cleanup errors
+2026-02-04T17:57:21.9465520Z {
+2026-02-04T17:57:21.9465673Z   status: 500,
+2026-02-04T17:57:21.9465952Z   body: { message: 'Cleanup failed: Filesystem error' },
+2026-02-04T17:57:21.9466303Z   constructor: 'Function<HttpError>',
+2026-02-04T17:57:21.9466576Z   toString: 'Function<toString>',
+2026-02-04T17:57:21.9466821Z   stacks: []
+2026-02-04T17:57:21.9467050Z }
+2026-02-04T17:57:21.9467344Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯[22m[39m
+2026-02-04T17:57:21.9467544Z 
+2026-02-04T17:57:21.9467694Z 
+2026-02-04T17:57:21.9468150Z [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (8)[39m
+2026-02-04T17:57:21.9468924Z [2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m184 passed[39m[22m[90m (191)[39m
+2026-02-04T17:57:21.9469417Z [2m   Start at [22m 17:57:18
+2026-02-04T17:57:21.9470169Z [2m   Duration [22m 3.39s[2m (transform 291ms, setup 118ms, collect 433ms, tests 148ms, environment 4.68s, prepare 820ms)[22m
+2026-02-04T17:57:21.9470616Z 
+2026-02-04T17:57:21.9840865Z ##[error]Process completed with exit code 1.
