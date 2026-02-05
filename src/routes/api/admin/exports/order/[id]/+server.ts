@@ -12,19 +12,19 @@ export async function GET({ params, locals }: RequestEvent) {
     throw error(400, 'Order ID is required');
   }
   
+  // Get order number for filename
+  const adminClient = createAdminClient();
+  const { data: order, error: orderError } = await adminClient
+    .from('orders')
+    .select('order_number')
+    .eq('id', orderId)
+    .single();
+  
+  if (orderError || !order) {
+    throw error(404, 'Order not found');
+  }
+  
   try {
-    // Get order number for filename
-    const adminClient = createAdminClient();
-    const { data: order, error: orderError } = await adminClient
-      .from('orders')
-      .select('order_number')
-      .eq('id', orderId)
-      .single();
-    
-    if (orderError || !order) {
-      throw error(404, 'Order not found');
-    }
-    
     // Generate export
     const buffer = await exportSingleOrder(orderId);
     

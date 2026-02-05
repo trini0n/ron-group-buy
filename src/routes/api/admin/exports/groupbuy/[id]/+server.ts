@@ -22,19 +22,19 @@ export async function GET({ params, locals }: RequestEvent) {
     throw error(400, 'Group buy ID is required');
   }
   
+  // Get group buy name for filename
+  const adminClient = createAdminClient();
+  const { data: groupBuy, error: groupBuyError } = await adminClient
+    .from('group_buy_config')
+    .select('name')
+    .eq('id', groupBuyId)
+    .single();
+  
+  if (groupBuyError || !groupBuy) {
+    throw error(404, 'Group buy not found');
+  }
+  
   try {
-    // Get group buy name for filename
-    const adminClient = createAdminClient();
-    const { data: groupBuy, error: groupBuyError } = await adminClient
-      .from('group_buy_config')
-      .select('name')
-      .eq('id', groupBuyId)
-      .single();
-    
-    if (groupBuyError || !groupBuy) {
-      throw error(404, 'Group buy not found');
-    }
-    
     // Generate export
     const buffer = await exportGroupBuyOrders(groupBuyId);
     

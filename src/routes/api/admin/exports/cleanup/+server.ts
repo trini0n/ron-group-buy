@@ -2,15 +2,16 @@ import { cleanupExpiredExports } from '$lib/server/export-storage';
 import { error, json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 
-// CRON_SECRET is optional - if not set, endpoint is unprotected (development only)
-const CRON_SECRET = process.env.CRON_SECRET || '';
-
 export async function GET({ request }: RequestEvent) {
+  // CRON_SECRET is optional - if not set, endpoint is unprotected (development only)
+  // Read at runtime to allow tests to set this value
+  const cronSecret = process.env.CRON_SECRET || '';
+  
   // Verify cron secret to prevent unauthorized access (only if CRON_SECRET is set)
-  if (CRON_SECRET) {
+  if (cronSecret) {
     const authHeader = request.headers.get('authorization');
     
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       throw error(401, 'Unauthorized');
     }
   }

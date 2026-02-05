@@ -51,12 +51,14 @@ describe('Export API Endpoints', () => {
 
       vi.mocked(requireAdmin).mockResolvedValue(undefined);
 
-      const response = await getSingleOrderExport({
-        params: mockParams,
-        locals: mockLocals
-      } as any);
-
-      expect(response.status).toBe(400);
+      await expect(
+        getSingleOrderExport({
+          params: mockParams,
+          locals: mockLocals
+        } as any)
+      ).rejects.toMatchObject({
+        status: 400
+      });
     });
 
     it('should return 404 if order not found', async () => {
@@ -77,12 +79,14 @@ describe('Export API Endpoints', () => {
         })
       } as any);
 
-      const response = await getSingleOrderExport({
-        params: mockParams,
-        locals: mockLocals
-      } as any);
-
-      expect(response.status).toBe(404);
+      await expect(
+        getSingleOrderExport({
+          params: mockParams,
+          locals: mockLocals
+        } as any)
+      ).rejects.toMatchObject({
+        status: 404
+      });
     });
 
     it('should return Excel file with correct headers', async () => {
@@ -169,12 +173,14 @@ describe('Export API Endpoints', () => {
 
       vi.mocked(requireAdmin).mockResolvedValue(undefined);
 
-      const response = await getGroupBuyExport({
-        params: mockParams,
-        locals: mockLocals
-      } as any);
-
-      expect(response.status).toBe(400);
+      await expect(
+        getGroupBuyExport({
+          params: mockParams,
+          locals: mockLocals
+        } as any)
+      ).rejects.toMatchObject({
+        status: 400
+      });
     });
 
     it('should return 404 if group buy not found', async () => {
@@ -195,12 +201,14 @@ describe('Export API Endpoints', () => {
         })
       } as any);
 
-      const response = await getGroupBuyExport({
-        params: mockParams,
-        locals: mockLocals
-      } as any);
-
-      expect(response.status).toBe(404);
+      await expect(
+        getGroupBuyExport({
+          params: mockParams,
+          locals: mockLocals
+        } as any)
+      ).rejects.toMatchObject({
+        status: 404
+      });
     });
 
     it('should return Excel file with slugified filename', async () => {
@@ -269,6 +277,12 @@ describe('Export API Endpoints', () => {
         headers: new Headers()
       };
 
+      // Mock cleanup function to return success
+      vi.mocked(cleanupExpiredExports).mockResolvedValue({
+        deleted: 0,
+        errors: []
+      });
+
       // No authorization header
       const response = await getCleanup({ request: mockRequest } as any);
 
@@ -286,9 +300,17 @@ describe('Export API Endpoints', () => {
         })
       };
 
-      const response = await getCleanup({ request: mockRequest } as any);
+      // Mock cleanup function (shouldn't be called but prevents errors if it is)
+      vi.mocked(cleanupExpiredExports).mockResolvedValue({
+        deleted: 0,
+        errors: []
+      });
 
-      expect(response.status).toBe(401);
+      await expect(
+        getCleanup({ request: mockRequest } as any)
+      ).rejects.toMatchObject({
+        status: 401
+      });
       
       delete process.env.CRON_SECRET;
     });
@@ -345,9 +367,11 @@ describe('Export API Endpoints', () => {
         new Error('Filesystem error')
       );
 
-      const response = await getCleanup({ request: mockRequest } as any);
-
-      expect(response.status).toBe(500);
+      await expect(
+        getCleanup({ request: mockRequest } as any)
+      ).rejects.toMatchObject({
+        status: 500
+      });
     });
   });
 });
