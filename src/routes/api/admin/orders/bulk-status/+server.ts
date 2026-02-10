@@ -33,7 +33,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       user_id,
       tracking_number,
       tracking_carrier,
-      users!inner(discord_id)
+      users!inner(discord_id),
+      group_buy_config(name)
     `)
     .in('id', orderIds)
 
@@ -91,7 +92,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             order_url: `${PUBLIC_APP_URL}/orders/${order.id}`,
             tracking_number: order.tracking_number || undefined,
             tracking_carrier: order.tracking_carrier || undefined,
-            tracking_url: trackingUrl
+            tracking_url: trackingUrl,
+            group_buy_name: order.group_buy_config?.name || undefined
           }
         })
 
