@@ -7,7 +7,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-supabase': ['@supabase/ssr', '@supabase/supabase-js'],
+          'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-excel': ['exceljs'],
           'vendor-ui': ['bits-ui', 'lucide-svelte', 'svelte-sonner']
         }
