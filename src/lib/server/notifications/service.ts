@@ -148,18 +148,24 @@ export class NotificationService {
    * Gets the active group buy name for notifications
    */
   private async getActiveGroupBuyName(): Promise<string> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from('group_buy_config')
       .select('name')
       .eq('is_active', true)
       .single();
+
+    if (error) {
+      logger.error({ error }, 'Failed to fetch active group buy name, using fallback');
+    }
 
     if (!data?.name) {
       // Fallback using current month/year
       const now = new Date();
       const month = now.toLocaleString('en-US', { month: 'long' });
       const year = now.getFullYear();
-      return `Ron's ${month} ${year} Group Buy`;
+      const fallbackName = `Ron's ${month} ${year} Group Buy`;
+      logger.warn({ error, data }, `No active group buy found, using fallback: ${fallbackName}`);
+      return fallbackName;
     }
 
     // Transform config name like "January 2026 Group Buy" to "Ron's January 2026 Group Buy"
