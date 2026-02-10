@@ -303,8 +303,8 @@ describe('Card Identity Service', () => {
 
       const duplicates = detectDuplicatesInBatch(cards)
       expect(duplicates).toHaveLength(1)
-      expect(duplicates[0].keptSerial).toBe('H-200')
-      expect(duplicates[0].markedOosSerials).toEqual(['H-100'])
+      expect(duplicates[0]!.keptSerial).toBe('H-200')
+      expect(duplicates[0]!.markedOosSerials).toEqual(['H-100'])
     })
 
     it('should keep highest serial among multiple duplicates', () => {
@@ -346,8 +346,8 @@ describe('Card Identity Service', () => {
 
       const duplicates = detectDuplicatesInBatch(cards)
       expect(duplicates).toHaveLength(1)
-      expect(duplicates[0].keptSerial).toBe('H-300')
-      expect(duplicates[0].markedOosSerials).toEqual(['H-150', 'H-50'])
+      expect(duplicates[0]!.keptSerial).toBe('H-300')
+      expect(duplicates[0]!.markedOosSerials).toEqual(['H-150', 'H-50'])
     })
 
     it('should treat foil and non-foil as different cards', () => {
@@ -462,7 +462,7 @@ describe('Card Identity Service', () => {
 
       const duplicates = detectDuplicatesInBatch(cards)
       expect(duplicates).toHaveLength(1)
-      expect(duplicates[0].keptSerial).toBe('H-200')
+      expect(duplicates[0]!.keptSerial).toBe('H-200')
     })
 
     it('should sort serials numerically, not alphabetically', () => {

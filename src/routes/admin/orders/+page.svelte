@@ -92,7 +92,10 @@
 
       if (response.ok) {
         const result = await response.json();
-        toast.success(`Updated ${result.updated} orders to ${ORDER_STATUS_CONFIG[bulkNewStatus]?.label}`);
+        const notifMsg = result.notificationsSent > 0 
+          ? ` (${result.notificationsSent} Discord notifications sent)`
+          : '';
+        toast.success(`Updated ${result.updated} orders to ${ORDER_STATUS_CONFIG[bulkNewStatus]?.label}${notifMsg}`);
         bulkDialogOpen = false;
         bulkNewStatus = '';
         selectedOrders = new Set();

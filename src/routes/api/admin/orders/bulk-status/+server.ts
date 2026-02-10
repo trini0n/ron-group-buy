@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdminRequest } from '$lib/server/admin'
+import { createNotificationService } from '$lib/server/notifications'
+import { PUBLIC_APP_URL } from '$env/static/public'
 import type { RequestHandler } from './$types'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -21,10 +23,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const adminClient = createAdminClient()
 
-  // Get current order statuses for history
+  // Get current order statuses and user info for notifications
   const { data: currentOrders, error: fetchError } = await adminClient
     .from('orders')
-    .select('id, status')
+    .select(`
+      id,
+      status,
+      order_number,
+      user_id,
+      tracking_number,
+      tracking_carrier,
+      users!inner(discord_id)
+    `)
     .in('id', orderIds)
 
   if (fetchError) {
@@ -58,8 +68,46 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .insert(historyEntries)
   }
 
-  return json({ 
-    success: true, 
-    updated: orderIds.length 
+  // Queue notifications for users with Discord connected
+  const notificationService = createNotificationService(adminClient)
+  let notificationsSent = 0
+
+  for (const order of currentOrders || []) {
+    // Only send if user has Discord connected
+    if (order.users?.discord_id) {
+      try {
+        // Build tracking URL if tracking exists
+        const trackingUrl = order.tracking_number
+          ? `https://t.17track.net/en#nums=${order.tracking_number}`
+          : undefined
+
+        const result = await notificationService.send({
+          userId: order.user_id,
+          orderId: order.id,
+          type: 'order_status_change',
+          variables: {
+            order_number: order.order_number,
+            status: status,
+            order_url: `${PUBLIC_APP_URL}/orders/${order.id}`,
+            tracking_number: order.tracking_number || undefined,
+            tracking_carrier: order.tracking_carrier || undefined,
+            tracking_url: trackingUrl
+          }
+        })
+
+        if (result.success) {
+          notificationsSent++
+        }
+      } catch (err) {
+        console.error(`Failed to send notification for order ${order.id}:`, err)
+        // Continue processing other notifications
+      }
+    }
+  }
+
+  return json({
+    success: true,
+    updated: orderIds.length,
+    notificationsSent
   })
 }

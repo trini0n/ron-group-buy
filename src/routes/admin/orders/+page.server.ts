@@ -1,5 +1,6 @@
 import { createAdminClient } from '$lib/server/admin'
 import { sortOrdersByShippingAndDate } from '$lib/utils'
+import { logger } from '$lib/server/logger'
 
 export const load = async ({ url }) => {
   const adminClient = createAdminClient()
@@ -52,7 +53,17 @@ export const load = async ({ url }) => {
     .from('orders')
     .select(
       `
-      *,
+      id,
+      order_number,
+      status,
+      shipping_name,
+      shipping_type,
+      shipping_country,
+      created_at,
+      updated_at,
+      group_buy_id,
+      notes,
+      admin_notes,
       user:users(id, name, email, discord_username, paypal_email),
       items:order_items(
         id,
@@ -81,7 +92,7 @@ export const load = async ({ url }) => {
   const { data: allOrders, error } = await query
 
   if (error) {
-    console.error('Error fetching orders:', error)
+    logger.error({ error, searchQuery, groupBuyFilter }, 'Failed to fetch orders')
     // Still return groupBuys even if orders query fails
     return { 
       ordersByStatus: {},
@@ -144,7 +155,9 @@ export const load = async ({ url }) => {
   // Sort within each status group by updated_at (ascending - earliest updates first, newest last)
   // This ensures newly updated orders appear at the end (on the last page)
   for (const status in ordersByStatus) {
-    ordersByStatus[status].sort((a, b) => {
+    const statusOrders = ordersByStatus[status]
+    if (!statusOrders) continue
+    statusOrders.sort((a, b) => {
       const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
       const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
       return dateA - dateB

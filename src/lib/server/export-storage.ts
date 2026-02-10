@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { logger } from './logger';
 
 // Export file storage configuration
 const EXPORTS_DIR = '/tmp/exports';
@@ -94,9 +94,15 @@ export async function cleanupExpiredExports(): Promise<{ deleted: number; errors
       try {
         await fs.unlink(entry.path);
         deleted++;
+        logger.debug({ filename: entry.filename, age }, 'Export file deleted');
       } catch (error) {
         // File might already be deleted or inaccessible
-        errors.push(`Failed to delete ${entry.filename}: ${error}`);
+        const errorCode = (error as NodeJS.ErrnoException).code;
+        if (errorCode !== 'ENOENT') {
+          // Only log if it's NOT a "file not found" error
+          logger.warn({ error, filename: entry.filename }, '...to delete export file');
+          errors.push(`Failed to delete ${entry.filename}: ${error}`);
+        }
       }
     } else {
       // File is still valid, keep in manifest
@@ -118,8 +124,13 @@ export async function deleteExportFile(filename: string): Promise<void> {
   
   try {
     await fs.unlink(filePath);
+    logger.debug({ filename }, 'Export file deleted');
   } catch (error) {
-    // Ignore errors if file doesn't exist
+    // Only log if it's NOT a "file not found" error
+    const errorCode = (error as NodeJS.ErrnoException).code;
+    if (errorCode !== 'ENOENT') {
+      logger.warn({ error, filename }, 'Failed to delete export file');
+    }
   }
   
   // Update manifest

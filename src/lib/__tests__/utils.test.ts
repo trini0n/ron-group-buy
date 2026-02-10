@@ -146,7 +146,7 @@ describe('getCardImages', () => {
   it('returns placeholder when no images available', () => {
     const images = getCardImages(null, null)
     expect(images).toHaveLength(1)
-    expect(images[0].label).toBe('Placeholder')
+    expect(images[0]!.label).toBe('Placeholder')
   })
 
   it('prioritizes Ron image over Scryfall', () => {
@@ -155,8 +155,8 @@ describe('getCardImages', () => {
       'scryfall-id-123'
     )
     expect(images.length).toBeGreaterThanOrEqual(2)
-    expect(images[0].label).toBe("Ron's Proxy")
-    expect(images[1].label).toBe('Scryfall')
+    expect(images[0]!.label).toBe("Ron's Proxy")
+    expect(images[1]!.label).toBe('Scryfall')
   })
 
   it('returns only Scryfall when Ron URL is invalid', () => {
@@ -165,7 +165,7 @@ describe('getCardImages', () => {
       'scryfall-id-123'
     )
     expect(images).toHaveLength(1)
-    expect(images[0].label).toBe('Scryfall')
+    expect(images[0]!.label).toBe('Scryfall')
   })
 })
 
@@ -480,8 +480,8 @@ describe('sortOrdersByShippingAndDate', () => {
     
     const sorted = sortOrdersByShippingAndDate(orders)
     
-    expect(sorted[0].shipping_type).toBe('express')
-    expect(sorted[1].shipping_type).toBe('regular')
+    expect(sorted[0]!.shipping_type).toBe('express')
+    expect(sorted[1]!.shipping_type).toBe('regular')
   })
 
   it('sorts by created_at within same shipping type', () => {
@@ -493,9 +493,9 @@ describe('sortOrdersByShippingAndDate', () => {
     
     const sorted = sortOrdersByShippingAndDate(orders)
     
-    expect(sorted[0].id).toBe('1')
-    expect(sorted[1].id).toBe('2')
-    expect(sorted[2].id).toBe('3')
+    expect(sorted[0]!.id).toBe('1')
+    expect(sorted[1]!.id).toBe('2')
+    expect(sorted[2]!.id).toBe('3')
   })
 
   it('handles mixed shipping types with dates', () => {
@@ -523,7 +523,7 @@ describe('sortOrdersByShippingAndDate', () => {
     
     expect(sorted.length).toBe(3)
     // Express should be first (even with null date)
-    expect(sorted[0].shipping_type).toBe('express')
+    expect(sorted[0]!.shipping_type).toBe('express')
   })
 
   it('does not mutate original array', () => {

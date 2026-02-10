@@ -68,8 +68,8 @@ describe('sortMatches', () => {
       createMockCard({ id: 'in-stock', is_in_stock: true })
     ]
     const sorted = sortMatches(cards)
-    expect(sorted[0].id).toBe('in-stock')
-    expect(sorted[1].id).toBe('oos')
+    expect(sorted[0]!.id).toBe('in-stock')
+    expect(sorted[1]!.id).toBe('oos')
   })
 
   it('preserves order when stock status is equal', () => {
@@ -78,8 +78,8 @@ describe('sortMatches', () => {
       createMockCard({ id: 'second', is_in_stock: true })
     ]
     const sorted = sortMatches(cards)
-    expect(sorted[0].id).toBe('first')
-    expect(sorted[1].id).toBe('second')
+    expect(sorted[0]!.id).toBe('first')
+    expect(sorted[1]!.id).toBe('second')
   })
 
   it('prefers foil when preferFoil is true', () => {
@@ -88,7 +88,7 @@ describe('sortMatches', () => {
       createMockCard({ id: 'foil', card_type: 'Foil', is_in_stock: true })
     ]
     const sorted = sortMatches(cards, true)
-    expect(sorted[0].id).toBe('foil')
+    expect(sorted[0]!.id).toBe('foil')
   })
 
   it('ignores foil preference when preferFoil is false', () => {
@@ -97,7 +97,7 @@ describe('sortMatches', () => {
       createMockCard({ id: 'foil', card_type: 'Foil', is_in_stock: true })
     ]
     const sorted = sortMatches(cards, false)
-    expect(sorted[0].id).toBe('normal') // Original order preserved
+    expect(sorted[0]!.id).toBe('normal') // Original order preserved
   })
 
   it('stock status takes priority over foil preference', () => {
@@ -106,7 +106,7 @@ describe('sortMatches', () => {
       createMockCard({ id: 'normal-in', card_type: 'Normal', is_in_stock: true })
     ]
     const sorted = sortMatches(cards, true)
-    expect(sorted[0].id).toBe('normal-in') // In-stock beats foil preference
+    expect(sorted[0]!.id).toBe('normal-in') // In-stock beats foil preference
   })
 
   it('does not modify original array', () => {
@@ -116,6 +116,6 @@ describe('sortMatches', () => {
     ]
     const original = [...cards]
     sortMatches(cards)
-    expect(cards[0].id).toBe(original[0].id)
+    expect(cards[0]!.id).toBe(original[0]!.id)
   })
 })

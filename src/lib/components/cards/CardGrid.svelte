@@ -95,7 +95,8 @@
       if (f.cardTypes.length > 0) {
         if (!card.type_line) return false;
         const typeLine = card.type_line.toLowerCase();
-        const mainTypes = typeLine.split('—')[0].trim();
+        const parts = typeLine.split('—')
+        const mainTypes = parts[0]?.trim() || ''
         const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
         const hasMatchingType = f.cardTypes.some((selectedType) =>
           cardTypeWords.includes(selectedType.toLowerCase())
@@ -140,8 +141,11 @@
       const existingFinishIdx = group.finishVariants.findIndex(v => v.card_type === card.card_type);
       if (existingFinishIdx === -1) {
         group.finishVariants.push(card);
-      } else if (card.is_in_stock && !group.finishVariants[existingFinishIdx].is_in_stock) {
-        group.finishVariants[existingFinishIdx] = card;
+      } else {
+        const existing = group.finishVariants[existingFinishIdx]
+        if (existing && card.is_in_stock && !existing.is_in_stock) {
+          group.finishVariants[existingFinishIdx] = card;
+        }
       }
     }
     
@@ -154,7 +158,7 @@
       });
       
       const inStock = group.finishVariants.find(v => v.is_in_stock);
-      group.primary = inStock || group.finishVariants[0];
+      group.primary = inStock || group.finishVariants[0]!;
     }
     
     // Sort: new cards first, then alphabetically

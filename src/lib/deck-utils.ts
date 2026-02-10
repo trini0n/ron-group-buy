@@ -33,7 +33,8 @@ export function extractPrimaryType(typeLine: string): string {
   if (!typeLine) return 'Other'
 
   // Remove everything after the em dash (subtypes)
-  const mainPart = typeLine.split('—')[0].trim()
+  const parts = typeLine.split('—')
+  const mainPart = parts[0]?.trim() ||'' 
   // Remove supertypes
   const types = mainPart.replace(/\b(Legendary|Basic|Snow|World|Tribal)\b/gi, '').trim()
 
@@ -75,6 +76,8 @@ export function parseDeckList(text: string): DeckCard[] {
     const match = trimmed.match(regex)
     if (match) {
       const [, qty, name, set, cn, foil] = match
+      // qty and name are guaranteed by regex (captured groups 1 and 2)
+      if (!qty || !name) continue
       cards.push({
         quantity: parseInt(qty),
         name: name.trim(),
@@ -89,11 +92,15 @@ export function parseDeckList(text: string): DeckCard[] {
       const simpleRegex = /^(\d+)\s+(.+)$/
       const simpleMatch = trimmed.match(simpleRegex)
       if (simpleMatch) {
-        cards.push({
-          quantity: parseInt(simpleMatch[1]),
-          name: simpleMatch[2].trim(),
-          boardType: 'mainboard'
-        })
+        const qty = simpleMatch[1]
+        const name = simpleMatch[2]
+        if (qty && name) {
+          cards.push({
+            quantity: parseInt(qty),
+            name: name.trim(),
+            boardType: 'mainboard'
+          })
+        }
       }
     }
   }

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient } from '$lib/server/admin'
+import { LRUCache } from 'lru-cache'
 
 interface DeckCard {
   quantity: number
@@ -34,14 +35,15 @@ interface SearchResult {
   selected: CardMatch | null
 }
 
-// In-memory cache for card data
-interface CacheEntry {
-  cards: CardMatch[]
-  timestamp: number
-}
-
-const CARD_CACHE = new Map<string, CacheEntry>()
+// LRU cache for card data
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+const CARD_CACHE = new LRUCache<string, CardMatch[]>({
+  max: 10000, // Maximum 10,000 entries
+  ttl: CACHE_TTL_MS,
+  updateAgeOnGet: true, // Refresh TTL on access
+  updateAgeOnHas: false
+})
 
 function getCacheKey(name: string): string {
   return name.toLowerCase().trim()
@@ -49,30 +51,12 @@ function getCacheKey(name: string): string {
 
 function getFromCache(name: string): CardMatch[] | null {
   const key = getCacheKey(name)
-  const entry = CARD_CACHE.get(key)
-  if (!entry) return null
-  
-  // Check if cache is expired
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-    CARD_CACHE.delete(key)
-    return null
-  }
-  
-  return entry.cards
+  return CARD_CACHE.get(key) ?? null
 }
 
 function setInCache(name: string, cards: CardMatch[]): void {
   const key = getCacheKey(name)
-  CARD_CACHE.set(key, { cards, timestamp: Date.now() })
-  
-  // Limit cache size to prevent memory issues
-  if (CARD_CACHE.size > 10000) {
-    // Remove oldest entries
-    const keys = Array.from(CARD_CACHE.keys())
-    for (let i = 0; i < 1000; i++) {
-      CARD_CACHE.delete(keys[i])
-    }
-  }
+  CARD_CACHE.set(key, cards)
 }
 
 const CARD_SELECT_COLUMNS = 
@@ -100,7 +84,7 @@ function isFoil(card: CardMatch): boolean {
 function sortMatches(matches: CardMatch[], preferFoil?: boolean): CardMatch[] {
   return [...matches].sort((a, b) => {
     // 1. Stock status - in stock first
-    if (a.is_in_stock !== b.is_in_stock) return a.is_in_stock ? -1 : 1
+    if (a.is_in_stock !== b.is_in_stock) return a.is_in_stock ?-1 : 1
     
     // 2. Foil preference if specified
     if (preferFoil) {
@@ -117,7 +101,8 @@ async function searchSingleCard(
   supabase: ReturnType<typeof createAdminClient>,
   card: DeckCard
 ): Promise<SearchResult> {
-  const primaryName = card.name.split(' // ')[0].trim()
+  const nameParts = card.name.split(' // ')
+  const primaryName = nameParts[0]?.trim() || card.name
   const cacheKey = getCacheKey(primaryName)
   
   // Check cache first
@@ -207,19 +192,20 @@ async function searchSingleCard(
     exactMatch = sorted.find(m => 
       m.set_code?.toLowerCase() === card.set?.toLowerCase() &&
       m.collector_number === card.collectorNumber
-    ) || null
+    ) ?? null
   }
   
   // Fallback: match by set only
   if (!exactMatch && card.set) {
     exactMatch = sorted.find(m => 
       m.set_code?.toLowerCase() === card.set?.toLowerCase()
-    ) || null
+    ) ?? null
   }
   
   // Fallback: first available match
   if (!exactMatch && sorted.length > 0) {
-    exactMatch = sorted[0]
+    const firstMatch = sorted[0]
+    exactMatch = firstMatch ?? null
   }
   
   // Build alternatives (exclude exact match)
@@ -227,8 +213,9 @@ async function searchSingleCard(
   
   // Populate typeLine from match if not present
   const updatedCard = { ...card }
-  if (!updatedCard.typeLine && (exactMatch?.type_line || alternatives[0]?.type_line)) {
-    updatedCard.typeLine = exactMatch?.type_line || alternatives[0]?.type_line || undefined
+  const firstAlt = alternatives[0]
+  if (!updatedCard.typeLine && (exactMatch?.type_line || firstAlt?.type_line)) {
+    updatedCard.typeLine = exactMatch?.type_line || firstAlt?.type_line || undefined
   }
   
   return {
@@ -249,13 +236,19 @@ async function parallelSearchCards(
   
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i]
-    const key = getCacheKey(card.name.split(' // ')[0].trim())
+    if (!card) continue
+    const nameParts = card.name.split(' // ')
+    const primaryName = nameParts[0]?.trim() || card.name
+    const key = getCacheKey(primaryName)
     
     if (!uniqueCards.has(key)) {
       uniqueCards.set(key, card)
       cardIndexMap.set(key, [])
     }
-    cardIndexMap.get(key)!.push(i)
+    const indices = cardIndexMap.get(key)
+    if (indices) {
+      indices.push(i)
+    }
   }
   
   // Search unique cards in parallel
@@ -269,15 +262,21 @@ async function parallelSearchCards(
   
   for (let i = 0; i < uniqueCardsArray.length; i++) {
     const card = uniqueCardsArray[i]
-    const key = getCacheKey(card.name.split(' // ')[0].trim())
-    const indices = cardIndexMap.get(key)!
+    if (!card) continue
+    const nameParts = card.name.split(' // ')
+    const primaryName = nameParts[0]?.trim() || card.name
+    const key = getCacheKey(primaryName)
+    const indices = cardIndexMap.get(key)
     const result = uniqueResults[i]
+    if (!indices || !result) continue
     
     for (const idx of indices) {
+      const originalCard = cards[idx]
+      if (!originalCard) continue
       // Clone result for each original card position
       results[idx] = {
         ...result,
-        requestedCard: { ...cards[idx], typeLine: result.requestedCard.typeLine }
+        requestedCard: { ...originalCard, typeLine: result.requestedCard.typeLine }
       }
     }
   }

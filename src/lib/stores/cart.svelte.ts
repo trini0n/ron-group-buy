@@ -173,8 +173,11 @@ function createCartStore() {
     const previousItems = [...items]
 
     if (existingIndex >= 0) {
-      items[existingIndex].quantity += quantity
-      items = [...items]
+      const existingItem = items[existingIndex]
+      if (existingItem) {
+        existingItem.quantity += quantity
+        items = [...items]
+      }
     } else {
       items = [
         ...items,
@@ -245,7 +248,10 @@ function createCartStore() {
       const existingIndex = newItems.findIndex((i) => i.card.id === card.id)
 
       if (existingIndex >= 0) {
-        newItems[existingIndex].quantity += quantity
+        const existingItem = newItems[existingIndex]
+        if (existingItem) {
+          existingItem.quantity += quantity
+        }
       } else {
         newItems.push({
           id: 'pending-' + Date.now() + '-' + Math.random(),

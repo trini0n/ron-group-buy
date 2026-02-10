@@ -1,0 +1,497 @@
+
+> group-buy@0.1.0 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+Loading svelte-check in workspace: d:\Desktop\Files\Card Search\group-buy
+Getting Svelte diagnostics...
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\utils.ts[39m:256:5
+[31mError[39m: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m  return {
+    [35mprefix[36m: match[1],
+    number: parseInt(match[2], 10),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\utils.ts[39m:257:22
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m    prefix: match[1],
+    number: parseInt([35mmatch[2][36m, 10),
+    suffix: match[3] || ''[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\deck-utils.ts[39m:36:20
+[31mError[39m: Object is possibly 'undefined'. 
+[36m  // Remove everything after the em dash (subtypes)
+  const mainPart = [35mtypeLine.split('ΓÇö')[0][36m.trim()
+  // Remove supertypes[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\deck-utils.ts[39m:79:28
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m      cards.push({
+        quantity: parseInt([35mqty[36m),
+        name: name.trim(),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\deck-utils.ts[39m:80:15
+[31mError[39m: 'name' is possibly 'undefined'. 
+[36m        quantity: parseInt(qty),
+        name: [35mname[36m.trim(),
+        set: set?.toUpperCase(),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\deck-utils.ts[39m:93:30
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m        cards.push({
+          quantity: parseInt([35msimpleMatch[1][36m),
+          name: simpleMatch[2].trim(),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\deck-utils.ts[39m:94:17
+[31mError[39m: Object is possibly 'undefined'. 
+[36m          quantity: parseInt(simpleMatch[1]),
+          name: [35msimpleMatch[2][36m.trim(),
+          boardType: 'mainboard'[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:149:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(images).toHaveLength(1)
+    expect([35mimages[0][36m.label).toBe('Placeholder')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:158:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(images.length).toBeGreaterThanOrEqual(2)
+    expect([35mimages[0][36m.label).toBe("Ron's Proxy")
+    expect(images[1].label).toBe('Scryfall')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:159:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(images[0].label).toBe("Ron's Proxy")
+    expect([35mimages[1][36m.label).toBe('Scryfall')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:168:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(images).toHaveLength(1)
+    expect([35mimages[0][36m.label).toBe('Scryfall')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:483:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    
+    expect([35msorted[0][36m.shipping_type).toBe('express')
+    expect(sorted[1].shipping_type).toBe('regular')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:484:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(sorted[0].shipping_type).toBe('express')
+    expect([35msorted[1][36m.shipping_type).toBe('regular')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:496:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    
+    expect([35msorted[0][36m.id).toBe('1')
+    expect(sorted[1].id).toBe('2')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:497:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(sorted[0].id).toBe('1')
+    expect([35msorted[1][36m.id).toBe('2')
+    expect(sorted[2].id).toBe('3')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:498:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(sorted[1].id).toBe('2')
+    expect([35msorted[2][36m.id).toBe('3')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\__tests__\utils.test.ts[39m:526:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    // Express should be first (even with null date)
+    expect([35msorted[0][36m.shipping_type).toBe('express')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:101:27
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m  const match = serial.match(/(\d+)/)
+  return match ? parseInt([35mmatch[1][36m, 10) : 0
+}[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:164:21
+[31mError[39m: 'kept' is possibly 'undefined'. 
+[36m        cards: group,
+        keptSerial: [35mkept[36m.serial,
+        markedOosSerials: markedOos.map((c) => c.serial)[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:213:22
+[31mError[39m: 'firstCard' is possibly 'undefined'. 
+[36m          card_identity_key: group.identityKey,
+          card_name: [35mfirstCard[36m.card_name,
+          set_code: firstCard.set_code,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:214:21
+[31mError[39m: 'firstCard' is possibly 'undefined'. 
+[36m          card_name: firstCard.card_name,
+          set_code: [35mfirstCard[36m.set_code,
+          collector_number: firstCard.collector_number,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:215:29
+[31mError[39m: 'firstCard' is possibly 'undefined'. 
+[36m          set_code: firstCard.set_code,
+          collector_number: [35mfirstCard[36m.collector_number,
+          duplicate_serials: group.cards.map(c => c.serial),[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\card-identity.ts[39m:290:31
+[31mError[39m: Type 'CardWithIdentity | undefined' is not assignable to type 'CardWithIdentity | null'.
+  Type 'undefined' is not assignable to type 'CardWithIdentity | null'. 
+[36m  const matches = await findCardsByIdentity(supabase, identity)
+  return matches.length > 0 ? [35mmatches[0][36m : null
+}[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\card-identity.test.ts[39m:306:14
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      expect(duplicates).toHaveLength(1)
+      expect([35mduplicates[0][36m.keptSerial).toBe('H-200')
+      expect(duplicates[0].markedOosSerials).toEqual(['H-100'])[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\card-identity.test.ts[39m:307:14
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      expect(duplicates[0].keptSerial).toBe('H-200')
+      expect([35mduplicates[0][36m.markedOosSerials).toEqual(['H-100'])
+    })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\card-identity.test.ts[39m:349:14
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      expect(duplicates).toHaveLength(1)
+      expect([35mduplicates[0][36m.keptSerial).toBe('H-300')
+      expect(duplicates[0].markedOosSerials).toEqual(['H-150', 'H-50'])[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\card-identity.test.ts[39m:350:14
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      expect(duplicates[0].keptSerial).toBe('H-300')
+      expect([35mduplicates[0][36m.markedOosSerials).toEqual(['H-150', 'H-50'])
+    })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\card-identity.test.ts[39m:465:14
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      expect(duplicates).toHaveLength(1)
+      expect([35mduplicates[0][36m.keptSerial).toBe('H-200')
+    })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:71:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const sorted = sortMatches(cards)
+    expect([35msorted[0][36m.id).toBe('in-stock')
+    expect(sorted[1].id).toBe('oos')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:72:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(sorted[0].id).toBe('in-stock')
+    expect([35msorted[1][36m.id).toBe('oos')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:81:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const sorted = sortMatches(cards)
+    expect([35msorted[0][36m.id).toBe('first')
+    expect(sorted[1].id).toBe('second')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:82:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(sorted[0].id).toBe('first')
+    expect([35msorted[1][36m.id).toBe('second')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:91:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const sorted = sortMatches(cards, true)
+    expect([35msorted[0][36m.id).toBe('foil')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:100:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const sorted = sortMatches(cards, false)
+    expect([35msorted[0][36m.id).toBe('normal') // Original order preserved
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:109:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const sorted = sortMatches(cards, true)
+    expect([35msorted[0][36m.id).toBe('normal-in') // In-stock beats foil preference
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:119:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    sortMatches(cards)
+    expect([35mcards[0][36m.id).toBe(original[0].id)
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\server\__tests__\search-utils.test.ts[39m:119:30
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    sortMatches(cards)
+    expect(cards[0].id).toBe([35moriginal[0][36m.id)
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\stores\cart.svelte.ts[39m:176:7
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    if (existingIndex >= 0) {
+      [35mitems[existingIndex][36m.quantity += quantity
+      items = [...items][39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\stores\cart.svelte.ts[39m:248:9
+[31mError[39m: Object is possibly 'undefined'. 
+[36m      if (existingIndex >= 0) {
+        [35mnewItems[existingIndex][36m.quantity += quantity
+      } else {[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\import\deck\+server.ts[39m:224:31
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. 
+[36m        const jsonStr = scriptMatch[1]
+        deckData = JSON.parse([35mjsonStr[36m)[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[[lang=lang]]\[slug]\+page.server.ts[39m:58:32
+[31mError[39m: 'card' is possibly 'undefined'. 
+[36m  // Verify slug matches (redirect if wrong for SEO)
+  const expectedSlug = slugify([35mcard[36m.card_name)
+  if (slug !== expectedSlug) {[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[[lang=lang]]\[slug]\+page.server.ts[39m:66:20
+[31mError[39m: 'card' is possibly 'undefined'. 
+[36m  // Check if we're on the right URL for the language
+  const cardLang = [35mcard[36m.language?.toLowerCase() || 'en'
+  const shouldHaveLangParam = !isDefaultLanguage(cardLang)[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:62:46
+[31mError[39m: Argument of type 'number | undefined' is not assignable to parameter of type 'number | bigint'.
+  Type 'undefined' is not assignable to type 'number | bigint'. 
+[36m  it('orders Creature before Land', () => {
+    expect(TYPE_ORDER.Creature).toBeLessThan([35mTYPE_ORDER.Land[36m)
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:85:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(3)
+    expect([35mresult[0][36m.quantity).toBe(4)
+    expect(result[1].name).toBe('Counterspell')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:86:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result[0].quantity).toBe(4)
+    expect([35mresult[1][36m.name).toBe('Counterspell')
+    expect(result[2].quantity).toBe(2)[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:87:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result[1].name).toBe('Counterspell')
+    expect([35mresult[2][36m.quantity).toBe(2)
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:93:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(1)
+    expect([35mresult[0][36m.set).toBe('MH2')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:99:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(1)
+    expect([35mresult[0][36m.set).toBe('MH2')
+    expect(result[0].collectorNumber).toBe('123')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:100:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result[0].set).toBe('MH2')
+    expect([35mresult[0][36m.collectorNumber).toBe('123')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:106:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(1)
+    expect([35mresult[0][36m.foil).toBe(true)
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:117:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(1)
+    expect([35mresult[0][36m.name).toBe('Jace, the Mind Sculptor')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:123:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(result).toHaveLength(1)
+    expect([35mresult[0][36m.name).toBe("Nature's Claim")
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\__tests__\deck-parsing.test.ts[39m:133:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    const result = parseDeckList('1 Card (mh2)')
+    expect([35mresult[0][36m.set).toBe('MH2')
+  })[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardGrid.svelte[39m:98:27
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m        const typeLine = card.type_line.toLowerCase();
+        const mainTypes = [35mtypeLine.split('ΓÇö')[0][36m.trim();
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardGrid.svelte[39m:143:39
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m        group.finishVariants.push(card);
+      } else if (card.is_in_stock && ![35mgroup.finishVariants[existingFinishIdx][36m.is_in_stock) {
+        group.finishVariants[existingFinishIdx] = card;[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardGrid.svelte[39m:157:7
+[31mError[39m: Type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; } | undefined' is not assignable to type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'.
+  Type 'undefined' is not assignable to type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'. (ts)
+[36m      const inStock = group.finishVariants.find(v => v.is_in_stock);
+      [35mgroup.primary[36m = inStock || group.finishVariants[0];
+    }[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardTableView.svelte[39m:106:23
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m    if (!typeLine) return '-';
+    const mainTypes = [35mtypeLine.split('ΓÇö')[0][36m.trim();
+    const words = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t.toLowerCase()));[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\lib\components\cards\CardTableView.svelte[39m:160:27
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m        const typeLine = card.type_line.toLowerCase();
+        const mainTypes = [35mtypeLine.split('ΓÇö')[0][36m.trim();
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t));[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[[lang=lang]]\[slug]\+page.svelte[39m:33:39
+[31mError[39m: Argument of type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; } | undefined' is not assignable to parameter of type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'.
+  Type 'undefined' is not assignable to type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'. (ts)
+[36m  // Track selected finish variant - use untrack to explicitly capture initial value
+  let selectedCard = $state<CardType>([35muntrack(() => data.card)[36m);[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[[lang=lang]]\[slug]\+page.svelte[39m:38:5
+[31mError[39m: Type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; } | undefined' is not assignable to type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'.
+  Type 'undefined' is not assignable to type '{ card_name: string; card_type: string; collector_number: string | null; color: string | null; color_identity: string | null; created_at: string | null; flavor_name: string | null; ... 21 more ...; updated_at: string | null; }'. (ts)
+[36m    const newCard = data.card;
+    [35mselectedCard[36m = newCard;
+  });[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\card\[setCode]\[collectorNum]\[[lang=lang]]\[slug]\+page.svelte[39m:112:11
+[31mError[39m: 'data.card' is possibly 'undefined'. (ts)
+[36m<svelte:head>
+  <title>{[35mdata.card[36m.card_name} - Group Buy</title>
+</svelte:head>[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:235:22
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m    // Remove everything after the em dash (subtypes)
+    const mainPart = [35mtypeLine.split('ΓÇö')[0][36m.trim();
+    // Remove supertypes[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:491:22
+[31mError[39m: 'fullName' is possibly 'undefined'. (ts)
+[36m        // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
+        const name = [35mfullName[36m.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName.trim();[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:491:49
+[31mError[39m: 'fullName' is possibly 'undefined'. (ts)
+[36m        // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
+        const name = fullName.includes(' / ') ? [35mfullName[36m.split(' / ')[0].trim() : fullName.trim();[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:491:49
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m        // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
+        const name = fullName.includes(' / ') ? [35mfullName.split(' / ')[0][36m.trim() : fullName.trim();[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:491:83
+[31mError[39m: 'fullName' is possibly 'undefined'. (ts)
+[36m        // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
+        const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : [35mfullName[36m.trim();[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:494:30
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. (ts)
+[36m        cards.push({
+          quantity: parseInt([35mqty[36m),
+          name,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:507:28
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m        if (simpleMatch) {
+          const fullName = [35msimpleMatch[2][36m.trim();
+          const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName;[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:508:51
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m          const fullName = simpleMatch[2].trim();
+          const name = fullName.includes(' / ') ? [35mfullName.split(' / ')[0][36m.trim() : fullName;[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:511:32
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. (ts)
+[36m          cards.push({
+            quantity: parseInt([35msimpleMatch[1][36m),
+            name,[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:611:57
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type 'CardMatch | null'.
+  Type 'undefined' is not assignable to type 'CardMatch | null'. (ts)
+[36m      const newOption = uniqueOptions[next];
+      const finishVariants = getFinishVariants(options, [35mnewOption[36m);
+      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:613:55
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type 'CardMatch'.
+  Type 'undefined' is not assignable to type 'CardMatch'. (ts)
+[36m      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
+      selectedCards = new Map(selectedCards).set(idx, [35minStockVariant[36m);
+    }[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:627:57
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type 'CardMatch | null'.
+  Type 'undefined' is not assignable to type 'CardMatch | null'. (ts)
+[36m      const newOption = uniqueOptions[prev];
+      const finishVariants = getFinishVariants(options, [35mnewOption[36m);
+      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:629:55
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type 'CardMatch'.
+  Type 'undefined' is not assignable to type 'CardMatch'. (ts)
+[36m      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
+      selectedCards = new Map(selectedCards).set(idx, [35minStockVariant[36m);
+    }[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:638:5
+[31mError[39m: Type 'CardMatch | undefined' is not assignable to type 'CardMatch | null'.
+  Type 'undefined' is not assignable to type 'CardMatch | null'. (ts)
+[36m    const carouselIdx = getCarouselIndex(idx);
+    [35mreturn[36m uniqueOptions[carouselIdx] || uniqueOptions[0];
+  }[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:779:17
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m      card: card as any,
+      quantity: [35msearchResults[idx][36m.requestedCard.quantity
+    }));[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:1206:99
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type '{ foil_type?: string | null | undefined; card_type: string; }'.
+  Type 'undefined' is not assignable to type '{ foil_type?: string | null | undefined; card_type: string; }'. (ts)
+[36m                      <div class="flex items-center justify-between gap-1">
+                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel([35mfinishVariants[0][36m))}">
+                          {getFinishLabel(finishVariants[0])}[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:1207:43
+[31mError[39m: Argument of type 'CardMatch | undefined' is not assignable to parameter of type '{ foil_type?: string | null | undefined; card_type: string; }'.
+  Type 'undefined' is not assignable to type '{ foil_type?: string | null | undefined; card_type: string; }'. (ts)
+[36m                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]))}">
+                          {getFinishLabel([35mfinishVariants[0][36m)}
+                        </Badge>[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\import\+page.svelte[39m:1209:87
+[31mError[39m: Object is possibly 'undefined'. (ts)
+[36m                        </Badge>
+                        <span class="text-xs font-semibold">{formatPrice(getCardPrice([35mfinishVariants[0][36m.card_type))}</span>
+                      </div>[39m
+
+====================================
+[31msvelte-check found 79 errors and 0 warnings in 14 files
+[39m

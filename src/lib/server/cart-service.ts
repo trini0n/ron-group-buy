@@ -321,12 +321,17 @@ export class CartService {
       }
     }
 
-    // Execute updates
-    for (const update of itemsToUpdate) {
-      const { error: updateError } = await this.supabase
-        .from('cart_items')
-        .update({ quantity: update.quantity })
-        .eq('id', update.id)
+    // Execute updates with batch upsert (eliminates N+1 queries)
+    if (itemsToUpdate.length > 0) {
+      const updates = itemsToUpdate.map((update) => ({
+        id: update.id,
+        quantity: update.quantity,
+        updated_at: new Date().toISOString()
+      }))
+
+      const { error: updateError } = await this.supabase.from('cart_items').upsert(updates, {
+        onConflict: 'id'
+      })
 
       if (updateError) {
         return { success: false, cart: null as any, error: updateError.message }
@@ -871,6 +876,14 @@ export class CartService {
 
       // Use the best match (highest serial)
       const currentCard = matchingCards[0]
+      if (!currentCard) {
+        items_removed.push({
+          card_name: orderItem.card_name,
+          quantity: orderItem.quantity || 1,
+          reason: 'sold_out'
+        })
+        continue
+      }
 
       // Check if this card is already in cart
       const existingCartItem = cartItemsByCardId.get(currentCard.id)

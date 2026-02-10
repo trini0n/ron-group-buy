@@ -164,7 +164,8 @@
   const totalSelected = $derived(selectedCards.size);
   const totalQuantity = $derived(
     Array.from(selectedCards.entries()).reduce((sum, [idx]) => {
-      return sum + (searchResults[idx]?.requestedCard.quantity || 0);
+      const result = searchResults[idx]
+      return sum + (result?.requestedCard.quantity || 0);
     }, 0)
   );
 
@@ -232,7 +233,8 @@
     if (!typeLine) return 'Other';
 
     // Remove everything after the em dash (subtypes)
-    const mainPart = typeLine.split('—')[0].trim();
+    const parts = typeLine.split('—')
+    const mainPart = parts[0]?.trim() || 'Other'
     // Remove supertypes
     const types = mainPart.replace(/\b(Legendary|Basic|Snow|World|Tribal)\b/gi, '').trim();
 
@@ -256,7 +258,7 @@
 
   async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
     const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/);
-    if (!match) throw new Error('Invalid Moxfield URL');
+    if (!match || !match[1]) throw new Error('Invalid Moxfield URL');
 
     const deckId = match[1];
     const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`;
@@ -316,7 +318,7 @@
 
   async function fetchArchidektDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
     const match = url.match(/archidekt\.com\/decks\/(\d+)/);
-    if (!match) throw new Error('Invalid Archidekt URL');
+    if (!match || !match[1]) throw new Error('Invalid Archidekt URL');
 
     const deckId = match[1];
     const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
@@ -486,12 +488,14 @@
       if (match) {
         const [, qty, fullName, set, cn, foil] = match;
         
-        // Handle MDFC (Modal Double-Faced Cards) - extract first face only
+        //  Handle MDFC (Modal Double-Faced Cards) - extract first face only
         // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
-        const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName.trim();
+        if (!fullName) continue;
+        const nameParts = fullName.includes(' / ') ? fullName.split(' / ') : [fullName]
+        const name = (nameParts[0] ?? fullName).trim()
         
         cards.push({
-          quantity: parseInt(qty),
+          quantity: parseInt(qty!),
           name,
           set: set?.toUpperCase(),
           collectorNumber: cn,
@@ -504,11 +508,12 @@
         const simpleRegex = /^(\d+)\s+(.+)$/;
         const simpleMatch = trimmed.match(simpleRegex);
         if (simpleMatch) {
-          const fullName = simpleMatch[2].trim();
-          const name = fullName.includes(' / ') ? fullName.split(' / ')[0].trim() : fullName;
+          const fullName = simpleMatch[2]!.trim();
+          const nameParts = fullName.includes(' / ') ? fullName.split(' / ') : [fullName]
+          const name = (nameParts[0] ?? fullName).trim()
           
           cards.push({
-            quantity: parseInt(simpleMatch[1]),
+            quantity: parseInt(simpleMatch[1]!),
             name,
             boardType: 'mainboard'
           });
@@ -607,7 +612,7 @@
     carouselIndices = new Map(carouselIndices).set(idx, next);
     // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      const newOption = uniqueOptions[next];
+      const newOption = uniqueOptions[next]!;
       const finishVariants = getFinishVariants(options, newOption);
       const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
       selectedCards = new Map(selectedCards).set(idx, inStockVariant);
@@ -623,7 +628,7 @@
     carouselIndices = new Map(carouselIndices).set(idx, prev);
     // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      const newOption = uniqueOptions[prev];
+      const newOption = uniqueOptions[prev]!;
       const finishVariants = getFinishVariants(options, newOption);
       const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
       selectedCards = new Map(selectedCards).set(idx, inStockVariant);
@@ -635,7 +640,7 @@
     const uniqueOptions = getUniqueSetCollectorOptions(options);
     if (uniqueOptions.length === 0) return null;
     const carouselIdx = getCarouselIndex(idx);
-    return uniqueOptions[carouselIdx] || uniqueOptions[0];
+    return uniqueOptions[carouselIdx] ?? uniqueOptions[0]!;
   }
 
   // Finish order for sorting
@@ -774,10 +779,13 @@
     }
 
     // Prepare bulk items array
-    const itemsToAdd = Array.from(selectedCards.entries()).map(([idx, card]) => ({
-      card: card as any,
-      quantity: searchResults[idx].requestedCard.quantity
-    }));
+    const itemsToAdd = Array.from(selectedCards.entries()).map(([idx, card]) => {
+      const result = searchResults[idx]
+      return {
+        card: card as any,
+        quantity: result!.requestedCard.quantity
+      }
+    });
 
     // Add all items in a single API call
     const success = await cartStore.addItems(itemsToAdd);
@@ -1203,10 +1211,10 @@
                       </div>
                     {:else if finishVariants.length === 1}
                       <div class="flex items-center justify-between gap-1">
-                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]))}">
-                          {getFinishLabel(finishVariants[0])}
+                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]!))}">
+                          {getFinishLabel(finishVariants[0]!)}
                         </Badge>
-                        <span class="text-xs font-semibold">{formatPrice(getCardPrice(finishVariants[0].card_type))}</span>
+                        <span class="text-xs font-semibold">{formatPrice(getCardPrice(finishVariants[0]!.card_type))}</span>
                       </div>
                     {/if}
                   </div>

@@ -221,6 +221,7 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
       try {
         // The match might be the full initial state or just the deck data
         const jsonStr = scriptMatch[1]
+        if (!jsonStr) throw new Error('No JSON data found')
         deckData = JSON.parse(jsonStr)
         
         // If it's the full initial state, extract the deck

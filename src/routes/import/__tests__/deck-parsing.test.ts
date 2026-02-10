@@ -59,12 +59,12 @@ describe('extractPrimaryType', () => {
 
 describe('TYPE_ORDER', () => {
   it('orders Creature before Land', () => {
-    expect(TYPE_ORDER.Creature).toBeLessThan(TYPE_ORDER.Land)
+    expect(TYPE_ORDER.Creature!).toBeLessThan(TYPE_ORDER.Land!)
   })
 
   it('orders Land last (before Other)', () => {
     expect(TYPE_ORDER.Land).toBe(6)
-    expect(TYPE_ORDER.Other).toBe(7)
+    expect(TYPE_ORDER.Other!).toBe(7)
   })
 })
 
@@ -72,7 +72,7 @@ describe('parseDeckList', () => {
   it('parses simple format "1 Card Name"', () => {
     const result = parseDeckList('1 Lightning Bolt')
     expect(result).toHaveLength(1)
-    expect(result[0]).toMatchObject({
+    expect(result[0]!).toMatchObject({
       quantity: 1,
       name: 'Lightning Bolt',
       boardType: 'mainboard'
@@ -82,28 +82,28 @@ describe('parseDeckList', () => {
   it('parses multiple cards', () => {
     const result = parseDeckList('4 Lightning Bolt\n4 Counterspell\n2 Island')
     expect(result).toHaveLength(3)
-    expect(result[0].quantity).toBe(4)
-    expect(result[1].name).toBe('Counterspell')
-    expect(result[2].quantity).toBe(2)
+    expect(result[0]!.quantity).toBe(4)
+    expect(result[1]!.name).toBe('Counterspell')
+    expect(result[2]!.quantity).toBe(2)
   })
 
   it('parses format with set code "1 Card Name (SET)"', () => {
     const result = parseDeckList('1 Lightning Bolt (MH2)')
     expect(result).toHaveLength(1)
-    expect(result[0].set).toBe('MH2')
+    expect(result[0]!.set).toBe('MH2')
   })
 
   it('parses format with set and collector number', () => {
     const result = parseDeckList('1 Lightning Bolt (MH2) 123')
     expect(result).toHaveLength(1)
-    expect(result[0].set).toBe('MH2')
-    expect(result[0].collectorNumber).toBe('123')
+    expect(result[0]!.set).toBe('MH2')
+    expect(result[0]!.collectorNumber).toBe('123')
   })
 
   it('parses format with foil marker', () => {
     const result = parseDeckList('1 Lightning Bolt (MH2) 123 *F*')
     expect(result).toHaveLength(1)
-    expect(result[0].foil).toBe(true)
+    expect(result[0]!.foil).toBe(true)
   })
 
   it('ignores empty lines', () => {
@@ -114,13 +114,13 @@ describe('parseDeckList', () => {
   it('handles cards with special characters in name', () => {
     const result = parseDeckList("1 Jace, the Mind Sculptor")
     expect(result).toHaveLength(1)
-    expect(result[0].name).toBe('Jace, the Mind Sculptor')
+    expect(result[0]!.name).toBe('Jace, the Mind Sculptor')
   })
 
   it('handles cards with apostrophes', () => {
     const result = parseDeckList("1 Nature's Claim")
     expect(result).toHaveLength(1)
-    expect(result[0].name).toBe("Nature's Claim")
+    expect(result[0]!.name).toBe("Nature's Claim")
   })
 
   it('returns empty array for empty input', () => {
@@ -130,6 +130,6 @@ describe('parseDeckList', () => {
 
   it('uppercases set codes', () => {
     const result = parseDeckList('1 Card (mh2)')
-    expect(result[0].set).toBe('MH2')
+    expect(result[0]!.set).toBe('MH2')
   })
 })

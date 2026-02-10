@@ -53,6 +53,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   // Primary card is first in-stock variant, or first overall
   const card = sortedCards.find(c => c.is_in_stock) || sortedCards[0]
+  if (!card) throw error(404, 'No card found')
 
   // Verify slug matches (redirect if wrong for SEO)
   const expectedSlug = slugify(card.card_name)

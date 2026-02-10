@@ -103,7 +103,8 @@
   // Get main card type from type line
   function getMainCardType(typeLine: string | null): string {
     if (!typeLine) return '-';
-    const mainTypes = typeLine.split('—')[0].trim();
+    const parts = typeLine.split('—')
+    const mainTypes = parts[0]?.trim() || '-'
     const words = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t.toLowerCase()));
     return words.join(' ') || '-';
   }
@@ -157,7 +158,8 @@
       if (f.cardTypes.length > 0) {
         if (!card.type_line) return false;
         const typeLine = card.type_line.toLowerCase();
-        const mainTypes = typeLine.split('—')[0].trim();
+        const parts = typeLine.split('—')
+        const mainTypes =  parts[0]?.trim() || ''
         const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t));
         const hasMatchingType = f.cardTypes.some((selectedType) =>
           cardTypeWords.includes(selectedType.toLowerCase())

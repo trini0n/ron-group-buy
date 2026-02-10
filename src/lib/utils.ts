@@ -252,9 +252,10 @@ export function parseCardSerial(serial: string): { prefix: string; number: numbe
     return { prefix: '', number: 0, suffix: serial }
   }
   
+  // Non-null assertions safe here because we checked match exists
   return {
-    prefix: match[1],
-    number: parseInt(match[2], 10),
+    prefix: match[1]!,
+    number: parseInt(match[2]!, 10),
     suffix: match[3] || ''
   }
 }

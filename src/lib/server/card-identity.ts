@@ -98,7 +98,7 @@ export function isSameIdentity(card1: CardIdentity, card2: CardIdentity): boolea
  */
 function extractSerialNumber(serial: string): number {
   const match = serial.match(/(\d+)/)
-  return match ? parseInt(match[1], 10) : 0
+  return match ? parseInt(match[1]!, 10) : 0
 }
 
 /**
@@ -156,6 +156,7 @@ export function detectDuplicatesInBatch(cards: CardWithIdentity[]): DuplicateGro
       const sorted = [...group].sort((a, b) => compareSerials(b.serial, a.serial))
 
       const kept = sorted[0]
+      if (!kept) continue // Safety check, should not happen
       const markedOos = sorted.slice(1)
 
       duplicates.push({
@@ -206,6 +207,7 @@ export async function resolveDuplicates(
 
       // Create alert record
       const firstCard = group.cards[0]
+      if (!firstCard) continue // Safety check
       const { error: alertError } = await supabase
         .from('sync_duplicate_alerts')
         .insert({
@@ -287,5 +289,5 @@ export async function findBestMatchByIdentity(
   identity: CardIdentity
 ): Promise<CardWithIdentity | null> {
   const matches = await findCardsByIdentity(supabase, identity)
-  return matches.length > 0 ? matches[0] : null
+  return matches[0] ?? null
 }
