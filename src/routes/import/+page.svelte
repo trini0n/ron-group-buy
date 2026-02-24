@@ -17,11 +17,13 @@
     ChevronRight,
     Check,
     AlertTriangle,
-    X
+    X,
+    Copy
   } from 'lucide-svelte';
   import { Textarea } from '$components/ui/textarea';
   import * as Accordion from '$components/ui/accordion';
   import { onMount } from 'svelte';
+  import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils';
   import { browser } from '$app/environment';
 
   // Types
@@ -160,6 +162,8 @@
 
   // Track which cards are selected for adding to cart
   let selectedCards = $state<Map<number, CardMatch>>(new Map());
+
+  const notFoundCards = $derived(getNotFoundCards(searchResults));
 
   const totalSelected = $derived(selectedCards.size);
   const totalQuantity = $derived(
@@ -729,6 +733,17 @@
     selectedCards = new Map();
   }
 
+  async function copyUnavailableCards() {
+    if (notFoundCards.length === 0) return;
+    const text = notFoundCards.map(formatCardForClipboard).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`Copied ${notFoundCards.length} unavailable card${notFoundCards.length === 1 ? '' : 's'} to clipboard`);
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  }
+
   // Select all in-stock cards for a specific card type within a board
   function selectAllCardType(boardType: string, cardType: string) {
     const newSelected = new Map(selectedCards);
@@ -1022,6 +1037,12 @@
         <Button variant="ghost" size="sm" onclick={clearSelection}>
           Clear Selection
         </Button>
+        {#if notFoundCards.length > 0}
+          <Button variant="outline" size="sm" onclick={copyUnavailableCards} class="gap-1.5 text-muted-foreground">
+            <Copy class="h-3.5 w-3.5" />
+            Copy {notFoundCards.length} Unavailable
+          </Button>
+        {/if}
       </div>
     </div>
 

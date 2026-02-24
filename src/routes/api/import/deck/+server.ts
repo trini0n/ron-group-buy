@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import MoxfieldApi from 'moxfield-api'
 
 interface MoxfieldCard {
   quantity: number
@@ -155,16 +156,28 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   throw lastError || new Error('Max retries exceeded')
 }
 
+const MOXFIELD_BOARD_TYPES = ['commanders', 'companions', 'mainboard', 'sideboard'] as const
+type MoxfieldBoardType = (typeof MOXFIELD_BOARD_TYPES)[number]
+
 async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: DeckCard[] }> {
   const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
   if (!match) {
     throw new Error('Invalid Moxfield URL')
   }
 
-  const deckId = match[1]
-  const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`
+  const deckId = match[1]!
 
-  // Try API first
+  // Strategy 1: Use the moxfield-api library (primary)
+  try {
+    const moxfield = new MoxfieldApi()
+    const deck = await moxfield.deckList.findById(deckId)
+    return parseMoxfieldLibraryDeck(deck)
+  } catch (libErr) {
+    console.log('moxfield-api library failed, falling back to direct fetch...', libErr)
+  }
+
+  // Strategy 2: Direct API fetch with browser-like headers (fallback)
+  const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`
   try {
     const response = await fetchWithRetry(apiUrl, {
       headers: {
@@ -183,62 +196,44 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
 
     const deck: MoxfieldDeck = await response.json()
     return parseMoxfieldDeck(deck)
-  } catch (apiError) {
-    console.log('Moxfield API failed, trying HTML scraping...', apiError)
-    
-    // Fallback: Try to scrape the public deck page
-    try {
-      const pageUrl = `https://www.moxfield.com/decks/${deckId}`
-      const pageResponse = await fetch(pageUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1'
-        }
+  } catch (apiErr) {
+    console.log('Moxfield direct API failed:', apiErr)
+  }
+
+  // Both strategies failed
+  throw new Error(
+    'Unable to import from Moxfield at this time. Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.'
+  )
+}
+
+/**
+ * Parse a deck returned by the moxfield-api library.
+ * The library returns a DeckListType whose boards have cards as a Record<string, entry>
+ * where each entry has: { card: { name, set, cn, type_line }, quantity, boardType }.
+ */
+function parseMoxfieldLibraryDeck(deck: any): { name: string; cards: DeckCard[] } {
+  const cards: DeckCard[] = []
+
+  const boardTypeMap: MoxfieldBoardType[] = ['commanders', 'companions', 'mainboard', 'sideboard']
+
+  for (const boardType of boardTypeMap) {
+    const board = deck.boards?.[boardType]
+    if (!board?.cards) continue
+
+    for (const [, entry] of Object.entries(board.cards as Record<string, any>)) {
+      if (!entry?.card) continue
+      cards.push({
+        quantity: entry.quantity,
+        name: entry.card.name,
+        set: entry.card.set?.toUpperCase(),
+        collectorNumber: entry.card.cn,
+        boardType,
+        typeLine: entry.card.type_line ?? undefined
       })
-
-      if (!pageResponse.ok) {
-        throw new Error('Failed to fetch deck page')
-      }
-
-      const html = await pageResponse.text()
-      
-      // Look for embedded JSON data in script tags
-      // Moxfield often includes deck data in a script tag like: window.__INITIAL_STATE__ = {...}
-      const scriptMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/s) ||
-                         html.match(/"boardCards":\s*({.+?}),/s) ||
-                         html.match(/const deck = ({.+?});/s)
-      
-      if (!scriptMatch) {
-        throw new Error('Could not find deck data in page. Please try copy/pasting the deck list instead.')
-      }
-
-      // Try to parse the JSON
-      let deckData: any
-      try {
-        // The match might be the full initial state or just the deck data
-        const jsonStr = scriptMatch[1]
-        if (!jsonStr) throw new Error('No JSON data found')
-        deckData = JSON.parse(jsonStr)
-        
-        // If it's the full initial state, extract the deck
-        if (deckData.deck) deckData = deckData.deck
-        if (deckData.data && deckData.data.deck) deckData = deckData.data.deck
-      } catch (parseErr) {
-        throw new Error('Could not parse deck data from page. Please try copy/pasting the deck list instead.')
-      }
-
-      return parseMoxfieldDeck(deckData)
-    } catch (scrapeError) {
-      // Both API and scraping failed
-      throw new Error(
-        'Unable to import from Moxfield at this time. Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.'
-      )
     }
   }
+
+  return { name: deck.name ?? 'Imported Deck', cards }
 }
 
 function parseMoxfieldDeck(deck: MoxfieldDeck): { name: string; cards: DeckCard[] } {

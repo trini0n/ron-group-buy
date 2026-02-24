@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { extractPrimaryType, parseDeckList, TYPE_ORDER } from '$lib/deck-utils'
+import { extractPrimaryType, parseDeckList, TYPE_ORDER, getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils'
 
 describe('extractPrimaryType', () => {
   it('returns "Other" for empty string', () => {
@@ -131,5 +131,67 @@ describe('parseDeckList', () => {
   it('uppercases set codes', () => {
     const result = parseDeckList('1 Card (mh2)')
     expect(result[0]!.set).toBe('MH2')
+  })
+})
+
+describe('getNotFoundCards', () => {
+  it('returns only cards with no exactMatch and no alternatives', () => {
+    const results = [
+      {
+        requestedCard: { quantity: 1, name: 'Lightning Bolt', set: 'MH2', collectorNumber: '123', boardType: 'mainboard' as const },
+        exactMatch: { id: 'abc', card_name: 'Lightning Bolt', set_code: 'MH2', collector_number: '123' },
+        alternatives: []
+      },
+      {
+        requestedCard: { quantity: 2, name: 'Time Walk', set: 'LEA', collectorNumber: '1', boardType: 'mainboard' as const },
+        exactMatch: null,
+        alternatives: []
+      },
+      {
+        requestedCard: { quantity: 1, name: 'Sol Ring', set: 'CMR', collectorNumber: '40', boardType: 'mainboard' as const },
+        exactMatch: null,
+        alternatives: [{ id: 'xyz', card_name: 'Sol Ring', set_code: 'CMR', collector_number: '40' }]
+      }
+    ]
+    const notFound = getNotFoundCards(results)
+    expect(notFound).toHaveLength(1)
+    expect(notFound[0]!.name).toBe('Time Walk')
+  })
+
+  it('returns empty array when all cards are found', () => {
+    const results = [
+      {
+        requestedCard: { quantity: 1, name: 'Island', boardType: 'mainboard' as const },
+        exactMatch: { id: '1', card_name: 'Island', set_code: 'M20', collector_number: '265' },
+        alternatives: []
+      }
+    ]
+    expect(getNotFoundCards(results)).toHaveLength(0)
+  })
+
+  it('returns empty array for empty input', () => {
+    expect(getNotFoundCards([])).toHaveLength(0)
+  })
+})
+
+describe('formatCardForClipboard', () => {
+  it('formats card with quantity and name only', () => {
+    const card = { quantity: 1, name: 'Sol Ring', boardType: 'mainboard' as const }
+    expect(formatCardForClipboard(card)).toBe('1 Sol Ring')
+  })
+
+  it('formats card with set code', () => {
+    const card = { quantity: 4, name: 'Lightning Bolt', set: 'MH2', boardType: 'mainboard' as const }
+    expect(formatCardForClipboard(card)).toBe('4 Lightning Bolt (MH2)')
+  })
+
+  it('formats card with set and collector number', () => {
+    const card = { quantity: 2, name: 'Counterspell', set: 'MH2', collectorNumber: '46', boardType: 'mainboard' as const }
+    expect(formatCardForClipboard(card)).toBe('2 Counterspell (MH2) 46')
+  })
+
+  it('omits collector number when set is absent', () => {
+    const card = { quantity: 1, name: 'Island', collectorNumber: '265', boardType: 'mainboard' as const }
+    expect(formatCardForClipboard(card)).toBe('1 Island')
   })
 })

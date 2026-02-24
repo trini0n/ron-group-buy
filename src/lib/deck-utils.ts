@@ -3,6 +3,19 @@
  * Extracted from import page for testability
  */
 
+export interface CardMatch {
+  id: string
+  card_name: string
+  set_code: string
+  collector_number: string | null
+}
+
+export interface SearchResult {
+  requestedCard: DeckCard
+  exactMatch: CardMatch | null
+  alternatives: CardMatch[]
+}
+
 export interface DeckCard {
   quantity: number
   name: string
@@ -105,4 +118,29 @@ export function parseDeckList(text: string): DeckCard[] {
     }
   }
   return cards
+}
+
+/**
+ * Returns the subset of search results where neither an exact match
+ * nor any alternatives were found in the inventory.
+ */
+export function getNotFoundCards(results: SearchResult[]): DeckCard[] {
+  return results
+    .filter((r) => r.exactMatch === null && r.alternatives.length === 0)
+    .map((r) => r.requestedCard)
+}
+
+/**
+ * Format a DeckCard for clipboard export.
+ * Output: "[qty] [name] ([set]) [cn]"  (set and cn are omitted when absent)
+ */
+export function formatCardForClipboard(card: DeckCard): string {
+  let line = `${card.quantity} ${card.name}`
+  if (card.set) {
+    line += ` (${card.set})`
+    if (card.collectorNumber) {
+      line += ` ${card.collectorNumber}`
+    }
+  }
+  return line
 }
