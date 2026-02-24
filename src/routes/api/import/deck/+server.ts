@@ -145,14 +145,21 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
   if (!match) throw new Error('Invalid Moxfield URL')
   const publicId = match[1]!
 
-  // Strategy 1: Fetch JSON to get exportId, then fetch the plain-text export.
-  // The export endpoint is a simpler text response that tends to be less aggressively
-  // protected than the main JSON API, since it's also served to the download button.
+  const statuses: string[] = []
+
+  function logResp(label: string, r: Response) {
+    const cfRay = r.headers.get('cf-ray')
+    const note = cfRay ? ` (cf-ray: ${cfRay})` : ''
+    console.log(`[moxfield] ${label}: ${r.status}${note}`)
+    statuses.push(`${label}=${r.status}`)
+  }
+
+  // Strategy 1: v3 JSON → exportId → plain-text export
   try {
     const deckResp = await fetch(`https://api2.moxfield.com/v3/decks/all/${publicId}`, {
       headers: MOXFIELD_HEADERS
     })
-    console.log(`[moxfield] v3 JSON response: ${deckResp.status}`)
+    logResp('v3-json', deckResp)
 
     if (deckResp.ok) {
       const deck: MoxfieldDeck = await deckResp.json()
@@ -160,52 +167,52 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
       const exportId = deck.exportId
 
       if (exportId) {
-        // Fetch the plain-text Arena-format export
         const exportResp = await fetch(
           `https://api2.moxfield.com/v2/decks/all/${publicId}/export?exportId=${exportId}`,
           { headers: { ...MOXFIELD_HEADERS, Accept: 'text/plain, */*' } }
         )
-        console.log(`[moxfield] export response: ${exportResp.status}`)
+        logResp('export', exportResp)
 
         if (exportResp.ok) {
           const text = await exportResp.text()
-          // parseDeckList handles Arena format: "1 Card Name (SET) 123"
           const cards = parseDeckList(text)
           console.log(`[moxfield] parsed ${cards.length} cards from export`)
           return { name: deckName, cards }
         }
       }
 
-      // exportId fetch failed — fall back to parsing the JSON boards directly
+      // export blocked — fall back to parsing JSON boards directly
       console.log('[moxfield] falling back to JSON board parsing')
       return parseMoxfieldJsonDeck(deck)
     }
 
-    if (deckResp.status === 404) throw new Error('Deck not found on Moxfield')
+    if (deckResp.status === 404) throw error(404, 'Deck not found on Moxfield')
   } catch (err) {
-    if (err instanceof Error && err.message === 'Deck not found on Moxfield') throw err
+    if (err && typeof err === 'object' && 'status' in err) throw err // re-throw SvelteKit errors
     console.warn('[moxfield] strategy 1 failed:', err instanceof Error ? err.message : err)
   }
 
-  // Strategy 2: v2 JSON fallback (older API path, occasionally less restricted)
+  // Strategy 2: v2 JSON fallback
   try {
     const resp = await fetch(`https://api2.moxfield.com/v2/decks/all/${publicId}`, {
       headers: MOXFIELD_HEADERS
     })
-    console.log(`[moxfield] v2 JSON response: ${resp.status}`)
+    logResp('v2-json', resp)
     if (resp.ok) {
       const deck: MoxfieldDeck = await resp.json()
       return parseMoxfieldJsonDeck(deck)
     }
-    if (resp.status === 404) throw new Error('Deck not found on Moxfield')
+    if (resp.status === 404) throw error(404, 'Deck not found on Moxfield')
   } catch (err) {
-    if (err instanceof Error && err.message === 'Deck not found on Moxfield') throw err
+    if (err && typeof err === 'object' && 'status' in err) throw err
     console.warn('[moxfield] strategy 2 failed:', err instanceof Error ? err.message : err)
   }
 
-  // All strategies failed — surface the paste-text fallback UX
-  throw new Error(
-    'Unable to import from Moxfield at this time. Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.'
+  // All strategies blocked — return 422 so it's not logged as a server crash
+  console.warn(`[moxfield] all strategies blocked: ${statuses.join(', ')}`)
+  throw error(
+    422,
+    `Moxfield is currently blocking automated imports (${statuses.join(', ')}). Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.`
   )
 }
 
