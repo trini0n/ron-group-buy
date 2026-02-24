@@ -883,9 +883,35 @@
     sessionStorage.removeItem(SESSION_CACHE_KEY);
   }
 
-  // Load from cache on mount
+  // Controls which accordion panel is open in the import card
+  let pasteAccordionValue = $state<string | undefined>(undefined);
+
+  // Load from cache on mount, then check for bookmarklet hash params
   onMount(() => {
     loadStateFromCache();
+
+    if (browser) {
+      const hash = window.location.hash;
+      if (hash.startsWith('#moxfield-import')) {
+        try {
+          const params = new URLSearchParams(hash.slice(1));
+          const text = params.get('moxfield-import');
+          const name = params.get('name');
+          if (text) {
+            pasteContent = decodeURIComponent(text);
+            deckName = name ? decodeURIComponent(name) : 'Moxfield Deck';
+            // Open the paste accordion and kick off the import
+            pasteAccordionValue = 'paste';
+            // Slight delay so the accordion finishes animating open
+            setTimeout(() => importPastedDeck(), 150);
+            // Clean up the URL so refreshing doesn't re-import
+            history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (e) {
+          console.warn('[bookmarklet] failed to parse hash params', e);
+        }
+      }
+    }
   });
 
   // Auto-save when relevant state changes (only if not loading)
@@ -951,10 +977,13 @@
           <AlertTriangle class="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
           <div class="flex-1 space-y-1">
             <p class="text-sm font-medium text-yellow-900 dark:text-yellow-100">
-              Moxfield Import Unavailable
+              Moxfield is blocking automated imports
             </p>
             <p class="text-sm text-yellow-800 dark:text-yellow-200">
-              Please copy your deck list from Moxfield and use the "Paste Deck List" option below instead.
+              Use the <button
+                class="underline font-medium"
+                onclick={() => { showMoxfieldWarning = false; pasteAccordionValue = 'moxfield-help'; }}
+              >Moxfield Bookmarklet</button> below for one-click imports, or paste the deck list manually.
             </p>
           </div>
           <button
@@ -967,12 +996,69 @@
         </div>
       {/if}
 
-      <!-- Paste Decklist Option -->
+      <!-- Paste Decklist + Moxfield Bookmarklet -->
       <div class="mt-4">
-        <Accordion.Root type="single">
+        <Accordion.Root type="single" bind:value={pasteAccordionValue}>
+
+          <!-- ── Moxfield Bookmarklet instructions ───────────────────────────── -->
+          <Accordion.Item value="moxfield-help">
+            <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
+              How to import from Moxfield (one-click bookmarklet)
+            </Accordion.Trigger>
+            <Accordion.Content>
+              <div class="space-y-4 pt-2 text-sm">
+                <p class="text-muted-foreground">
+                  Moxfield blocks server-side requests, but your browser can fetch the deck directly.
+                  This bookmarklet runs on Moxfield, grabs the deck list, and sends it here automatically.
+                </p>
+
+                <!-- Step 1 -->
+                <div class="flex gap-3">
+                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+                  <div>
+                    <p class="font-medium">Drag this button to your bookmarks bar</p>
+                    <p class="mt-1 text-xs text-muted-foreground">If the bar isn't visible: <kbd class="rounded border px-1 py-0.5 text-xs">Ctrl+Shift+B</kbd> (Windows) or <kbd class="rounded border px-1 py-0.5 text-xs">⌘+Shift+B</kbd> (Mac)</p>
+                    <!-- The bookmarklet link -->
+                    <!-- svelte-ignore a11y_invalid_attribute -->
+                    <a
+                      href={browser ? `javascript:(function(){var m=location.href.match(/moxfield\\.com\\/decks\\/([a-zA-Z0-9_-]+)/);if(!m){alert('Open a Moxfield deck page first.');return;}var id=m[1];fetch('https://api2.moxfield.com/v3/decks/all/'+id).then(function(r){return r.json();}).then(function(d){var eid=d.exportId;var name=encodeURIComponent(d.name||'Moxfield Deck');fetch('https://api2.moxfield.com/v2/decks/all/'+id+'/export?exportId='+eid,{headers:{Accept:'text/plain'}}).then(function(r){return r.text();}).then(function(t){location.href='https://rons-group-buy.vercel.app/import#moxfield-import='+encodeURIComponent(t)+'&name='+name;});});})();` : '#'}
+                      class="mt-2 inline-flex cursor-grab items-center gap-2 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 active:cursor-grabbing"
+                      ondragstart={(e) => e.dataTransfer?.setData('text/plain', '')}
+                    >
+                      📥 Import to Group Buy
+                    </a>
+                  </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flex gap-3">
+                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+                  <div>
+                    <p class="font-medium">Open the Moxfield deck you want to import</p>
+                    <p class="mt-1 text-xs text-muted-foreground">Any public or unlisted deck URL like <code class="rounded bg-muted px-1">moxfield.com/decks/…</code></p>
+                  </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flex gap-3">
+                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                  <div>
+                    <p class="font-medium">Click the bookmarklet</p>
+                    <p class="mt-1 text-xs text-muted-foreground">It will fetch the deck list and redirect you back here. The import will start automatically.</p>
+                  </div>
+                </div>
+
+                <p class="rounded-md border border-muted bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <strong>Privacy:</strong> The bookmarklet only reads the deck you're currently viewing and sends it to this site. No data is stored on Moxfield or any third party.
+                </p>
+              </div>
+            </Accordion.Content>
+          </Accordion.Item>
+
+          <!-- ── Paste deck list ─────────────────────────────────────────────── -->
           <Accordion.Item value="paste">
             <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
-              Or click here to paste a decklist instead.
+              Or paste a decklist manually
             </Accordion.Trigger>
             <Accordion.Content>
               <div class="space-y-4 pt-2">
@@ -1000,6 +1086,7 @@
               </div>
             </Accordion.Content>
           </Accordion.Item>
+
         </Accordion.Root>
       </div>
       
