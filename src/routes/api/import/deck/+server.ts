@@ -1,6 +1,5 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import MoxfieldApi from 'moxfield-api'
 
 interface MoxfieldCard {
   quantity: number
@@ -65,10 +64,10 @@ interface DeckCard {
 }
 
 // Simple in-memory cache with 5 minute TTL
-const deckCache = new Map<string, { data: any; timestamp: number }>()
+const deckCache = new Map<string, { data: unknown; timestamp: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-function getCached(key: string): any | null {
+function getCached(key: string): unknown | null {
   const cached = deckCache.get(key)
   if (!cached) return null
   if (Date.now() - cached.timestamp > CACHE_TTL) {
@@ -78,14 +77,11 @@ function getCached(key: string): any | null {
   return cached.data
 }
 
-function setCache(key: string, data: any) {
+function setCache(key: string, data: unknown) {
   deckCache.set(key, { data, timestamp: Date.now() })
-  // Limit cache size
   if (deckCache.size > 100) {
     const firstKey = deckCache.keys().next().value
-    if (firstKey) {
-      deckCache.delete(firstKey)
-    }
+    if (firstKey) deckCache.delete(firstKey)
   }
 }
 
@@ -96,7 +92,6 @@ export const POST: RequestHandler = async ({ request }) => {
     throw error(400, 'Missing URL or source')
   }
 
-  // Check cache first
   const cacheKey = `${source}:${url}`
   const cached = getCached(cacheKey)
   if (cached) {
@@ -123,37 +118,26 @@ export const POST: RequestHandler = async ({ request }) => {
     setCache(cacheKey, response)
     return json(response)
   } catch (err) {
-    console.error('Error fetching deck:', err)
+    // Re-throw SvelteKit errors as-is
+    if (err && typeof err === 'object' && 'status' in err && 'body' in err) throw err
+    console.error('[import/deck] Unhandled error:', err)
     const errorMessage = err instanceof Error ? err.message : 'Failed to fetch deck'
     throw error(500, errorMessage)
   }
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
-  let lastError: Error | null = null
-  
-  for (let i = 0; i <= maxRetries; i++) {
-    try {
-      // Add small delay between retries
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * i))
-      }
-      
-      const response = await fetch(url, options)
-      if (response.ok) return response
-      
-      // Don't retry on 4xx errors (except 429)
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        throw new Error(`API returned ${response.status}`)
-      }
-      
-      lastError = new Error(`API returned ${response.status}`)
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error('Fetch failed')
-    }
-  }
-  
-  throw lastError || new Error('Max retries exceeded')
+// Browser-like headers to accompany server-side Moxfield requests
+const MOXFIELD_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  Referer: 'https://www.moxfield.com/',
+  Origin: 'https://www.moxfield.com',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-site',
+  'Cache-Control': 'no-cache'
 }
 
 const MOXFIELD_BOARD_TYPES = ['commanders', 'companions', 'mainboard', 'sideboard'] as const
@@ -161,112 +145,77 @@ type MoxfieldBoardType = (typeof MOXFIELD_BOARD_TYPES)[number]
 
 async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: DeckCard[] }> {
   const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
-  if (!match) {
-    throw new Error('Invalid Moxfield URL')
-  }
-
+  if (!match) throw new Error('Invalid Moxfield URL')
   const deckId = match[1]!
 
-  // Strategy 1: Use the moxfield-api library (primary)
+  // Strategy 1: v3 API (current)
   try {
-    const moxfield = new MoxfieldApi()
-    const deck = await moxfield.deckList.findById(deckId)
-    return parseMoxfieldLibraryDeck(deck)
-  } catch (libErr) {
-    console.log('moxfield-api library failed, falling back to direct fetch...', libErr)
-  }
-
-  // Strategy 2: Direct API fetch with browser-like headers (fallback)
-  const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`
-  try {
-    const response = await fetchWithRetry(apiUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.moxfield.com/',
-        'Origin': 'https://www.moxfield.com',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site'
-      }
+    const resp = await fetch(`https://api2.moxfield.com/v3/decks/all/${deckId}`, {
+      headers: MOXFIELD_HEADERS
     })
-
-    const deck: MoxfieldDeck = await response.json()
-    return parseMoxfieldDeck(deck)
-  } catch (apiErr) {
-    console.log('Moxfield direct API failed:', apiErr)
+    console.log(`[moxfield] v3 response: ${resp.status}`)
+    if (resp.ok) {
+      const deck: MoxfieldDeck = await resp.json()
+      return parseMoxfieldDeck(deck)
+    }
+    if (resp.status === 404) throw new Error('Deck not found on Moxfield')
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Deck not found on Moxfield') throw err
+    console.warn('[moxfield] v3 failed:', err instanceof Error ? err.message : err)
   }
 
-  // Both strategies failed
+  // Strategy 2: v2 API (older, sometimes less restricted)
+  try {
+    const resp = await fetch(`https://api2.moxfield.com/v2/decks/all/${deckId}`, {
+      headers: MOXFIELD_HEADERS
+    })
+    console.log(`[moxfield] v2 response: ${resp.status}`)
+    if (resp.ok) {
+      const deck: MoxfieldDeck = await resp.json()
+      return parseMoxfieldDeck(deck)
+    }
+    if (resp.status === 404) throw new Error('Deck not found on Moxfield')
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Deck not found on Moxfield') throw err
+    console.warn('[moxfield] v2 failed:', err instanceof Error ? err.message : err)
+  }
+
+  // Both blocked — let the client show the paste fallback UX
   throw new Error(
     'Unable to import from Moxfield at this time. Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.'
   )
 }
 
-/**
- * Parse a deck returned by the moxfield-api library.
- * The library returns a DeckListType whose boards have cards as a Record<string, entry>
- * where each entry has: { card: { name, set, cn, type_line }, quantity, boardType }.
- */
-function parseMoxfieldLibraryDeck(deck: any): { name: string; cards: DeckCard[] } {
-  const cards: DeckCard[] = []
-
-  const boardTypeMap: MoxfieldBoardType[] = ['commanders', 'companions', 'mainboard', 'sideboard']
-
-  for (const boardType of boardTypeMap) {
-    const board = deck.boards?.[boardType]
-    if (!board?.cards) continue
-
-    for (const [, entry] of Object.entries(board.cards as Record<string, any>)) {
-      if (!entry?.card) continue
-      cards.push({
-        quantity: entry.quantity,
-        name: entry.card.name,
-        set: entry.card.set?.toUpperCase(),
-        collectorNumber: entry.card.cn,
-        boardType,
-        typeLine: entry.card.type_line ?? undefined
-      })
-    }
-  }
-
-  return { name: deck.name ?? 'Imported Deck', cards }
-}
-
 function parseMoxfieldDeck(deck: MoxfieldDeck): { name: string; cards: DeckCard[] } {
   const cards: DeckCard[] = []
-  const hasBoards = deck.boards && deck.boards.mainboard
+  const hasBoards = !!deck.boards?.mainboard
 
-  const getCards = (zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined): Record<string, MoxfieldCard> => {
+  const getCards = (
+    zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined
+  ): Record<string, MoxfieldCard> => {
     if (!zone) return {}
-    if ('cards' in zone && typeof zone.cards === 'object') {
-      return zone.cards as Record<string, MoxfieldCard>
-    }
+    if ('cards' in zone && typeof zone.cards === 'object') return zone.cards as Record<string, MoxfieldCard>
     return zone as Record<string, MoxfieldCard>
   }
 
-  const boardTypeMap = hasBoards
-    ? [
-        { zone: deck.boards.mainboard, type: 'mainboard' as DeckCard['boardType'] },
-        { zone: deck.boards.sideboard, type: 'sideboard' as DeckCard['boardType'] },
-        { zone: deck.boards.commanders, type: 'commanders' as DeckCard['boardType'] },
-        { zone: deck.boards.companions, type: 'companions' as DeckCard['boardType'] }
-      ]
-    : [
-        { zone: deck.mainboard, type: 'mainboard' as DeckCard['boardType'] },
-        { zone: deck.sideboard, type: 'sideboard' as DeckCard['boardType'] },
-        { zone: deck.commanders, type: 'commanders' as DeckCard['boardType'] },
-        { zone: deck.companions, type: 'companions' as DeckCard['boardType'] }
-      ]
+  const boardZones: Array<{ zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined; type: MoxfieldBoardType }> =
+    hasBoards
+      ? [
+          { zone: deck.boards.mainboard, type: 'mainboard' },
+          { zone: deck.boards.sideboard, type: 'sideboard' },
+          { zone: deck.boards.commanders, type: 'commanders' },
+          { zone: deck.boards.companions, type: 'companions' }
+        ]
+      : [
+          { zone: deck.mainboard, type: 'mainboard' },
+          { zone: deck.sideboard, type: 'sideboard' },
+          { zone: deck.commanders, type: 'commanders' },
+          { zone: deck.companions, type: 'companions' }
+        ]
 
-  for (const { zone, type: boardType } of boardTypeMap) {
-    const cards_map = getCards(zone)
-    for (const [, entry] of Object.entries(cards_map)) {
+  for (const { zone, type: boardType } of boardZones) {
+    for (const [, entry] of Object.entries(getCards(zone))) {
       if (!entry.card) continue
-      
       cards.push({
         quantity: entry.quantity,
         name: entry.card.name,
@@ -283,55 +232,57 @@ function parseMoxfieldDeck(deck: MoxfieldDeck): { name: string; cards: DeckCard[
 
 async function fetchArchidektDeck(url: string): Promise<{ name: string; cards: DeckCard[] }> {
   const match = url.match(/archidekt\.com\/decks\/(\d+)/)
-  if (!match) {
-    throw new Error('Invalid Archidekt URL')
-  }
+  if (!match) throw new Error('Invalid Archidekt URL')
 
   const deckId = match[1]
-  const apiUrl = `https://archidekt.com/api/decks/${deckId}/`
-
-  const response = await fetchWithRetry(apiUrl, {
+  const resp = await fetch(`https://archidekt.com/api/decks/${deckId}/`, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      Accept: 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://archidekt.com/',
-      'Origin': 'https://archidekt.com'
+      Referer: 'https://archidekt.com/',
+      Origin: 'https://archidekt.com'
     }
   })
 
-  const deck: ArchidektDeck = await response.json()
-  const cards: DeckCard[] = []
-  const seenCards = new Set<string>()
+  if (!resp.ok) throw new Error(`Archidekt API returned ${resp.status}`)
 
-  for (const entry of deck.cards || []) {
+  const deck: ArchidektDeck = await resp.json()
+  const cards: DeckCard[] = []
+  const seen = new Set<string>()
+
+  for (const entry of deck.cards ?? []) {
     const cardName = entry.card.oracleCard.name
-    
-    // Deduplicate
-    if (seenCards.has(cardName)) continue
-    seenCards.add(cardName)
-    
-    // Determine board type from categories
-    const categories = entry.categories || []
+    if (seen.has(cardName)) continue
+    seen.add(cardName)
+
+    const categories = entry.categories ?? []
     let boardType: DeckCard['boardType'] = 'mainboard'
     if (categories.includes('Commander')) boardType = 'commanders'
     else if (categories.includes('Companion')) boardType = 'companions'
     else if (categories.includes('Sideboard') || categories.includes('Maybeboard')) boardType = 'sideboard'
 
-    // Get type line
-    let typeLine = entry.card.typeLine 
-      || entry.card.oracleCard.typeLine 
-      || entry.card.oracleCard.type 
-      || ''
-    
-    if (!typeLine && categories.length > 0) {
-      if (categories.includes('Creature') || categories.includes('Creatures')) typeLine = 'Creature'
-      else if (categories.includes('Instant') || categories.includes('Instants')) typeLine = 'Instant'
-      else if (categories.includes('Sorcery') || categories.includes('Sorceries')) typeLine = 'Sorcery'
-      else if (categories.includes('Artifact') || categories.includes('Artifacts')) typeLine = 'Artifact'
-      else if (categories.includes('Enchantment') || categories.includes('Enchantments')) typeLine = 'Enchantment'
-      else if (categories.includes('Planeswalker') || categories.includes('Planeswalkers')) typeLine = 'Planeswalker'
-      else if (categories.includes('Land') || categories.includes('Lands')) typeLine = 'Land'
+    let typeLine =
+      entry.card.typeLine ?? entry.card.oracleCard.typeLine ?? entry.card.oracleCard.type ?? ''
+    if (!typeLine) {
+      const typeMap: Record<string, string> = {
+        Creature: 'Creature',
+        Creatures: 'Creature',
+        Instant: 'Instant',
+        Instants: 'Instant',
+        Sorcery: 'Sorcery',
+        Sorceries: 'Sorcery',
+        Artifact: 'Artifact',
+        Artifacts: 'Artifact',
+        Enchantment: 'Enchantment',
+        Enchantments: 'Enchantment',
+        Planeswalker: 'Planeswalker',
+        Planeswalkers: 'Planeswalker',
+        Land: 'Land',
+        Lands: 'Land'
+      }
+      typeLine = categories.map((c) => typeMap[c]).find(Boolean) ?? ''
     }
 
     cards.push({
