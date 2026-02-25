@@ -70,6 +70,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       state: addressData.state || null,
       postal_code: addressData.postal_code,
       country: addressData.country,
+      phone_number: addressData.phone_number || null,
       is_default: addressData.is_default || false
     })
     .select()

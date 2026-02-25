@@ -650,6 +650,9 @@
                           {/if}
                           <p class="text-muted-foreground">{address.city}, {address.state} {address.postal_code}</p>
                           <p class="text-muted-foreground">{address.country}</p>
+                          {#if address.phone_number}
+                            <p class="mt-1 text-muted-foreground">{address.phone_number}</p>
+                          {/if}
                         </address>
                       </div>
                     {/each}

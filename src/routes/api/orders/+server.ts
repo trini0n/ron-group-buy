@@ -29,18 +29,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items, action, paypalEmail, phoneNumber, notes } = body
+  const { addressId, newAddress, shippingType, items, action, paypalEmail, phoneNumber, discordUsername, cartId, cartVersion, notes } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
   }
 
-  // Phone number and PayPal email are required
+  // Phone number, PayPal email, and Discord username are required
   if (!phoneNumber || !String(phoneNumber).trim()) {
     throw error(400, 'Phone number is required')
   }
   if (!paypalEmail || !String(paypalEmail).trim()) {
     throw error(400, 'PayPal Email is required')
+  }
+  if (!discordUsername || !String(discordUsername).trim()) {
+    throw error(400, 'Discord Username is required')
   }
 
   // Validate shipping type
@@ -236,12 +239,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(400, 'No address provided')
   }
 
-  // Update user's PayPal email if provided
-  if (paypalEmail) {
-    await locals.supabase
-      .from('users')
-      .update({ paypal_email: paypalEmail })
-      .eq('id', locals.user.id)
+  // Update user's PayPal email and Discord username
+  const updateData: { paypal_email: string, discord_username?: string } = { paypal_email: String(paypalEmail).trim() }
+  if (discordUsername && String(discordUsername).trim()) {
+     updateData.discord_username = String(discordUsername).trim();
+  }
+  
+  // Check if user has discord_id or if we are skipping discord validation for local testing?
+  // The client enforces the discord username check, we will trust the client for now but update the profile unconditionally if string provided.
+  
+  const { error: profileError } = await locals.supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', locals.user.id)
+
+  if (profileError) {
+    console.error('Error updating user profile (paypal_email/discord_username):', profileError);
+    // This is not a critical error to stop the order, but log it.
   }
 
   // Create order with group_buy_id

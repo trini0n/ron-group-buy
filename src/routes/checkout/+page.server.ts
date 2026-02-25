@@ -64,10 +64,10 @@ export const load: PageServerLoad = async ({ locals }) => {
     }
   }
 
-  // Get user's saved PayPal email
+  // Get user's saved PayPal email and Discord connection setup
   const { data: userData } = await locals.supabase
     .from('users')
-    .select('paypal_email')
+    .select('paypal_email, discord_id, discord_username')
     .eq('id', locals.user.id)
     .single()
 
@@ -77,6 +77,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     isEmailVerified,
     userEmail: locals.user.email,
     userPaypalEmail: userData?.paypal_email || null,
+    userData,
     existingPendingOrder
   }
 }

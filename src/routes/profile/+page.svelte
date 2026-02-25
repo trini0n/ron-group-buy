@@ -8,7 +8,9 @@
   import * as Dialog from '$components/ui/dialog';
   import * as AlertDialog from '$components/ui/alert-dialog';
   import * as Avatar from '$components/ui/avatar';
+  import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
+  import PhoneInput from '$components/ui/PhoneInput.svelte';
   import { invalidateAll, goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
   import {
@@ -36,6 +38,8 @@
     state: string | null;
     postal_code: string;
     country: string;
+    // @ts-ignore: added phone_number to db
+    phone_number?: string | null;
     is_default: boolean | null;
   }
 
@@ -78,6 +82,7 @@
     state: '',
     postal_code: '',
     country: 'US',
+    phone_number: '', // Added phone_number to addressForm state
     is_default: false
   });
   let isSavingAddress = $state(false);
@@ -177,6 +182,7 @@
         state: address.state || '',
         postal_code: address.postal_code,
         country: address.country,
+        phone_number: address.phone_number || '',
         is_default: address.is_default ?? false
       };
     } else {
@@ -189,6 +195,7 @@
         state: '',
         postal_code: '',
         country: 'US',
+        phone_number: '',
         is_default: data.addresses.length === 0
       };
     }
@@ -649,6 +656,9 @@
                       {/if}
                       <p>{address.city}, {address.state} {address.postal_code}</p>
                       <p>{address.country}</p>
+                      {#if (address as any).phone_number}
+                        <p class="mt-1 text-muted-foreground">{(address as any).phone_number}</p>
+                      {/if}
                     </address>
                   </div>
                   <div class="flex gap-1">
@@ -775,6 +785,14 @@
             <Label for="addr_country">Country</Label>
             <Input id="addr_country" bind:value={addressForm.country} required />
           </div>
+        </div>
+        <div class="space-y-2">
+          <Label for="addr_phone">Phone Number <span class="text-red-500">*</span></Label>
+          <PhoneInput 
+            bind:phoneNumber={addressForm.phone_number} 
+            country={addressForm.country}
+            required={true}
+          />
         </div>
         <label class="flex items-center gap-2">
           <input type="checkbox" bind:checked={addressForm.is_default} />

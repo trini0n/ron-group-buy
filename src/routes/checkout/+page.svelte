@@ -7,11 +7,8 @@
   import { Textarea } from '$lib/components/ui/textarea';
   import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
   import { Checkbox } from '$lib/components/ui/checkbox';
-  import * as Popover from "$lib/components/ui/popover/index.js";
-  import * as Command from "$lib/components/ui/command/index.js";
-  import { Check, ChevronsUpDown } from "lucide-svelte";
-  import { tick } from "svelte";
-  import { countries, getCountryByName } from '$lib/data/countries';
+  import PhoneInput from '$lib/components/ui/PhoneInput.svelte';
+  import { Check } from "lucide-svelte";
 
   import { Separator } from '$components/ui/separator';
   import { cartStore } from '$lib/stores/cart.svelte';
@@ -68,24 +65,14 @@
 
   // PayPal email and Phone Number
   let paypalEmail = $state('');
+  let phoneNumber = $state('');
+  let discordUsername = $state('');
   
   let prevAddressId = $state<string | null>(null);
   let prevCountry = $state<string | null>(null);
 
   // Order note
   let orderNote = $state('');
-
-  // International phone number split state
-  let selectedIso2 = $state('US');
-  let openCountrySelect = $state(false);
-  let nationalNumber = $state('');
-  
-  // Create a combined phone number derived state since the backend expects the full string
-  let phoneNumber = $derived.by(() => {
-    const code = countries.find(c => c.iso2 === selectedIso2)?.dialCode || '';
-    if (!nationalNumber.trim()) return '';
-    return `${code} ${nationalNumber.trim()}`;
-  });
 
   // Determine shipping location and calculate costs
   let selectedCountry = $derived.by(() => {
@@ -102,37 +89,20 @@
 
     const currentCountry = selectedCountry;
 
-    // Helper to parse existing phone number to extract national part
-    const parseExistingPhone = (fullPhone: string, code: string) => {
-      if (fullPhone.startsWith(code)) {
-        return fullPhone.substring(code.length).trim();
-      }
-      return fullPhone;
-    };
-
     // If swapping to a different saved address
     if (!useNewAddress && selectedAddressId !== prevAddressId) {
       const selected = data.addresses.find((a: any) => a.id === selectedAddressId) as any;
-      const targetCountryData = getCountryByName(currentCountry);
-      
-      if (targetCountryData) {
-        selectedIso2 = targetCountryData.iso2;
-      }
       
       if (selected?.phone_number) {
-        nationalNumber = parseExistingPhone(selected.phone_number, targetCountryData?.dialCode || '');
+        phoneNumber = selected.phone_number;
       } else {
-         nationalNumber = '';
+        phoneNumber = ''; // Empty string lets PhoneInput prepopulate the country dial code
       }
       prevAddressId = selectedAddressId;
       prevCountry = currentCountry;
     } 
     // If country changed (e.g. typing in new address form) or switching to new address form
     else if (currentCountry !== prevCountry) {
-      const targetCountryData = getCountryByName(currentCountry);
-      if (targetCountryData) {
-        selectedIso2 = targetCountryData.iso2;
-      }
       prevCountry = currentCountry;
       if (useNewAddress) prevAddressId = null;
     }
@@ -196,9 +166,15 @@
     }
     
     // Validation
-    if (!nationalNumber || !nationalNumber.trim()) {
+    if (!phoneNumber || !phoneNumber.trim()) {
       // The HTML5 require will catch standard form submissions, but we keep this client block just in case
       alert('Please provide a Phone Number.');
+      return;
+    }
+    
+    const hasDiscordLinked = Boolean((data as any).userData?.discord_id || (data as any).userData?.discord_username);
+    if (!hasDiscordLinked && !discordUsername.trim()) {
+      alert('Please connect your Discord account or provide your Discord username.');
       return;
     }
     
@@ -235,17 +211,20 @@
 
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           addressId: useNewAddress ? null : selectedAddressId,
           newAddress: useNewAddress ? newAddress : null,
           shippingType,
+          notes: orderNote,
+          paypalEmail,
+          phoneNumber,
+          discordUsername: discordUsername.trim() || undefined,
           cartId: cartStore.cartId,
           cartVersion: cartStore.version,
           action: data.existingPendingOrder ? 'merge' : null, // Auto-merge if existing order
-          paypalEmail: paypalEmail.trim() || null,
-          phoneNumber: phoneNumber.trim(),
-          notes: orderNote.trim() || null,
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -279,10 +258,18 @@
     }
   }
 
-  async function closeAndFocusTrigger() {
-    openCountrySelect = false;
-    await tick();
-    document.getElementById("trigger-btn")?.focus();
+  async function connectDiscord() {
+    try {
+      const response = await fetch('/api/profile/auth/discord', { method: 'POST' });
+      if (response.ok) {
+        const { url } = await response.json();
+        window.location.href = url;
+      } else {
+        alert('Failed to connect Discord.');
+      }
+    } catch {
+      alert('Failed to connect Discord.');
+    }
   }
 </script>
 
@@ -486,77 +473,54 @@
           </div>
           <div class="space-y-2">
             <Label for="phone">Phone Number <span class="text-red-500">*</span></Label>
-            <div class="flex relative gap-2">
-              <Popover.Root bind:open={openCountrySelect}>
-                <Popover.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openCountrySelect}
-                      class="w-[110px] justify-between px-3"
-                    >
-                      {#if selectedIso2}
-                        {@const countryInfo = countries.find(c => c.iso2 === selectedIso2)}
-                        <span class="mr-2 text-lg">{countryInfo?.flag}</span>
-                        <span>{countryInfo?.dialCode}</span>
-                      {:else}
-                        Select...
-                      {/if}
-                      <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  {/snippet}
-                </Popover.Trigger>
-                <Popover.Content class="w-[250px] p-0">
-                  <Command.Root>
-                    <Command.Input placeholder="Search country..." />
-                    <Command.List>
-                      <Command.Empty>No country found.</Command.Empty>
-                      <Command.Group>
-                        {#each countries as country}
-                          <Command.Item
-                            value={country.iso2 + " " + country.name + " " + country.dialCode}
-                            onSelect={() => {
-                              selectedIso2 = country.iso2;
-                              closeAndFocusTrigger();
-                            }}
-                          >
-                            <Check
-                              class={`mr-2 h-4 w-4 ${selectedIso2 !== country.iso2 ? "text-transparent" : ""}`}
-                            />
-                            <span class="mr-2 text-lg">{country.flag}</span>
-                            <span class="flex-1">{country.name}</span>
-                            <span class="text-muted-foreground">{country.dialCode}</span>
-                          </Command.Item>
-                        {/each}
-                      </Command.Group>
-                    </Command.List>
-                  </Command.Root>
-                </Popover.Content>
-              </Popover.Root>
-
-              <!-- Hidden trigger input script -->
-              <div class="hidden" id="trigger-btn"></div>
-              
-              <Input 
-                id="phone" 
-                type="tel"
-                placeholder="123456789"
-                required
-                bind:value={nationalNumber}
-                class="flex-1"
-              />
-            </div>
+            <PhoneInput 
+              bind:phoneNumber={phoneNumber} 
+              country={selectedCountry}
+              required={true}
+            />
             <p class="text-xs text-muted-foreground">
               Required for delivery. Stored securely on your shipping address.
             </p>
           </div>
         </div>
+        
         <p class="mt-2 text-xs text-muted-foreground">
           These details will be saved to your profile for future orders.
         </p>
       </div>
+      
+      <!-- Discord Requirement Section -->
+      {#if !(data as any).userData?.discord_id && !(data as any).userData?.discord_username}
+        <div class="lg:col-span-2">
+          <h2 class="mb-4 text-xl font-semibold">Contact Information</h2>
+          <Card>
+            <CardContent class="pt-6 space-y-4">
+              <div class="space-y-2">
+                <p class="text-sm font-medium">Discord Connection <span class="text-red-500">*</span></p>
+                <p class="text-xs text-muted-foreground">
+                  A Discord account is required to place an order for ease of communication and status updates.
+                </p>
+              </div>
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+                 <Button type="button" variant="outline" onclick={connectDiscord}>
+                  <svg class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+                  </svg>
+                  Connect via Discord SSO
+                 </Button>
+                 <span class="text-sm font-medium text-muted-foreground w-full text-center sm:w-auto">OR</span>
+                 <Input 
+                   type="text" 
+                   placeholder="Manual Discord Username"
+                   bind:value={discordUsername}
+                   class="flex-1"
+                   required
+                 />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      {/if}
 
       <!-- Order Notes -->
       <div class="lg:col-span-2">
