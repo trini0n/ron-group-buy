@@ -35,9 +35,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(400, 'Cart is empty')
   }
 
-  // Phone number is required
+  // Phone number and PayPal email are required
   if (!phoneNumber || !String(phoneNumber).trim()) {
     throw error(400, 'Phone number is required')
+  }
+  if (!paypalEmail || !String(paypalEmail).trim()) {
+    throw error(400, 'PayPal Email is required')
   }
 
   // Validate shipping type

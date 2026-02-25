@@ -1,15 +1,24 @@
+```html
 <script lang="ts">
-  import { Button } from '$components/ui/button';
-  import { Input } from '$components/ui/input';
-  import { Textarea } from '$components/ui/textarea';
-  import { Label } from '$components/ui/label';
-  import * as Card from '$components/ui/card';
+  import { Button } from '$lib/components/ui/button';
+  import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '$lib/components/ui/card';
+  import { Input } from '$lib/components/ui/input';
+  import { Label } from '$lib/components/ui/label';
+  import { Textarea } from '$lib/components/ui/textarea';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Checkbox } from '$lib/components/ui/checkbox';
+  import * as Popover from "$lib/components/ui/popover/index.js";
+  import * as Command from "$lib/components/ui/command/index.js";
+  import { Check, ChevronsUpDown } from "lucide-svelte";
+  import { tick } from "svelte";
+  import { countries, getCountryByName } from '$lib/data/countries';
+
   import { Separator } from '$components/ui/separator';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { formatPrice, getCardPrice } from '$lib/utils';
   import { createSupabaseClient } from '$lib/supabase';
   import { browser } from '$app/environment';
-  import { ArrowLeft, Check, AlertTriangle, Mail, Package, Truck, ChevronDown, ChevronUp } from 'lucide-svelte';
+  import { ArrowLeft, AlertTriangle, Mail, Package, Truck, ChevronDown, ChevronUp } from 'lucide-svelte';
 
 
   let { data } = $props();
@@ -24,8 +33,8 @@
     },
     international: {
       regular: 6.00,
-      express: 25.00,
-      expressPerHalfKg: 5.00,
+      express: 6.00, // Base express rate
+      expressPerHalfKg: 5.00, // Additional per 0.5kg
       tariff: 0
     }
   };
@@ -57,51 +66,8 @@
     country: 'US'
   });
 
-  const COUNTRY_CODES: Record<string, string> = {
-    'US': '+1', 'USA': '+1', 'UNITED STATES': '+1',
-    'CA': '+1', 'CANADA': '+1',
-    'GB': '+44', 'UK': '+44', 'UNITED KINGDOM': '+44',
-    'AU': '+61', 'AUSTRALIA': '+61',
-    'DE': '+49', 'GERMANY': '+49',
-    'FR': '+33', 'FRANCE': '+33',
-    'IT': '+39', 'ITALY': '+39',
-    'ES': '+34', 'SPAIN': '+34',
-    'NL': '+31', 'NETHERLANDS': '+31',
-    'BR': '+55', 'BRAZIL': '+55',
-    'MX': '+52', 'MEXICO': '+52',
-    'JP': '+81', 'JAPAN': '+81',
-    'CN': '+86', 'CHINA': '+86',
-    'IN': '+91', 'INDIA': '+91',
-    'SG': '+65', 'SINGAPORE': '+65',
-    'MY': '+60', 'MALAYSIA': '+60',
-    'ID': '+62', 'INDONESIA': '+62',
-    'PH': '+63', 'PHILIPPINES': '+63',
-    'TH': '+66', 'THAILAND': '+66',
-    'VN': '+84', 'VIETNAM': '+84',
-    'KR': '+82', 'SOUTH KOREA': '+82',
-    'TW': '+886', 'TAIWAN': '+886',
-    'HK': '+852', 'HONG KONG': '+852',
-    'NZ': '+64', 'NEW ZEALAND': '+64',
-    'CH': '+41', 'SWITZERLAND': '+41',
-    'SE': '+46', 'SWEDEN': '+46',
-    'NO': '+47', 'NORWAY': '+47',
-    'DK': '+45', 'DENMARK': '+45',
-    'FI': '+358', 'FINLAND': '+358',
-    'IE': '+353', 'IRELAND': '+353',
-    'PT': '+351', 'PORTUGAL': '+351',
-    'AT': '+43', 'AUSTRIA': '+43',
-    'BE': '+32', 'BELGIUM': '+32',
-    'PL': '+48', 'POLAND': '+48',
-    'CZ': '+420', 'CZECH REPUBLIC': '+420'
-  };
-
-  function getCountryCode(country: string): string {
-    return COUNTRY_CODES[country.toUpperCase().trim()] || '';
-  }
-
   // PayPal email and Phone Number
   let paypalEmail = $state('');
-  let phoneNumber = $state('');
   
   let prevAddressId = $state<string | null>(null);
   let prevCountry = $state<string | null>(null);
@@ -109,12 +75,24 @@
   // Order note
   let orderNote = $state('');
 
+  // International phone number split state
+  let selectedIso2 = $state('US');
+  let openCountrySelect = $state(false);
+  let nationalNumber = $state('');
+  
+  // Create a combined phone number derived state since the backend expects the full string
+  let phoneNumber = $derived.by(() => {
+    const code = countries.find(c => c.iso2 === selectedIso2)?.dialCode || '';
+    if (!nationalNumber.trim()) return '';
+    return `${code} ${nationalNumber.trim()}`;
+  });
+
   // Determine shipping location and calculate costs
   let selectedCountry = $derived.by(() => {
     if (useNewAddress) {
       return newAddress.country;
     }
-    const selectedAddress = data.addresses.find((a: { id: string; country: string }) => a.id === selectedAddressId);
+    const selectedAddress = data.addresses.find((a: any) => a.id === selectedAddressId) as any;
     return selectedAddress?.country || 'US';
   });
 
@@ -124,24 +102,36 @@
 
     const currentCountry = selectedCountry;
 
+    // Helper to parse existing phone number to extract national part
+    const parseExistingPhone = (fullPhone: string, code: string) => {
+      if (fullPhone.startsWith(code)) {
+        return fullPhone.substring(code.length).trim();
+      }
+      return fullPhone;
+    };
+
     // If swapping to a different saved address
     if (!useNewAddress && selectedAddressId !== prevAddressId) {
       const selected = data.addresses.find((a: any) => a.id === selectedAddressId) as any;
+      const targetCountryData = getCountryByName(currentCountry);
+      
+      if (targetCountryData) {
+        selectedIso2 = targetCountryData.iso2;
+      }
+      
       if (selected?.phone_number) {
-        phoneNumber = selected.phone_number;
+        nationalNumber = parseExistingPhone(selected.phone_number, targetCountryData?.dialCode || '');
       } else {
-        const code = getCountryCode(currentCountry);
-        phoneNumber = code ? `${code} ` : '';
+         nationalNumber = '';
       }
       prevAddressId = selectedAddressId;
       prevCountry = currentCountry;
     } 
     // If country changed (e.g. typing in new address form) or switching to new address form
     else if (currentCountry !== prevCountry) {
-      const code = getCountryCode(currentCountry);
-      // Only auto-fill if empty or exactly matches another country code
-      if (!phoneNumber || Object.values(COUNTRY_CODES).some(c => phoneNumber.trim() === c)) {
-        phoneNumber = code ? `${code} ` : '';
+      const targetCountryData = getCountryByName(currentCountry);
+      if (targetCountryData) {
+        selectedIso2 = targetCountryData.iso2;
       }
       prevCountry = currentCountry;
       if (useNewAddress) prevAddressId = null;
@@ -205,8 +195,15 @@
       return;
     }
     
-    if (!phoneNumber || !phoneNumber.trim()) {
-      alert('Please provide a phone number. This is required for delivery.');
+    // Validation
+    if (!nationalNumber || !nationalNumber.trim()) {
+      // The HTML5 require will catch standard form submissions, but we keep this client block just in case
+      alert('Please provide a Phone Number.');
+      return;
+    }
+    
+    if (!paypalEmail || !paypalEmail.trim()) {
+      alert('Please provide a PayPal Email Address.');
       return;
     }
     
@@ -280,6 +277,12 @@
     } finally {
       isSubmitting = false;
     }
+  }
+
+  async function closeAndFocusTrigger() {
+    openCountrySelect = false;
+    await tick();
+    document.getElementById("trigger-btn")?.focus();
   }
 </script>
 
@@ -469,11 +472,12 @@
         <h2 class="mb-4 text-xl font-semibold">Contact & Payment Information</h2>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <Label for="paypal-email">PayPal Email Address</Label>
+            <Label for="paypal-email">PayPal Email Address <span class="text-red-500">*</span></Label>
             <Input 
               id="paypal-email" 
               type="email"
               placeholder="your-email@example.com"
+              required
               bind:value={paypalEmail}
             />
             <p class="text-xs text-muted-foreground">
@@ -481,16 +485,71 @@
             </p>
           </div>
           <div class="space-y-2">
-            <Label for="phone-number">Phone Number <span class="text-red-500">*</span></Label>
-            <Input 
-              id="phone-number" 
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              required
-              bind:value={phoneNumber}
-            />
+            <Label for="phone">Phone Number <span class="text-red-500">*</span></Label>
+            <div class="flex relative gap-2">
+              <Popover.Root bind:open={openCountrySelect}>
+                <Popover.Trigger>
+                  {#snippet child({ props })}
+                    <Button
+                      {...props}
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCountrySelect}
+                      class="w-[110px] justify-between px-3"
+                    >
+                      {#if selectedIso2}
+                        {@const countryInfo = countries.find(c => c.iso2 === selectedIso2)}
+                        <span class="mr-2 text-lg">{countryInfo?.flag}</span>
+                        <span>{countryInfo?.dialCode}</span>
+                      {:else}
+                        Select...
+                      {/if}
+                      <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  {/snippet}
+                </Popover.Trigger>
+                <Popover.Content class="w-[250px] p-0">
+                  <Command.Root>
+                    <Command.Input placeholder="Search country..." />
+                    <Command.List>
+                      <Command.Empty>No country found.</Command.Empty>
+                      <Command.Group>
+                        {#each countries as country}
+                          <Command.Item
+                            value={country.iso2 + " " + country.name + " " + country.dialCode}
+                            onSelect={() => {
+                              selectedIso2 = country.iso2;
+                              closeAndFocusTrigger();
+                            }}
+                          >
+                            <Check
+                              class={`mr-2 h-4 w-4 ${selectedIso2 !== country.iso2 ? "text-transparent" : ""}`}
+                            />
+                            <span class="mr-2 text-lg">{country.flag}</span>
+                            <span class="flex-1">{country.name}</span>
+                            <span class="text-muted-foreground">{country.dialCode}</span>
+                          </Command.Item>
+                        {/each}
+                      </Command.Group>
+                    </Command.List>
+                  </Command.Root>
+                </Popover.Content>
+              </Popover.Root>
+
+              <!-- Hidden trigger input script -->
+              <div class="hidden" id="trigger-btn"></div>
+              
+              <Input 
+                id="phone" 
+                type="tel"
+                placeholder="123456789"
+                required
+                bind:value={nationalNumber}
+                class="flex-1"
+              />
+            </div>
             <p class="text-xs text-muted-foreground">
-              Required by forwarders for international delivery.
+              Required for delivery. Stored securely on your shipping address.
             </p>
           </div>
         </div>
@@ -520,8 +579,8 @@
       <div class="lg:col-span-2">
         <h2 class="mb-4 text-xl font-semibold">Order Summary</h2>
 
-        <Card.Root>
-          <Card.Content class="pt-6">
+        <Card>
+          <CardContent class="pt-6">
             <!-- Collapsible Items Section -->
             <button
               type="button"
@@ -595,8 +654,8 @@
             <p class="mt-2 text-xs text-muted-foreground">
               * Final invoice may include additional weight-based shipping charges for Express orders.
             </p>
-          </Card.Content>
-        </Card.Root>
+          </CardContent>
+        </Card>
 
         <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting || !data.isEmailVerified}>
           {#if isSubmitting}
