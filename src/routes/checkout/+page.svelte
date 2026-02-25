@@ -57,13 +57,54 @@
     country: 'US'
   });
 
-  // PayPal email
+  const COUNTRY_CODES: Record<string, string> = {
+    'US': '+1', 'USA': '+1', 'UNITED STATES': '+1',
+    'CA': '+1', 'CANADA': '+1',
+    'GB': '+44', 'UK': '+44', 'UNITED KINGDOM': '+44',
+    'AU': '+61', 'AUSTRALIA': '+61',
+    'DE': '+49', 'GERMANY': '+49',
+    'FR': '+33', 'FRANCE': '+33',
+    'IT': '+39', 'ITALY': '+39',
+    'ES': '+34', 'SPAIN': '+34',
+    'NL': '+31', 'NETHERLANDS': '+31',
+    'BR': '+55', 'BRAZIL': '+55',
+    'MX': '+52', 'MEXICO': '+52',
+    'JP': '+81', 'JAPAN': '+81',
+    'CN': '+86', 'CHINA': '+86',
+    'IN': '+91', 'INDIA': '+91',
+    'SG': '+65', 'SINGAPORE': '+65',
+    'MY': '+60', 'MALAYSIA': '+60',
+    'ID': '+62', 'INDONESIA': '+62',
+    'PH': '+63', 'PHILIPPINES': '+63',
+    'TH': '+66', 'THAILAND': '+66',
+    'VN': '+84', 'VIETNAM': '+84',
+    'KR': '+82', 'SOUTH KOREA': '+82',
+    'TW': '+886', 'TAIWAN': '+886',
+    'HK': '+852', 'HONG KONG': '+852',
+    'NZ': '+64', 'NEW ZEALAND': '+64',
+    'CH': '+41', 'SWITZERLAND': '+41',
+    'SE': '+46', 'SWEDEN': '+46',
+    'NO': '+47', 'NORWAY': '+47',
+    'DK': '+45', 'DENMARK': '+45',
+    'FI': '+358', 'FINLAND': '+358',
+    'IE': '+353', 'IRELAND': '+353',
+    'PT': '+351', 'PORTUGAL': '+351',
+    'AT': '+43', 'AUSTRIA': '+43',
+    'BE': '+32', 'BELGIUM': '+32',
+    'PL': '+48', 'POLAND': '+48',
+    'CZ': '+420', 'CZECH REPUBLIC': '+420'
+  };
+
+  function getCountryCode(country: string): string {
+    return COUNTRY_CODES[country.toUpperCase().trim()] || '';
+  }
+
+  // PayPal email and Phone Number
   let paypalEmail = $state('');
+  let phoneNumber = $state('');
   
-  // Initialize PayPal email from user data
-  $effect(() => {
-    paypalEmail = data.userPaypalEmail || '';
-  });
+  let prevAddressId = $state<string | null>(null);
+  let prevCountry = $state<string | null>(null);
 
   // Order note
   let orderNote = $state('');
@@ -75,6 +116,36 @@
     }
     const selectedAddress = data.addresses.find((a: { id: string; country: string }) => a.id === selectedAddressId);
     return selectedAddress?.country || 'US';
+  });
+
+  // Effect for handling phone number and email updates
+  $effect(() => {
+    paypalEmail = data.userPaypalEmail || '';
+
+    const currentCountry = selectedCountry;
+
+    // If swapping to a different saved address
+    if (!useNewAddress && selectedAddressId !== prevAddressId) {
+      const selected = data.addresses.find((a: any) => a.id === selectedAddressId) as any;
+      if (selected?.phone_number) {
+        phoneNumber = selected.phone_number;
+      } else {
+        const code = getCountryCode(currentCountry);
+        phoneNumber = code ? `${code} ` : '';
+      }
+      prevAddressId = selectedAddressId;
+      prevCountry = currentCountry;
+    } 
+    // If country changed (e.g. typing in new address form) or switching to new address form
+    else if (currentCountry !== prevCountry) {
+      const code = getCountryCode(currentCountry);
+      // Only auto-fill if empty or exactly matches another country code
+      if (!phoneNumber || Object.values(COUNTRY_CODES).some(c => phoneNumber.trim() === c)) {
+        phoneNumber = code ? `${code} ` : '';
+      }
+      prevCountry = currentCountry;
+      if (useNewAddress) prevAddressId = null;
+    }
   });
 
   let isUSShipping = $derived(
@@ -134,6 +205,11 @@
       return;
     }
     
+    if (!phoneNumber || !phoneNumber.trim()) {
+      alert('Please provide a phone number. This is required for delivery.');
+      return;
+    }
+    
     isSubmitting = true;
 
     try {
@@ -170,6 +246,8 @@
           cartId: cartStore.cartId,
           cartVersion: cartStore.version,
           action: data.existingPendingOrder ? 'merge' : null, // Auto-merge if existing order
+          paypalEmail: paypalEmail.trim() || null,
+          phoneNumber: phoneNumber.trim(),
           notes: orderNote.trim() || null,
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
@@ -386,21 +464,39 @@
         </div>
       </div>
 
-      <!-- PayPal Email -->
+      <!-- Contact Information -->
       <div class="lg:col-span-2">
-        <h2 class="mb-4 text-xl font-semibold">Payment Information</h2>
-        <div class="space-y-2">
-          <Label for="paypal-email">PayPal Email Address</Label>
-          <Input 
-            id="paypal-email" 
-            type="email"
-            placeholder="your-email@example.com"
-            bind:value={paypalEmail}
-          />
-          <p class="text-xs text-muted-foreground">
-            We'll send your PayPal invoice to this address. This will be saved to your profile for future orders.
-          </p>
+        <h2 class="mb-4 text-xl font-semibold">Contact & Payment Information</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2">
+            <Label for="paypal-email">PayPal Email Address</Label>
+            <Input 
+              id="paypal-email" 
+              type="email"
+              placeholder="your-email@example.com"
+              bind:value={paypalEmail}
+            />
+            <p class="text-xs text-muted-foreground">
+              We'll send your PayPal invoice to this address.
+            </p>
+          </div>
+          <div class="space-y-2">
+            <Label for="phone-number">Phone Number <span class="text-red-500">*</span></Label>
+            <Input 
+              id="phone-number" 
+              type="tel"
+              placeholder="+1 (555) 000-0000"
+              required
+              bind:value={phoneNumber}
+            />
+            <p class="text-xs text-muted-foreground">
+              Required by forwarders for international delivery.
+            </p>
+          </div>
         </div>
+        <p class="mt-2 text-xs text-muted-foreground">
+          These details will be saved to your profile for future orders.
+        </p>
       </div>
 
       <!-- Order Notes -->

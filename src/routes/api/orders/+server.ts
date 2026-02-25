@@ -29,10 +29,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items, action, paypalEmail, notes } = body
+  const { addressId, newAddress, shippingType, items, action, paypalEmail, phoneNumber, notes } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
+  }
+
+  // Phone number is required
+  if (!phoneNumber || !String(phoneNumber).trim()) {
+    throw error(400, 'Phone number is required')
   }
 
   // Validate shipping type
@@ -128,6 +133,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (addressError || !address) {
       throw error(400, 'Invalid address')
     }
+    
+    // Update the existing address with the new phone number
+    // @ts-ignore: phone_number not yet typed in generated types
+    if (address.phone_number !== String(phoneNumber).trim()) {
+      const { error: updateError } = await locals.supabase
+        .from('addresses')
+        // @ts-ignore: phone_number not yet typed in generated types
+        .update({ phone_number: String(phoneNumber).trim() })
+        .eq('id', addressId)
+        
+      if (updateError) {
+        console.error('Error updating address phone number:', updateError)
+      } else {
+        // @ts-ignore: phone_number not yet typed in generated types
+        address.phone_number = String(phoneNumber).trim()
+      }
+    }
+    
     shippingAddress = address
   } else if (newAddress) {
     // Validate new address fields
@@ -186,6 +209,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .insert({
         user_id: locals.user.id,
         ...newAddress,
+        // @ts-ignore: phone_number not yet typed in generated types
+        phone_number: String(phoneNumber).trim(),
         is_default: true
       })
       .select()
@@ -232,6 +257,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       shipping_state: shippingAddress.state,
       shipping_postal_code: shippingAddress.postal_code,
       shipping_country: shippingAddress.country,
+      // @ts-ignore: shipping_phone_number not yet typed in generated types
+      shipping_phone_number: String(phoneNumber).trim(),
       notes: notes || null
     })
     .select()
