@@ -20,6 +20,7 @@ interface Order {
   shipping_postal_code: string;
   shipping_country: string;
   shipping_type: string;
+  shipping_phone_number?: string | null;
 }
 
 interface OrderItem {
@@ -44,6 +45,7 @@ interface Card {
   foil_type: string | null;
   card_type: string;
   language: string | null;
+  flavor_name: string | null;
 }
 
 interface OrderExportData extends Order {
@@ -121,7 +123,8 @@ async function fetchOrderData(orderId: string): Promise<OrderExportData> {
           is_etched,
           foil_type,
           card_type,
-          language
+          language,
+          flavor_name
         )
       )
     `)
@@ -158,7 +161,8 @@ async function fetchGroupBuyOrders(groupBuyId: string): Promise<OrderExportData[
           is_etched,
           foil_type,
           card_type,
-          language
+          language,
+          flavor_name
         )
       )
     `)
@@ -188,12 +192,13 @@ async function buildOrderWorksheet(
   worksheet.columns = [
     { width: 15 }, // A - Card Serial
     { width: 30 }, // B - Card Name  
-    { width: 25 }, // C - Card Frame
-    { width: 12 }, // D - Finish
-    { width: 10 }, // E - Set Code
-    { width: 10 }, // F - Collector Number
-    { width: 10 }, // G - Language
-    { width: 8 }   // H - Quantity
+    { width: 20 }, // C - Flavor Name
+    { width: 25 }, // D - Card Frame
+    { width: 12 }, // E - Finish
+    { width: 10 }, // F - Set Code
+    { width: 10 }, // G - Collector Number
+    { width: 10 }, // H - Language
+    { width: 8 }   // I - Quantity
   ];
   
   let currentRow = 1;
@@ -248,6 +253,14 @@ async function buildOrderWorksheet(
   // Country
   worksheet.getCell(`B${currentRow}`).value = order.shipping_country;
   currentRow++;
+  
+  // Phone Number
+  if (order.shipping_phone_number) {
+    worksheet.getCell(`A${currentRow}`).value = 'Phone Number:';
+    worksheet.getCell(`A${currentRow}`).font = { bold: true };
+    worksheet.getCell(`B${currentRow}`).value = order.shipping_phone_number;
+    currentRow++;
+  }
   
   // Shipping speed
   const shippingSpeed = order.shipping_type === 'express' ? 'Express' : 'Regular';
@@ -344,6 +357,7 @@ async function buildOrderWorksheet(
   const headers = [
     'Card Serial',
     'Card Name',
+    'Flavor Name',
     'Card Frame',
     'Finish',
     'Set Code',
@@ -413,9 +427,13 @@ function buildLineItemRow(item: OrderItemExportData): (string | number)[] {
   const language = item.card?.language || item.language || 'en';
   const languageDisplay = language === 'en' ? '' : language;
   
+  // Flavor name
+  const flavorName = item.card?.flavor_name || '';
+
   return [
     item.card_serial,
     item.card_name,
+    flavorName,
     frameLabel,
     finishLabel,
     setCode.toUpperCase(),

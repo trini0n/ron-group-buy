@@ -400,7 +400,12 @@
                             </Table.Cell>
                             <Table.Cell>
                               <div>
-                                <p class="font-medium">{order.user?.name || 'Unknown'}</p>
+                                <p class="font-medium">
+                                  {order.user?.name || 'Unknown'}
+                                  {#if order.user?.discord_username}
+                                    <span class="text-muted-foreground font-normal">({order.user.discord_username})</span>
+                                  {/if}
+                                </p>
                                 <p class="text-sm text-muted-foreground">
                                   {order.user?.paypal_email || order.user?.email || '—'}
                                 </p>

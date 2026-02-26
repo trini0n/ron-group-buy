@@ -78,7 +78,28 @@ export const load = async ({ url }) => {
 
   // Apply search filter
   if (searchQuery) {
-    query = query.or(`order_number.ilike.%${searchQuery}%,shipping_name.ilike.%${searchQuery}%`)
+    const isOrd = searchQuery.toUpperCase().startsWith('ORD-')
+    
+    if (isOrd) {
+      // If it looks like an order number, only search order_number
+      query = query.or(`order_number.ilike.%${searchQuery}%`)
+    } else {
+      // Find matching users first since Supabase OR doesn't easily cross tables natively
+      const { data: matchingUsers } = await adminClient
+        .from('users')
+        .select('id')
+        .or(`discord_username.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+        
+      const userIds = matchingUsers?.map(u => u.id.trim()) || []
+      
+      let orString = `shipping_name.ilike.%${searchQuery}%`
+      if (userIds.length > 0) {
+        // Enclose each UUID in quotes to prevent syntax errors
+        const uuidList = userIds.map(id => `"${id}"`).join(',')
+        orString += `,user_id.in.(${uuidList})`
+      }
+      query = query.or(orString)
+    }
   }
 
   // Filter by group buy

@@ -286,12 +286,62 @@ export function compareSerials(a: string, b: string): number {
   return parsedA.suffix.localeCompare(parsedB.suffix)
 }
 
+export interface SortableOrderItem {
+  card_name: string;
+  card_type?: string;
+  card_serial?: string;
+  card?: {
+    set_code?: string | null;
+    collector_number?: string | null;
+    foil_type?: string | null;
+    card_type?: string | null;
+  } | null;
+  set_code?: string | null;
+  collector_number?: string | null;
+}
+
 /**
- * Sort order items by card type (N/H/F) and then by serial number
- * Used for displaying order items in admin views and exports
+ * Sort order items by: Card Name > Set Code > Collector's Number > Variant (Normal > Holo > Foil > Surge Foil)
+ * Used for displaying order items in admin views, user views, and exports
  */
-export function groupAndSortOrderItems<T extends { card_serial: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => compareSerials(a.card_serial, b.card_serial))
+export function groupAndSortOrderItems<T extends SortableOrderItem>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    // 1. Card Name (alphabetical)
+    const nameA = a.card_name || '';
+    const nameB = b.card_name || '';
+    const nameCompare = nameA.localeCompare(nameB);
+    if (nameCompare !== 0) return nameCompare;
+    
+    // 2. Set Code (alphabetical)
+    const setA = (a.card?.set_code || a.set_code || '').toLowerCase();
+    const setB = (b.card?.set_code || b.set_code || '').toLowerCase();
+    const setCompare = setA.localeCompare(setB);
+    if (setCompare !== 0) return setCompare;
+    
+    // 3. Collector's Number (natural sort)
+    const colA = a.card?.collector_number || a.collector_number || '';
+    const colB = b.card?.collector_number || b.collector_number || '';
+    // Use natural comparison for collector numbers like "123" vs "123a" vs "45"
+    const colCompare = colA.localeCompare(colB, undefined, { numeric: true, sensitivity: 'base' });
+    if (colCompare !== 0) return colCompare;
+    
+    // 4. Variant (Normal > Holo > Foil > Surge Foil/Galaxy Foil)
+    const finishA = a.card?.foil_type || a.card?.card_type || a.card_type || '';
+    const finishB = b.card?.foil_type || b.card?.card_type || b.card_type || '';
+    
+    const finishOrder: Record<string, number> = {
+      'Normal': 1,
+      'Holo': 2,
+      'Foil': 3,
+      'Surge Foil': 4,
+      'Galaxy Foil': 4
+    };
+    
+    const rankA = finishOrder[finishA] || 99;
+    const rankB = finishOrder[finishB] || 99;
+    
+    return rankA - rankB;
+  });
 }
 
 /**

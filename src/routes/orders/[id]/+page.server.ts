@@ -1,5 +1,6 @@
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { groupAndSortOrderItems } from '$lib/utils';
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
   if (!locals.user) {
@@ -40,6 +41,8 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
   if (orderError || !order) {
     throw error(404, 'Order not found');
   }
+
+  order.order_items = groupAndSortOrderItems(order.order_items || []);
 
   return {
     order,
