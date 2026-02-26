@@ -42,7 +42,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   if (!paypalEmail || !String(paypalEmail).trim()) {
     throw error(400, 'PayPal Email is required')
   }
-  if (!discordUsername || !String(discordUsername).trim()) {
+
+  // Fetch user data first to see if they already have Discord linked
+  const { data: currentUserData } = await locals.supabase
+    .from('users')
+    .select('discord_id, discord_username')
+    .eq('id', locals.user.id)
+    .single();
+
+  const hasDiscordLinked = Boolean(currentUserData?.discord_id || currentUserData?.discord_username);
+
+  if (!hasDiscordLinked && (!discordUsername || !String(discordUsername).trim())) {
     throw error(400, 'Discord Username is required')
   }
 

@@ -26,13 +26,11 @@
   // Internal component state
   let selectedIso2 = $state('US');
   let openCountrySelect = $state(false);
+  let nationalNumber = $state('');
   
-  // Track previous country to react to external changes
+  // Track previous props to prevent Svelte 5 $effect infinite loops
   let prevCountryProp = $state<string | null>(null);
-  let hasInitialized = $state(false);
-
-  // When first rendered, simply sync the given phone number down to the internal input.
-  let nationalNumber = $state(phoneNumber || '');
+  let prevPhoneProp = $state<string | null>(null);
 
   $effect(() => {
     // 1. Map ISO country prop to internal selected state
@@ -43,18 +41,33 @@
       }
       prevCountryProp = country;
     }
-    
-    // 2. Simply pipe nationalNumber out to phoneNumber, without prepending the dial code
-    if (!hasInitialized) {
-       hasInitialized = true;
-    } else {
-       // Only update parent phoneNumber on internal input changes
-       phoneNumber = nationalNumber;
-    }
 
-    // 3. React to parent completely resetting phoneNumber to '' (like clearing a form)
-    if (hasInitialized && !phoneNumber && nationalNumber) {
-        nationalNumber = '';
+    const currentCode = countries.find(c => c.iso2 === selectedIso2)?.dialCode || '';
+
+    // 2. React to external phoneNumber prop changes (e.g., loading saved address or initial load)
+    if (phoneNumber !== prevPhoneProp) {
+        prevPhoneProp = phoneNumber;
+        
+        let newNational = phoneNumber || '';
+        // Aggressively strip the dial code if it exists at the start of the string
+        if (currentCode && newNational.startsWith(currentCode)) {
+            newNational = newNational.substring(currentCode.length).trim();
+        } else if (currentCode && newNational.startsWith(currentCode.replace('+', ''))) {
+            // Also handle if they stored "1408..." instead of "+1 408..." (browser autofill)
+            newNational = newNational.substring(currentCode.length - 1).trim();
+        }
+        
+        // Update the internal text input
+        if (nationalNumber !== newNational) {
+            nationalNumber = newNational;
+        }
+    } else {
+        // 3. React to internal nationalNumber/country changes and emit back to parent
+        const formattedNewPhone = nationalNumber && nationalNumber.trim() ? `${currentCode} ${nationalNumber.trim()}` : '';
+        if (phoneNumber !== formattedNewPhone) {
+            phoneNumber = formattedNewPhone;
+            prevPhoneProp = formattedNewPhone; // sync tracker so we don't treat this as an external change next tick
+        }
     }
   });
 
