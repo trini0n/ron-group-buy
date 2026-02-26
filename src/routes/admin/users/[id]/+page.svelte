@@ -247,7 +247,7 @@
                     {/if}
                     <p>{address.city}, {address.state} {address.postal_code}</p>
                     <p>{address.country}</p>
-                    {#if (address as any).phone_number}
+                    {#if 'phone_number' in address && (address as any).phone_number}
                       <p class="mt-1 text-muted-foreground">{(address as any).phone_number}</p>
                     {/if}
                   </address>

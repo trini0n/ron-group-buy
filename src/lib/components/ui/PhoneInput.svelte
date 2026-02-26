@@ -26,56 +26,35 @@
   // Internal component state
   let selectedIso2 = $state('US');
   let openCountrySelect = $state(false);
-  let nationalNumber = $state('');
   
   // Track previous country to react to external changes
   let prevCountryProp = $state<string | null>(null);
   let hasInitialized = $state(false);
 
-  // Helper to parse an existing full string phone number + code into just the national part
-  const parseExistingPhone = (fullPhone: string, code: string) => {
-    if (fullPhone.startsWith(code)) {
-      return fullPhone.substring(code.length).trim();
-    }
-    return fullPhone;
-  };
+  // When first rendered, simply sync the given phone number down to the internal input.
+  let nationalNumber = $state(phoneNumber || '');
 
   $effect(() => {
-    // 1. Initial hydration and Country prop changes
+    // 1. Map ISO country prop to internal selected state
     if (country !== prevCountryProp) {
       const targetCountryData = getCountryByName(country);
       if (targetCountryData) {
         selectedIso2 = targetCountryData.iso2;
       }
       prevCountryProp = country;
-      
-      // If we just mapped the initial country prop, and we have an initial phoneNumber prop,
-      // extract the national number using the newly found country dialCode.
-      if (!hasInitialized) {
-        if (phoneNumber) {
-           const code = targetCountryData?.dialCode || '';
-           nationalNumber = parseExistingPhone(phoneNumber, code);
-        } else {
-           nationalNumber = '';
-        }
-        hasInitialized = true;
-      } else {
-        // If the country prop changed but we'd already initialized, we don't obliterate the 
-        // national number, we just assume the user is typing a new number for the new country.
-      }
     }
     
-    // 2. React to parent completely resetting phoneNumber to '' (like clearing a form)
+    // 2. Simply pipe nationalNumber out to phoneNumber, without prepending the dial code
+    if (!hasInitialized) {
+       hasInitialized = true;
+    } else {
+       // Only update parent phoneNumber on internal input changes
+       phoneNumber = nationalNumber;
+    }
+
+    // 3. React to parent completely resetting phoneNumber to '' (like clearing a form)
     if (hasInitialized && !phoneNumber && nationalNumber) {
         nationalNumber = '';
-    }
-    
-    // 3. Update the bound parent `phoneNumber` payload whenever our internal pieces change
-    const currentCode = countries.find(c => c.iso2 === selectedIso2)?.dialCode || '';
-    if (nationalNumber && nationalNumber.trim()) {
-      phoneNumber = `${currentCode} ${nationalNumber.trim()}`;
-    } else {
-      phoneNumber = '';
     }
   });
 

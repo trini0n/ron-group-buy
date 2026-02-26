@@ -588,7 +588,7 @@
             {/if}
             <p>{order.shipping_city}, {order.shipping_state} {order.shipping_postal_code}</p>
             <p>{order.shipping_country}</p>
-            {#if (order as any).shipping_phone_number}
+            {#if 'shipping_phone_number' in order && (order as any).shipping_phone_number}
               <p class="mt-1 text-muted-foreground">{(order as any).shipping_phone_number}</p>
             {/if}
           </address>
