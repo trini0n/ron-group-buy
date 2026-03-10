@@ -79,9 +79,11 @@
     if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','));
     if (filters.colorIdentityStrict) params.set('strict', '1');
     if (filters.priceCategories.length > 0 && 
-        !(filters.priceCategories.length === 2 && 
+        !(filters.priceCategories.length === 4 && 
           filters.priceCategories.includes('Non-Foil') && 
-          filters.priceCategories.includes('Foil'))) {
+          filters.priceCategories.includes('Foil') &&
+          filters.priceCategories.includes('Raised Foil') &&
+          filters.priceCategories.includes('Serialized'))) {
       params.set('price', filters.priceCategories.join(','));
     }
     if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','));

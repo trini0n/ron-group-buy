@@ -86,10 +86,12 @@
       }
 
       // Finish filter
-      if (f.priceCategories.length < 2) {
+      if (f.priceCategories.length < 4) {
         const allowedTypes: string[] = [];
         if (f.priceCategories.includes('Non-Foil')) allowedTypes.push('Normal', 'Holo');
         if (f.priceCategories.includes('Foil')) allowedTypes.push('Foil');
+        if (f.priceCategories.includes('Raised Foil')) allowedTypes.push('Raised Foil');
+        if (f.priceCategories.includes('Serialized')) allowedTypes.push('Serialized');
         if (!allowedTypes.includes(card.card_type)) return false;
       }
 

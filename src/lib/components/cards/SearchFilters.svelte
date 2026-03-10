@@ -65,7 +65,9 @@
 
   const priceCategories = [
     { value: 'Non-Foil', label: 'Non-Foil' },
-    { value: 'Foil', label: 'Foil' }
+    { value: 'Foil', label: 'Foil' },
+    { value: 'Raised Foil', label: 'Raised Foil' },
+    { value: 'Serialized', label: 'Serialized' }
   ];
 
   const cardTypes = [
@@ -122,7 +124,7 @@
     filters.setCodes = [];
     filters.colorIdentity = [];
     filters.colorIdentityStrict = false;
-    filters.priceCategories = ['Non-Foil', 'Foil'];
+    filters.priceCategories = ['Non-Foil', 'Foil', 'Raised Foil', 'Serialized'];
     filters.cardTypes = [];
     filters.frameTypes = [];
     filters.inStockOnly = false;
@@ -149,7 +151,7 @@
   const hasActiveFilters = $derived(
     filters.setCodes.length > 0 ||
       filters.colorIdentity.length > 0 ||
-      filters.priceCategories.length < 2 ||
+      filters.priceCategories.length < 4 ||
       filters.cardTypes.length > 0 ||
       filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
@@ -181,7 +183,7 @@
     let count = 0;
     if (filters.setCodes.length > 0) count++;
     if (filters.colorIdentity.length > 0) count++;
-    if (filters.priceCategories.length < 2) count++;
+    if (filters.priceCategories.length < 4) count++;
     if (filters.cardTypes.length > 0) count++;
     if (filters.frameTypes.length > 0) count++;
     if (filters.inStockOnly) count++;

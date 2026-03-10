@@ -114,7 +114,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     setCodes: url.searchParams.get('sets')?.split(',').filter(Boolean).map(s => s.toLowerCase()) || [],
     colorIdentity: url.searchParams.get('colors')?.split(',').filter(Boolean) || [],
     colorIdentityStrict: url.searchParams.get('strict') === '1',
-    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil'],
+    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil', 'Raised Foil', 'Serialized'],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],
     inStockOnly: url.searchParams.get('stock') === '1',
