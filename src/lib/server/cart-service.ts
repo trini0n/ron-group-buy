@@ -285,6 +285,11 @@ export class CartService {
 
     const existingMap = new Map(existingItems?.map((item) => [item.card_id, item]) || [])
 
+    // Warm the price cache once before the loop so getCardPrice is synchronous
+    if (!this._prices) {
+      this._prices = await fetchPrices(this.supabase)
+    }
+
     // Prepare items to insert or update
     const itemsToInsert: Array<{
       cart_id: string
@@ -300,7 +305,7 @@ export class CartService {
 
     for (const item of items) {
       const card = cardMap.get(item.card_id)!
-      const price = await this.getPrice(card.card_type)
+      const price = getCardPrice(card.card_type, this._prices)
       const existing = existingMap.get(item.card_id)
 
       if (existing) {
@@ -556,7 +561,23 @@ export class CartService {
       userItemsByCard.set(item.card_id, item)
     }
 
-    // Process each guest cart item
+    // Warm price cache once before processing guest items
+    if (!this._prices) {
+      this._prices = await fetchPrices(this.supabase)
+    }
+
+    // Process each guest cart item — build batches, don't write per-item
+    const itemsToInsert: Array<{
+      cart_id: string
+      card_id: string
+      quantity: number
+      price_at_add: number
+      card_name_snapshot: string
+      card_type_snapshot: string
+      is_in_stock_snapshot: boolean
+    }> = []
+    const itemsToUpdate: Array<{ id: string; quantity: number }> = []
+
     for (const guestItem of guestCart.items) {
       const card = guestItem.card
 
@@ -578,25 +599,28 @@ export class CartService {
         continue
       }
 
-      const currentPrice = await this.getPrice(card.card_type)
+      const currentPrice = getCardPrice(card.card_type, this._prices)
       const existingUserItem = userItemsByCard.get(guestItem.card_id)
 
-      if (!options.dry_run) {
-        if (existingUserItem) {
-          // Combine quantities
-          const newQuantity = existingUserItem.quantity + guestItem.quantity
-
-          await this.supabase.from('cart_items').update({ quantity: newQuantity }).eq('id', existingUserItem.id)
-
-          items_combined.push({
-            card_name: card.card_name,
-            previous_quantity: existingUserItem.quantity,
-            added_quantity: guestItem.quantity,
-            new_quantity: newQuantity
-          })
-        } else {
-          // Add new item to user cart
-          await this.supabase.from('cart_items').insert({
+      if (existingUserItem) {
+        const newQuantity = existingUserItem.quantity + guestItem.quantity
+        items_combined.push({
+          card_name: card.card_name,
+          previous_quantity: existingUserItem.quantity,
+          added_quantity: guestItem.quantity,
+          new_quantity: newQuantity
+        })
+        if (!options.dry_run) {
+          itemsToUpdate.push({ id: existingUserItem.id, quantity: newQuantity })
+        }
+      } else {
+        items_added.push({
+          card_name: card.card_name,
+          quantity: guestItem.quantity,
+          price: currentPrice
+        })
+        if (!options.dry_run) {
+          itemsToInsert.push({
             cart_id: userCart.id,
             card_id: guestItem.card_id,
             quantity: guestItem.quantity,
@@ -605,34 +629,23 @@ export class CartService {
             card_type_snapshot: card.card_type,
             is_in_stock_snapshot: card.is_in_stock
           })
-
-          items_added.push({
-            card_name: card.card_name,
-            quantity: guestItem.quantity,
-            price: currentPrice
-          })
-        }
-      } else {
-        // Dry run - just report what would happen
-        if (existingUserItem) {
-          items_combined.push({
-            card_name: card.card_name,
-            previous_quantity: existingUserItem.quantity,
-            added_quantity: guestItem.quantity,
-            new_quantity: existingUserItem.quantity + guestItem.quantity
-          })
-        } else {
-          items_added.push({
-            card_name: card.card_name,
-            quantity: guestItem.quantity,
-            price: currentPrice
-          })
         }
       }
     }
 
-    // Mark guest cart as merged (don't delete for audit)
+    // Batch-write all changes (replaces per-item DB calls)
     if (!options.dry_run) {
+      if (itemsToInsert.length > 0) {
+        await this.supabase.from('cart_items').insert(itemsToInsert)
+      }
+      if (itemsToUpdate.length > 0) {
+        const updates = itemsToUpdate.map((u) => ({
+          id: u.id,
+          quantity: u.quantity,
+          updated_at: new Date().toISOString()
+        }))
+        await this.supabase.from('cart_items').upsert(updates, { onConflict: 'id' })
+      }
       await this.supabase
         .from('carts')
         .update({
@@ -860,7 +873,18 @@ export class CartService {
       cartItemsByCardId.set(item.card_id, item)
     }
 
-    // Process each order item
+    // Collect all inserts and updates, then batch-write after the loop
+    const itemsToInsert: Array<{
+      cart_id: string
+      card_id: string
+      quantity: number
+      price_at_add: number
+      card_name_snapshot: string
+      card_type_snapshot: string
+      is_in_stock_snapshot: boolean
+    }> = []
+    const itemsToUpdate: Array<{ id: string; quantity: number }> = []
+
     for (const orderItem of order.order_items) {
       // Extract card identity from order item snapshot
       const identity: CardIdentity = {
@@ -899,60 +923,51 @@ export class CartService {
       // Check if this card is already in cart
       const existingCartItem = cartItemsByCardId.get(currentCard.id)
       const requestedQty = orderItem.quantity || 1
+      const currentPrice = await this.getPrice(currentCard.card_type || 'Normal')
 
-      if (!options.dry_run) {
-        if (existingCartItem) {
-          // Combine quantities
-          const newQuantity = existingCartItem.quantity + requestedQty
-
-          await this.supabase
-            .from('cart_items')
-            .update({ quantity: newQuantity })
-            .eq('id', existingCartItem.id)
-
-          items_combined.push({
-            card_name: currentCard.card_name,
-            previous_quantity: existingCartItem.quantity,
-            added_quantity: requestedQty,
-            new_quantity: newQuantity
-          })
-        } else {
-          // Add new item to cart
-          const currentPrice = await this.getPrice(currentCard.card_type || 'Normal')
-
-          await this.supabase.from('cart_items').insert({
+      if (existingCartItem) {
+        const newQuantity = existingCartItem.quantity + requestedQty
+        items_combined.push({
+          card_name: currentCard.card_name,
+          previous_quantity: existingCartItem.quantity,
+          added_quantity: requestedQty,
+          new_quantity: newQuantity
+        })
+        if (!options.dry_run) {
+          itemsToUpdate.push({ id: existingCartItem.id, quantity: newQuantity })
+        }
+      } else {
+        items_added.push({
+          card_name: currentCard.card_name,
+          quantity: requestedQty,
+          price: currentPrice
+        })
+        if (!options.dry_run) {
+          itemsToInsert.push({
             cart_id: targetCartId,
             card_id: currentCard.id,
             quantity: requestedQty,
             price_at_add: currentPrice,
             card_name_snapshot: currentCard.card_name,
-            card_type_snapshot: currentCard.card_type,
+            card_type_snapshot: currentCard.card_type ?? 'Normal',
             is_in_stock_snapshot: true
           })
+        }
+      }
+    }
 
-          items_added.push({
-            card_name: currentCard.card_name,
-            quantity: requestedQty,
-            price: currentPrice
-          })
-        }
-      } else {
-        // Dry run - just report what would happen
-        if (existingCartItem) {
-          items_combined.push({
-            card_name: currentCard.card_name,
-            previous_quantity: existingCartItem.quantity,
-            added_quantity: requestedQty,
-            new_quantity: existingCartItem.quantity + requestedQty
-          })
-        } else {
-          const currentPrice = await this.getPrice(currentCard.card_type || 'Normal')
-          items_added.push({
-            card_name: currentCard.card_name,
-            quantity: requestedQty,
-            price: currentPrice
-          })
-        }
+    // Batch-write all changes (replaces per-item DB calls)
+    if (!options.dry_run) {
+      if (itemsToInsert.length > 0) {
+        await this.supabase.from('cart_items').insert(itemsToInsert)
+      }
+      if (itemsToUpdate.length > 0) {
+        const updates = itemsToUpdate.map((u) => ({
+          id: u.id,
+          quantity: u.quantity,
+          updated_at: new Date().toISOString()
+        }))
+        await this.supabase.from('cart_items').upsert(updates, { onConflict: 'id' })
       }
     }
 

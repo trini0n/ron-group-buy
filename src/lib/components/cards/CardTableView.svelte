@@ -359,10 +359,8 @@
   // Add selected cards to cart
   function addSelectedToCart() {
     const selectedCards = paginatedCards.filter((c) => selectedSerials.has(c.serial) && c.is_in_stock);
-    for (const card of selectedCards) {
-      const qty = getRowQuantity(card.serial);
-      cartStore.addItem(card, qty);
-    }
+    const cardsWithQuantity = selectedCards.map((card) => ({ card, quantity: getRowQuantity(card.serial) }));
+    cartStore.addItems(cardsWithQuantity);
     selectedSerials = new Set();
     rowQuantities = new Map();
   }

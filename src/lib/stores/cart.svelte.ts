@@ -527,7 +527,8 @@ function createCartStore() {
   // Computed values
   function getTotal(): number {
     return items.reduce((total, item) => {
-      const price = item.card.card_type === 'Foil' ? 1.5 : 1.25
+      // Use the server-set price snapshot — correctly handles Raised Foil, Serialized, etc.
+      const price = item.price_at_add ?? 1.25
       return total + price * item.quantity
     }, 0)
   }
