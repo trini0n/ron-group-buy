@@ -1,5 +1,6 @@
 import type { LayoutServerLoad } from './$types'
 import { isAdmin } from '$lib/server/admin'
+import { fetchPrices } from '$lib/server/pricing'
 
 export const load: LayoutServerLoad = async ({ locals, url }) => {
   // Get current group buy config
@@ -25,12 +26,15 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     userProfile = userData
   }
 
+  const cardPrices = await fetchPrices(locals.supabase)
+
   return {
     session: locals.session,
     user: locals.user,
     userProfile,
     isAdmin: isAdminUser,
     groupBuyConfig,
+    cardPrices,
     url: { pathname: url.pathname }
   }
 }

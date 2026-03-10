@@ -33,25 +33,21 @@
     0
   ));
 
-  // Calculate foil/non-foil breakdown
-  const foilItems = $derived(
-    order.order_items.filter((item: any) => item.card_type === 'Foil')
-  );
-  const nonFoilItems = $derived(
-    order.order_items.filter((item: any) => item.card_type !== 'Foil')
-  );
-  const foilCount = $derived(
-    foilItems.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
-  );
-  const nonFoilCount = $derived(
-    nonFoilItems.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
-  );
-  const foilTotal = $derived(
-    foilItems.reduce((sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1), 0)
-  );
-  const nonFoilTotal = $derived(
-    nonFoilItems.reduce((sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1), 0)
-  );
+  // Group order items by card_type for a dynamic breakdown
+  const priceBreakdown = $derived.by(() => {
+    const groups = new Map<string, { count: number; total: number; price: number }>();
+    for (const item of order.order_items) {
+      const type: string = item.card_type;
+      const price: number = Number(item.unit_price);
+      const existing = groups.get(type) ?? { count: 0, total: 0, price };
+      groups.set(type, {
+        count: existing.count + (item.quantity ?? 1),
+        total: existing.total + price * (item.quantity ?? 1),
+        price
+      });
+    }
+    return [...groups.entries()].sort((a, b) => a[1].price - b[1].price);
+  });
   const itemCount = $derived(
     order.order_items.reduce((sum: number, item: any) => sum + (item.quantity ?? 1), 0)
   );
@@ -159,18 +155,12 @@
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div class="ml-4 space-y-1">
-              {#if nonFoilCount > 0}
+              {#each priceBreakdown as [type, group]}
                 <div class="flex justify-between text-xs text-muted-foreground">
-                  <span>Normal/Holo ({nonFoilCount} × $1.25)</span>
-                  <span>{formatPrice(nonFoilTotal)}</span>
+                  <span>{type} ({group.count} × {formatPrice(group.price)})</span>
+                  <span>{formatPrice(group.total)}</span>
                 </div>
-              {/if}
-              {#if foilCount > 0}
-                <div class="flex justify-between text-xs text-muted-foreground">
-                  <span>Foil ({foilCount} × $1.50)</span>
-                  <span>{formatPrice(foilTotal)}</span>
-                </div>
-              {/if}
+              {/each}
             </div>
             <div class="flex justify-between text-sm">
               <span class="flex items-center gap-1">

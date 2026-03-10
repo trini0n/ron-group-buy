@@ -7,7 +7,9 @@ const FINISH_ORDER: Record<string, number> = {
   'Normal': 0,
   'Holo': 1,
   'Foil': 2,
-  'Surge Foil': 3
+  'Surge Foil': 3,
+  'Raised Foil': 4,
+  'Serialized': 5
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {

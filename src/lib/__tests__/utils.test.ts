@@ -43,20 +43,51 @@ describe('formatPrice', () => {
 })
 
 describe('getCardPrice', () => {
+  const DEFAULT_PRICES = {
+    Normal: 1.25,
+    Holo: 1.25,
+    Foil: 1.5,
+    'Raised Foil': 3.0,
+    Serialized: 2.5
+  }
+
   it('returns 1.25 for Normal cards', () => {
-    expect(getCardPrice('Normal')).toBe(1.25)
+    expect(getCardPrice('Normal', DEFAULT_PRICES)).toBe(1.25)
   })
 
   it('returns 1.25 for Holo cards', () => {
-    expect(getCardPrice('Holo')).toBe(1.25)
+    expect(getCardPrice('Holo', DEFAULT_PRICES)).toBe(1.25)
   })
 
   it('returns 1.50 for Foil cards', () => {
-    expect(getCardPrice('Foil')).toBe(1.5)
+    expect(getCardPrice('Foil', DEFAULT_PRICES)).toBe(1.5)
   })
 
-  it('returns 1.25 for unknown types (default)', () => {
-    expect(getCardPrice('Unknown')).toBe(1.25)
+  it('returns 3.00 for Raised Foil cards', () => {
+    expect(getCardPrice('Raised Foil', DEFAULT_PRICES)).toBe(3.0)
+  })
+
+  it('returns 2.50 for Serialized cards', () => {
+    expect(getCardPrice('Serialized', DEFAULT_PRICES)).toBe(2.5)
+  })
+
+  it('returns 1.25 for unknown types (default fallback)', () => {
+    expect(getCardPrice('Unknown', DEFAULT_PRICES)).toBe(1.25)
+  })
+
+  it('uses hardcoded defaults when no prices map is provided', () => {
+    expect(getCardPrice('Normal')).toBe(1.25)
+    expect(getCardPrice('Foil')).toBe(1.5)
+    expect(getCardPrice('Raised Foil')).toBe(3.0)
+    expect(getCardPrice('Serialized')).toBe(2.5)
+  })
+
+  it('uses custom prices from the prices map over hardcoded defaults', () => {
+    const customPrices = { Normal: 2.0, Foil: 5.0, 'Raised Foil': 10.0, Serialized: 7.5 }
+    expect(getCardPrice('Normal', customPrices)).toBe(2.0)
+    expect(getCardPrice('Foil', customPrices)).toBe(5.0)
+    expect(getCardPrice('Raised Foil', customPrices)).toBe(10.0)
+    expect(getCardPrice('Serialized', customPrices)).toBe(7.5)
   })
 })
 

@@ -13,12 +13,21 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Calculate price based on card type
- * Normal & Holo: $1.25
- * Foil: $1.50
+ * Calculate price based on card type.
+ * Accepts an optional prices map (from the database); falls back to hardcoded defaults.
+ * Normal & Holo: $1.25  |  Foil: $1.50  |  Raised Foil: $3.00  |  Serialized: $2.50
  */
-export function getCardPrice(cardType: string): number {
-  return cardType === 'Foil' ? 1.5 : 1.25
+export function getCardPrice(cardType: string, prices?: Record<string, number>): number {
+  if (prices && cardType in prices) return prices[cardType]!
+  // Hardcoded fallback — keep in sync with FALLBACK_PRICES in src/lib/server/pricing.ts
+  const DEFAULTS: Record<string, number> = {
+    Normal: 1.25,
+    Holo: 1.25,
+    Foil: 1.5,
+    'Raised Foil': 3.0,
+    Serialized: 2.5
+  }
+  return DEFAULTS[cardType] ?? 1.25
 }
 
 /**
@@ -207,6 +216,12 @@ export function getFinishBadgeClasses(finish: string): string {
     case 'Surge Foil':
       // Cyan/Electric blue - represents special/surge effect
       return 'bg-cyan-200 text-cyan-800 dark:bg-cyan-700 dark:text-cyan-100'
+    case 'Raised Foil':
+      // Rose - premium tactile finish
+      return 'bg-rose-200 text-rose-800 dark:bg-rose-700 dark:text-rose-100'
+    case 'Serialized':
+      // Yellow - rare/numbered feel
+      return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'
     default:
       // Fallback to secondary
       return 'bg-secondary text-secondary-foreground'
@@ -325,7 +340,7 @@ export function groupAndSortOrderItems<T extends SortableOrderItem>(items: T[]):
     const colCompare = colA.localeCompare(colB, undefined, { numeric: true, sensitivity: 'base' });
     if (colCompare !== 0) return colCompare;
     
-    // 4. Variant (Normal > Holo > Foil > Surge Foil/Galaxy Foil)
+    // 4. Variant (Normal > Holo > Foil > Raised Foil > Serialized > Surge Foil/Galaxy Foil)
     const finishA = a.card?.foil_type || a.card?.card_type || a.card_type || '';
     const finishB = b.card?.foil_type || b.card?.card_type || b.card_type || '';
     
@@ -333,8 +348,10 @@ export function groupAndSortOrderItems<T extends SortableOrderItem>(items: T[]):
       'Normal': 1,
       'Holo': 2,
       'Foil': 3,
-      'Surge Foil': 4,
-      'Galaxy Foil': 4
+      'Raised Foil': 4,
+      'Serialized': 5,
+      'Surge Foil': 6,
+      'Galaxy Foil': 6
     };
     
     const rankA = finishOrder[finishA] || 99;

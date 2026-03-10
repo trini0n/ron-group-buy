@@ -18,7 +18,8 @@
     Save,
     Power,
     PowerOff,
-    Bell
+    Bell,
+    DollarSign
   } from 'lucide-svelte';
 
   interface GroupBuyConfig {
@@ -177,6 +178,10 @@
       <p class="text-muted-foreground">Manage group buy periods and settings</p>
     </div>
     <div class="flex gap-2">
+      <Button variant="outline" href="/admin/settings/pricing">
+        <DollarSign class="mr-2 h-4 w-4" />
+        Card Type Pricing
+      </Button>
       <Button variant="outline" href="/admin/settings/notifications">
         <Bell class="mr-2 h-4 w-4" />
         Notification Templates

@@ -652,7 +652,9 @@
     'Normal': 0,
     'Holo': 1,
     'Foil': 2,
-    'Surge Foil': 3
+    'Surge Foil': 3,
+    'Raised Foil': 4,
+    'Serialized': 5
   };
 
   // Get finish variants for the current option (same set_code + collector_number + language)

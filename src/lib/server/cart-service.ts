@@ -22,9 +22,20 @@ import {
   isCartFresh
 } from './cart-types'
 import { extractCardIdentity, findCardsByIdentity, type CardIdentity } from './card-identity'
+import { fetchPrices, type CardPrices } from './pricing'
 
 export class CartService {
+  private _prices: CardPrices | null = null
+
   constructor(private supabase: SupabaseClient) {}
+
+  /** Lazily fetches card type prices (cached per service instance) */
+  private async getPrice(cardType: string): Promise<number> {
+    if (!this._prices) {
+      this._prices = await fetchPrices(this.supabase)
+    }
+    return getCardPrice(cardType, this._prices)
+  }
 
   /**
    * Get or create a cart for a user or guest
@@ -157,7 +168,7 @@ export class CartService {
       return { success: false, cart: null as any, error: 'Card is out of stock' }
     }
 
-    const price = getCardPrice(card.card_type)
+    const price = await this.getPrice(card.card_type)
 
     // Check if item already exists
     const { data: existingItem } = await this.supabase
@@ -289,7 +300,7 @@ export class CartService {
 
     for (const item of items) {
       const card = cardMap.get(item.card_id)!
-      const price = getCardPrice(card.card_type)
+      const price = await this.getPrice(card.card_type)
       const existing = existingMap.get(item.card_id)
 
       if (existing) {
@@ -459,7 +470,7 @@ export class CartService {
         continue
       }
 
-      const currentPrice = getCardPrice(card.card_type)
+      const currentPrice = await this.getPrice(card.card_type)
 
       // Check for price changes
       if (item.price_at_add && item.price_at_add !== currentPrice) {
@@ -567,7 +578,7 @@ export class CartService {
         continue
       }
 
-      const currentPrice = getCardPrice(card.card_type)
+      const currentPrice = await this.getPrice(card.card_type)
       const existingUserItem = userItemsByCard.get(guestItem.card_id)
 
       if (!options.dry_run) {
@@ -907,7 +918,7 @@ export class CartService {
           })
         } else {
           // Add new item to cart
-          const currentPrice = getCardPrice(currentCard.card_type || 'Normal')
+          const currentPrice = await this.getPrice(currentCard.card_type || 'Normal')
 
           await this.supabase.from('cart_items').insert({
             cart_id: targetCartId,
@@ -935,7 +946,7 @@ export class CartService {
             new_quantity: existingCartItem.quantity + requestedQty
           })
         } else {
-          const currentPrice = getCardPrice(currentCard.card_type || 'Normal')
+          const currentPrice = await this.getPrice(currentCard.card_type || 'Normal')
           items_added.push({
             card_name: currentCard.card_name,
             quantity: requestedQty,

@@ -74,7 +74,7 @@ interface CardRecord {
   set_name: string | null
   set_code: string | null
   collector_number: string | null
-  card_type: 'Normal' | 'Holo' | 'Foil'
+  card_type: 'Normal' | 'Holo' | 'Foil' | 'Raised Foil' | 'Serialized'
   is_retro: boolean
   is_extended: boolean
   is_showcase: boolean
@@ -111,6 +111,22 @@ function getCardTypeFromSerial(serial: string): 'Normal' | 'Holo' | 'Foil' {
   return 'Normal'
 }
 
+/**
+ * Resolve the card_type for a row.
+ * If the sheet's "Card Type" column contains a premium override type
+ * (Raised Foil or Serialized), use that instead of the serial-derived type.
+ * This allows Raised Foil / Serialized cards that share the F- prefix.
+ */
+const PREMIUM_CARD_TYPES = ['Raised Foil', 'Serialized'] as const
+type CardType = CardRecord['card_type']
+
+function resolveCardType(serial: string, sheetCardType: string): CardType {
+  if (PREMIUM_CARD_TYPES.includes(sheetCardType as (typeof PREMIUM_CARD_TYPES)[number])) {
+    return sheetCardType as CardType
+  }
+  return getCardTypeFromSerial(serial)
+}
+
 function parseSheetCsv(csvContent: string): CardRecord[] {
   const records: CsvRow[] = parse(csvContent, {
     columns: true,
@@ -128,7 +144,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
       set_name: row['Set Name'] || null,
       set_code: row.Set || null,
       collector_number: row['Collector #'] || null,
-      card_type: getCardTypeFromSerial(row.Serial),
+      card_type: resolveCardType(row.Serial, row['Card Type']),
       is_retro: parseBoolean(row['Retro?']),
       is_extended: parseBoolean(row['Extended?']),
       is_showcase: parseBoolean(row['Showcase?']),

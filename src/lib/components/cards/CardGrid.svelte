@@ -50,7 +50,9 @@
     'Normal': 0,
     'Holo': 1,
     'Foil': 2,
-    'Surge Foil': 3
+    'Surge Foil': 3,
+    'Raised Foil': 4,
+    'Serialized': 5
   };
 
   // Filter function - pure, no side effects

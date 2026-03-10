@@ -122,25 +122,24 @@
   // Collapsible items state
   let showItems = $state(false);
 
-  // Calculate foil and non-foil breakdown
-  let foilItems = $derived(
-    cartStore.items.filter(item => item.card.card_type === 'Foil')
-  );
-  let nonFoilItems = $derived(
-    cartStore.items.filter(item => item.card.card_type !== 'Foil')
-  );
-  let foilCount = $derived(
-    foilItems.reduce((sum, item) => sum + item.quantity, 0)
-  );
-  let nonFoilCount = $derived(
-    nonFoilItems.reduce((sum, item) => sum + item.quantity, 0)
-  );
-  let foilTotal = $derived(
-    foilItems.reduce((sum, item) => sum + getCardPrice(item.card.card_type) * item.quantity, 0)
-  );
-  let nonFoilTotal = $derived(
-    nonFoilItems.reduce((sum, item) => sum + getCardPrice(item.card.card_type) * item.quantity, 0)
-  );
+  // Group cart items by card_type for a dynamic breakdown
+  // data.cardPrices is injected by the root layout server and merged into data at runtime
+  let priceBreakdown = $derived.by(() => {
+    const prices: Record<string, number> = (data as any).cardPrices ?? {};
+    const groups = new Map<string, { count: number; total: number; price: number }>();
+    for (const item of cartStore.items) {
+      const type = item.card.card_type;
+      const price = getCardPrice(type, prices);
+      const existing = groups.get(type) ?? { count: 0, total: 0, price };
+      groups.set(type, {
+        count: existing.count + item.quantity,
+        total: existing.total + price * item.quantity,
+        price
+      });
+    }
+    // Sort by price ascending
+    return [...groups.entries()].sort((a, b) => a[1].price - b[1].price);
+  });
 
   async function resendVerificationEmail() {
     if (!browser) return;
@@ -583,18 +582,12 @@
                 <span>{formatPrice(cartStore.total)}</span>
               </div>
               <div class="ml-4 space-y-1">
-                {#if nonFoilCount > 0}
+                {#each priceBreakdown as [type, group]}
                   <div class="flex justify-between text-xs text-muted-foreground">
-                    <span>Normal/Holo ({nonFoilCount} × $1.25)</span>
-                    <span>{formatPrice(nonFoilTotal)}</span>
+                    <span>{type} ({group.count} × {formatPrice(group.price)})</span>
+                    <span>{formatPrice(group.total)}</span>
                   </div>
-                {/if}
-                {#if foilCount > 0}
-                  <div class="flex justify-between text-xs text-muted-foreground">
-                    <span>Foil ({foilCount} × $1.50)</span>
-                    <span>{formatPrice(foilTotal)}</span>
-                  </div>
-                {/if}
+                {/each}
               </div>
               <div class="flex justify-between text-sm">
                 <span>Shipping ({shippingType === 'regular' ? 'Regular' : 'Express'})</span>
