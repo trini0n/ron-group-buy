@@ -11,7 +11,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   const type = url.searchParams.get('type')
   const conflictUserId = url.searchParams.get('conflictUserId')
   const provider = url.searchParams.get('provider')
-  const returnTo = url.searchParams.get('returnTo') || '/profile'
+  const rawReturnTo = url.searchParams.get('returnTo') ?? '/profile'
+  const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : '/profile'
 
   if (!type || !conflictUserId) {
     throw redirect(303, '/profile')

@@ -5,7 +5,8 @@ import { checkProviderConflict, buildConflictRedirectUrl } from '$lib/auth/confl
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const code = url.searchParams.get('code')
-  const next = url.searchParams.get('next') ?? '/'
+  const rawNext = url.searchParams.get('next') ?? '/'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
   const type = url.searchParams.get('type')
   const action = url.searchParams.get('action') // 'link' when linking a provider
 
