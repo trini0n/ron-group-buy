@@ -45,6 +45,7 @@ src/routes/api/admin/exports/__tests__/
 ```
 
 **Global setup and shared mocks:**
+
 ```
 tests/
   setup.ts              # Global setup (env mocking, etc.)
@@ -60,71 +61,78 @@ Vitest picks up tests matching `src/**/*.{test,spec}.{js,ts}`.
 Standard BDD with Vitest:
 
 ```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 describe('feature name', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
   it('does the expected thing', () => {
-    expect(myFunction(input)).toBe(expectedOutput);
-  });
+    expect(myFunction(input)).toBe(expectedOutput)
+  })
 
   it('handles edge case', () => {
-    expect(() => myFunction(badInput)).toThrow();
-  });
-});
+    expect(() => myFunction(badInput)).toThrow()
+  })
+})
 ```
 
 ## Mocking
 
 ### Module mocking with `vi.mock`
+
 ```typescript
 vi.mock('$env/static/public', () => ({
   PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   PUBLIC_SUPABASE_ANON_KEY: 'test-key'
-}));
+}))
 
-vi.mock('$app/environment', () => ({ browser: false, dev: true }));
+vi.mock('$app/environment', () => ({ browser: false, dev: true }))
 
 vi.mock('$lib/server/admin', () => ({
   requireAdmin: vi.fn().mockResolvedValue({ isAdmin: true })
-}));
+}))
 ```
 
 ### Supabase mock builder (`tests/mocks/supabase.ts`)
+
 Chainable mock that mimics Supabase query builder:
+
 ```typescript
-import { buildSupabaseMock } from '../../../tests/mocks/supabase';
+import { buildSupabaseMock } from '../../../tests/mocks/supabase'
 
 const mockSupabase = buildSupabaseMock({
   cards: [createMockCard({ id: '1', name: 'Black Lotus' })]
-});
+})
 // Supports chained: .from(...).select(...).eq(...).single() etc.
 ```
 
 ### Local state mocking
+
 ```typescript
-import { installLocalStorageMock } from '../../../tests/mocks/localStorage';
-installLocalStorageMock(); // Adds working localStorage to jsdom
+import { installLocalStorageMock } from '../../../tests/mocks/localStorage'
+installLocalStorageMock() // Adds working localStorage to jsdom
 ```
 
 ### Test factories
+
 Create consistent test data with factory helpers:
+
 ```typescript
 function createMockCard(overrides?: Partial<Card>): Card {
-  return { id: 'uuid', name: 'Test Card', price: 1.00, ...overrides };
+  return { id: 'uuid', name: 'Test Card', price: 1.0, ...overrides }
 }
 
 function createMockCartItem(overrides?: Partial<CartItem>): CartItem {
-  return { id: 'uuid', card_id: 'uuid', quantity: 1, ...overrides };
+  return { id: 'uuid', card_id: 'uuid', quantity: 1, ...overrides }
 }
 ```
 
 ## What's Tested
 
 ### Well covered
+
 - `src/lib/utils.ts` — price formatting, URLs, slugging, image URLs, serial parsing/sorting
 - `src/lib/admin-shared.ts` — admin ID checks, status config, transition rules
 - `src/lib/deck-utils.ts` — deck text parsing
@@ -137,6 +145,7 @@ function createMockCartItem(overrides?: Partial<CartItem>): CartItem {
 - `src/routes/api/admin/exports/` — export endpoint (auth, headers, cleanup)
 
 ### Not covered (API routes)
+
 - `src/routes/api/cart/**`
 - `src/routes/api/admin/orders/**`
 - `src/routes/api/admin/inventory/**`

@@ -4,17 +4,20 @@
 
 **Role:** Database (PostgreSQL), Auth, Storage
 **Client setup:**
+
 - Browser + server clients: `src/lib/supabase.ts`
 - Request lifecycle wiring: `src/hooks.server.ts`
 - Admin/service-role client: `src/lib/server/admin.ts`
 
 **Auth methods:**
+
 - Email/password (`signInWithPassword`, `signUp`)
 - OAuth: Google (`provider: 'google'`), Discord (`provider: 'discord'`)
 - Identity linking: `auth.linkIdentity(...)`, `auth.unlinkIdentity(...)`
 - Callback handler: `src/routes/auth/callback/+server.ts`
 
 **Database tables observed:**
+
 - `cards` — card catalog
 - `users`, `admins` — user/auth profiles
 - `orders`, `order_items`, `order_status_history`, `addresses` — ordering
@@ -24,6 +27,7 @@
 - `gphoto_url_cache` — media URL cache
 
 **Schema management:**
+
 - Migrations: `supabase/migrations/`
 - Generated types: `src/lib/server/database.types.ts` (via `npm run db:generate`)
 
@@ -33,11 +37,12 @@
 
 **Role:** User notification delivery (DMs)
 **Endpoints used:**
+
 - `POST https://discord.com/api/v10/users/@me/channels` — open DM channel
 - `POST https://discord.com/api/v10/channels/{id}/messages` — send message
-**Auth:** `DISCORD_BOT_TOKEN` env variable
-**Implementation:** `src/lib/server/notifications/discord.ts`
-**Orchestration:** `src/lib/server/notifications/service.ts`
+  **Auth:** `DISCORD_BOT_TOKEN` env variable
+  **Implementation:** `src/lib/server/notifications/discord.ts`
+  **Orchestration:** `src/lib/server/notifications/service.ts`
 
 ---
 
@@ -45,11 +50,12 @@
 
 **Role:** Deck import source
 **Endpoints:**
+
 - `https://api2.moxfield.com/v3/decks/all/{publicId}`
 - `https://api2.moxfield.com/v2/decks/all/{publicId}`
 - `https://api2.moxfield.com/v2/decks/all/{publicId}/export?exportId=...`
-**Implementation:** `src/routes/api/import/deck/+server.ts`
-**Debug script:** `scripts/test-moxfield.mjs`
+  **Implementation:** `src/routes/api/import/deck/+server.ts`
+  **Debug script:** `scripts/test-moxfield.mjs`
 
 ---
 
@@ -66,6 +72,7 @@
 **Role:** Card inventory data feed
 **Access:** Published CSV export URL (hardcoded in sync endpoints)
 **Files:**
+
 - `scripts/sync-cards.ts`
 - `src/routes/api/admin/inventory/sync/+server.ts`
 - `src/routes/api/admin/inventory/resync-images/+server.ts`
@@ -77,6 +84,7 @@
 **Role:** Card image URL resolution
 **Pattern:** Fetches share pages (`photos.google.com`, `photos.app.goo.gl`), extracts direct `lh3.googleusercontent.com` CDN URLs
 **Files:**
+
 - `src/lib/server/gphoto-converter.ts` — converter + caching
 - `scripts/convert-gphoto-urls.ts` — bulk conversion script
 
@@ -86,9 +94,10 @@
 
 **Role:** Card image and mana symbol URLs
 **Usage:** URL generation only (no API auth)
+
 - Card images: `https://cards.scryfall.io/...`
 - Mana symbols: `https://svgs.scryfall.io/card-symbols/...`
-**Files:**
+  **Files:**
 - `src/lib/utils.ts` — URL helpers
 - `src/lib/components/icons/ManaIcon.svelte` — mana icon display
 
@@ -99,6 +108,7 @@
 **Role:** Shipment tracking links
 **Usage:** Link generation only (`https://www.17track.net/?nums=...` / `t.17track.net` format)
 **Files:**
+
 - `src/lib/utils.ts`
 - `src/routes/api/admin/orders/[id]/notify/+server.ts`
 

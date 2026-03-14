@@ -144,37 +144,37 @@ src/
 
 ## File Naming Conventions
 
-| Pattern | Purpose |
-|---|---|
-| `+page.svelte` | Page UI component |
-| `+page.server.ts` | Server-only data loader + auth guard |
-| `+layout.svelte` | Shared UI wrapper for route group |
-| `+layout.server.ts` | Shared server data for route group |
-| `+server.ts` | API endpoint (GET/POST/PATCH/DELETE handlers) |
-| `*.svelte.ts` | Svelte 5 runes store (e.g. `cart.svelte.ts`) |
-| `__tests__/` | Test files co-located with source |
+| Pattern             | Purpose                                       |
+| ------------------- | --------------------------------------------- |
+| `+page.svelte`      | Page UI component                             |
+| `+page.server.ts`   | Server-only data loader + auth guard          |
+| `+layout.svelte`    | Shared UI wrapper for route group             |
+| `+layout.server.ts` | Shared server data for route group            |
+| `+server.ts`        | API endpoint (GET/POST/PATCH/DELETE handlers) |
+| `*.svelte.ts`       | Svelte 5 runes store (e.g. `cart.svelte.ts`)  |
+| `__tests__/`        | Test files co-located with source             |
 
 ## Where to Put New Code
 
-| New thing | Location |
-|---|---|
-| New page | `src/routes/{name}/+page.svelte` + `+page.server.ts` |
-| New API endpoint | `src/routes/api/{domain}/+server.ts` |
-| Reusable UI component | `src/lib/components/{domain}/ComponentName.svelte` |
-| shadcn primitive | `src/lib/components/ui/{name}/` |
-| Server-only service | `src/lib/server/{feature}.ts` |
-| Shared type | `src/lib/server/types.ts` or domain-specific types file |
-| Client store | `src/lib/stores/{name}.svelte.ts` |
-| Utility function | `src/lib/utils.ts` (if generic) or `src/lib/utils/{name}.ts` |
-| DB migration | `supabase/migrations/{timestamp}_{description}.sql` |
-| Maintenance script | `scripts/{name}.ts` |
+| New thing             | Location                                                     |
+| --------------------- | ------------------------------------------------------------ |
+| New page              | `src/routes/{name}/+page.svelte` + `+page.server.ts`         |
+| New API endpoint      | `src/routes/api/{domain}/+server.ts`                         |
+| Reusable UI component | `src/lib/components/{domain}/ComponentName.svelte`           |
+| shadcn primitive      | `src/lib/components/ui/{name}/`                              |
+| Server-only service   | `src/lib/server/{feature}.ts`                                |
+| Shared type           | `src/lib/server/types.ts` or domain-specific types file      |
+| Client store          | `src/lib/stores/{name}.svelte.ts`                            |
+| Utility function      | `src/lib/utils.ts` (if generic) or `src/lib/utils/{name}.ts` |
+| DB migration          | `supabase/migrations/{timestamp}_{description}.sql`          |
+| Maintenance script    | `scripts/{name}.ts`                                          |
 
 ## Import Aliases
 
-| Alias | Resolves To |
-|---|---|
-| `$lib` | `src/lib/` |
-| `$components` | `src/lib/components/` (custom in `svelte.config.js`) |
-| `$app/*` | SvelteKit app utilities |
-| `$env/static/public` | Public env variables |
-| `$env/static/private` | Private env variables (server only) |
+| Alias                 | Resolves To                                          |
+| --------------------- | ---------------------------------------------------- |
+| `$lib`                | `src/lib/`                                           |
+| `$components`         | `src/lib/components/` (custom in `svelte.config.js`) |
+| `$app/*`              | SvelteKit app utilities                              |
+| `$env/static/public`  | Public env variables                                 |
+| `$env/static/private` | Private env variables (server only)                  |

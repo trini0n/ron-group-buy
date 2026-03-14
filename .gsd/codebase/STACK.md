@@ -22,25 +22,27 @@
 
 ## Key Runtime Dependencies
 
-| Package | Version | Purpose |
-|---|---|---|
-| `@supabase/supabase-js` | `^2.47.10` | Database + auth client |
-| `@supabase/ssr` | `^0.5.2` | Server-side Supabase session handling |
-| `zod` | `^3.24.1` | Schema validation |
-| `lru-cache` | `^11.0.2` | In-process caching |
-| `csv-parse` | `^6.1.0` | CSV parsing (inventory sync) |
-| `exceljs` | `^4.4.0` | Excel export generation |
-| `clsx` | `^2.1.1` | Conditional class names |
+| Package                 | Version    | Purpose                               |
+| ----------------------- | ---------- | ------------------------------------- |
+| `@supabase/supabase-js` | `^2.47.10` | Database + auth client                |
+| `@supabase/ssr`         | `^0.5.2`   | Server-side Supabase session handling |
+| `zod`                   | `^3.24.1`  | Schema validation                     |
+| `lru-cache`             | `^11.0.2`  | In-process caching                    |
+| `csv-parse`             | `^6.1.0`   | CSV parsing (inventory sync)          |
+| `exceljs`               | `^4.4.0`   | Excel export generation               |
+| `clsx`                  | `^2.1.1`   | Conditional class names               |
 
 ## Dev Dependencies
 
 **Testing**
+
 - `vitest ^3.0.0` — test runner
 - `@vitest/coverage-v8 ^3.0.0` — coverage provider
 - `@testing-library/svelte ^5.2.0` — component testing
 - `jsdom ^26.0.0` — DOM environment
 
 **Styling/UI**
+
 - `tailwindcss ^3.4.16` + `postcss ^8.4.49` + `autoprefixer ^10.4.20`
 - `bits-ui ^1.8.0` — headless UI primitives (shadcn-svelte base)
 - `svelte-sonner ^0.3.28` — toast notifications
@@ -49,24 +51,26 @@
 - `mode-watcher ^1.1.0` — dark mode
 
 **Lint/Format**
+
 - `eslint ^9.16.0` + `typescript-eslint ^8.18.0` + `eslint-plugin-svelte ^2.46.0`
 - `prettier ^3.4.2` + `prettier-plugin-svelte` + `prettier-plugin-tailwindcss`
 
 ## Configuration Files
 
-| File | Key Settings |
-|---|---|
-| `svelte.config.js` | adapter-vercel, nodejs22.x runtime, `$components` alias → `src/lib/components` |
-| `tsconfig.json` | strict, noUncheckedIndexedAccess, moduleResolution: bundler, allowJs, checkJs |
-| `vite.config.ts` | sveltekit() plugin only |
-| `vitest.config.ts` | jsdom env, globals, setup: `tests/setup.ts`, coverage thresholds 80%/90% |
+| File                 | Key Settings                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `svelte.config.js`   | adapter-vercel, nodejs22.x runtime, `$components` alias → `src/lib/components`       |
+| `tsconfig.json`      | strict, noUncheckedIndexedAccess, moduleResolution: bundler, allowJs, checkJs        |
+| `vite.config.ts`     | sveltekit() plugin only                                                              |
+| `vitest.config.ts`   | jsdom env, globals, setup: `tests/setup.ts`, coverage thresholds 80%/90%             |
 | `tailwind.config.js` | dark mode class strategy, MTG color palette, content: `src/**/*.{html,js,svelte,ts}` |
-| `components.json` | shadcn-svelte schema, TS enabled, aliases to `$lib/...` |
-| `postcss.config.js` | tailwindcss + autoprefixer |
+| `components.json`    | shadcn-svelte schema, TS enabled, aliases to `$lib/...`                              |
+| `postcss.config.js`  | tailwindcss + autoprefixer                                                           |
 
 ## Environment Variables (names only)
 
 **Required**
+
 - `PUBLIC_SUPABASE_URL`
 - `PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -75,9 +79,11 @@
 - `CRON_SECRET`
 
 **Built-in**
+
 - `import.meta.env.DEV` (Vite)
 
 **Referenced in `.env.example` but not yet consumed**
+
 - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE`
 - `RESEND_API_KEY`
 
