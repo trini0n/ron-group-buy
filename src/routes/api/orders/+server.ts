@@ -1,5 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { fetchPrices } from '$lib/server/pricing'
+import { getCardPrice } from '$lib/utils'
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -296,6 +298,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(500, 'Failed to create order')
   }
 
+  // Resolve prices and card types server-side (security: never trust client-supplied unitPrice)
+  const prices = await fetchPrices(locals.supabase)
+  const cardIds = items.map((item: OrderItem) => item.cardId)
+  const { data: cardRows, error: cardFetchErr } = await locals.supabase
+    .from('cards')
+    .select('id, card_type')
+    .in('id', cardIds)
+  if (cardFetchErr) {
+    throw error(500, 'Failed to fetch card pricing data')
+  }
+  const serverCardTypeMap = new Map(cardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
+
   // Create order items with identity snapshot
   const orderItems = items.map((item: OrderItem) => ({
     order_id: order.id,
@@ -304,7 +318,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     card_name: item.name,
     card_type: item.cardType,
     quantity: item.quantity,
-    unit_price: item.unitPrice,
+    unit_price: getCardPrice(serverCardTypeMap.get(item.cardId) ?? item.cardType, prices),
     // Snapshot card identity for future merge operations
     set_code: item.setCode || null,
     collector_number: item.collectorNumber || null,
@@ -337,6 +351,15 @@ async function mergeIntoExistingOrder(
   newItems: OrderItem[],
   locals: App.Locals
 ) {
+  // Resolve prices server-side for new items (security: never trust client-supplied unitPrice)
+  const mergePrices = await fetchPrices(locals.supabase)
+  const newCardIds = newItems.map(i => i.cardId)
+  const { data: mergeCardRows } = await locals.supabase
+    .from('cards')
+    .select('id, card_type')
+    .in('id', newCardIds)
+  const mergeCardTypeMap = new Map(mergeCardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
+
   // Get existing order items
   const { data: existingItems, error: fetchError } = await locals.supabase
     .from('order_items')
@@ -382,7 +405,7 @@ async function mergeIntoExistingOrder(
         card_name: newItem.name,
         card_type: newItem.cardType,
         quantity: newItem.quantity,
-        unit_price: newItem.unitPrice
+        unit_price: getCardPrice(mergeCardTypeMap.get(newItem.cardId) ?? newItem.cardType, mergePrices)
       })
     }
   }
