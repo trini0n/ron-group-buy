@@ -3,17 +3,14 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function GET({ request }: RequestEvent) {
-  // CRON_SECRET is optional - if not set, endpoint is unprotected (development only)
-  // Read at runtime to allow tests to set this value
-  const cronSecret = process.env.CRON_SECRET || '';
-  
-  // Verify cron secret to prevent unauthorized access (only if CRON_SECRET is set)
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      throw error(401, 'Unauthorized');
-    }
+  // Fail-closed: CRON_SECRET must be configured. Missing secret → 503, wrong token → 401.
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret) {
+    throw error(503, 'CRON_SECRET not configured');
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    throw error(401, 'Unauthorized');
   }
   
   try {

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { createAdminClient } from '$lib/server/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { LRUCache } from 'lru-cache'
 
 interface DeckCard {
@@ -62,17 +62,17 @@ function setInCache(name: string, cards: CardMatch[]): void {
 const CARD_SELECT_COLUMNS = 
   'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
   const { cards } = (await request.json()) as { cards: DeckCard[] }
 
   if (!cards || !Array.isArray(cards)) {
     return json({ error: 'Invalid cards array' }, { status: 400 })
   }
 
-  const adminClient = createAdminClient()
+  const supabase = locals.supabase
   
   // Search all cards in parallel (massive speedup from sequential)
-  const results = await parallelSearchCards(adminClient, cards)
+  const results = await parallelSearchCards(supabase, cards)
 
   return json(results)
 }
@@ -98,7 +98,7 @@ function sortMatches(matches: CardMatch[], preferFoil?: boolean): CardMatch[] {
 }
 
 async function searchSingleCard(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: SupabaseClient,
   card: DeckCard
 ): Promise<SearchResult> {
   const nameParts = card.name.split(' // ')
@@ -227,7 +227,7 @@ async function searchSingleCard(
 }
 
 async function parallelSearchCards(
-  supabase: ReturnType<typeof createAdminClient>, 
+  supabase: SupabaseClient,
   cards: DeckCard[]
 ): Promise<SearchResult[]> {
   // Deduplicate by card name to reduce queries
