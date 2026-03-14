@@ -7,7 +7,7 @@ Address all technical debt and security concerns identified during codebase mapp
 ## Phases
 
 - [x] **Phase 01: Security** - Fix all 4 P0 security vulnerabilities before any other work
-- [ ] **Phase 02: Correctness** - Fix P1 correctness bugs (N+1 writes, race conditions, silent errors) and P2 maintainability (admin auth consolidation, duplicate logic, type debt)
+- [x] **Phase 02: Correctness** - Fix P1 correctness bugs (N+1 writes, race conditions, silent errors) and P2 maintainability (admin auth consolidation, duplicate logic, type debt)
 - [ ] **Phase 03: Hygiene** - P3 cleanup (dead code, logging, alias consistency, test TODOs)
 
 ## Phase Details
@@ -47,9 +47,9 @@ Plans:
 
 Plans:
 
-- [ ] 02-01: Batch N+1 DB write loops
-- [ ] 02-02: Export manifest race + silent query errors
-- [ ] 02-03: Extract ensureUserRow shared utility
+- [x] 02-01: Batch N+1 DB write loops
+- [x] 02-02: Export manifest race + silent query errors
+- [x] 02-03: Extract ensureUserRow shared utility
 
 ### Phase 03: Hygiene
 
