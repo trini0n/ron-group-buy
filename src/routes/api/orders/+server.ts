@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { fetchPrices } from '$lib/server/pricing'
 import { getCardPrice } from '$lib/utils'
+import { ensureUserRow } from '$lib/server/user-profile'
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -176,50 +177,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw error(400, 'Missing required address fields')
     }
 
-    // Verify user exists in users table - if not, create it
-    // This handles cases where auth callback sync failed
-    const { data: userExists, error: userCheckError } = await locals.supabase
-      .from('users')
-      .select('id, email')
-      .eq('id', locals.user.id)
-      .single()
-
-    if (userCheckError?.code === 'PGRST116' || !userExists) {
-      // User doesn't exist in users table - create it now
-      console.log('User missing from users table during checkout, creating:', {
-        authUserId: locals.user.id,
-        authUserEmail: locals.user.email
-      })
-      
-      // Use admin client to bypass RLS and create user record
-      const { createAdminClient } = await import('$lib/server/admin')
-      const adminClient = createAdminClient()
-      
-      const { error: createError } = await adminClient.from('users').insert({
-        id: locals.user.id,
-        email: locals.user.email || '',
-        name: locals.user.user_metadata?.name || locals.user.user_metadata?.full_name || null,
-        avatar_url: locals.user.user_metadata?.avatar_url || locals.user.user_metadata?.picture || null,
-        discord_id: locals.user.user_metadata?.provider_id || null,
-        discord_username: locals.user.user_metadata?.full_name || null
-      })
-      
-      if (createError) {
-        console.error('Failed to auto-create user record in checkout:', createError)
-        throw error(500, 'User account sync failed. Please sign out and sign back in.')
-      }
-      
-      console.log('User record created successfully during checkout:', locals.user.id)
-    } else if (userCheckError) {
-      console.error('User existence check failed in checkout:', {
-        authUserId: locals.user.id,
-        authUserEmail: locals.user.email,
-        error: userCheckError,
-        errorCode: (userCheckError as any)?.code,
-        errorMessage: (userCheckError as any)?.message
-      })
-      throw error(500, 'Failed to verify user account')
-    }
+    // Verify user exists in users table - if not, create it (handles auth callback sync failures)
+    await ensureUserRow(locals.supabase, locals.user)
 
     // Save the new address
     const { data: savedAddress, error: saveError } = await locals.supabase
@@ -410,14 +369,14 @@ async function mergeIntoExistingOrder(
     }
   }
 
-  // Batch-update existing items with new quantities (replaces N+1 per-item loop)
+  // Batch-update existing items with new quantities (concurrent, not sequential)
   if (itemsToUpdate.length > 0) {
-    const { error: batchUpdateError } = await locals.supabase
-      .from('order_items')
-      .upsert(
-        itemsToUpdate.map(u => ({ id: u.id, quantity: u.quantity })),
-        { onConflict: 'id' }
+    const updateResults = await Promise.all(
+      itemsToUpdate.map(u =>
+        locals.supabase.from('order_items').update({ quantity: u.quantity }).eq('id', u.id)
       )
+    )
+    const batchUpdateError = updateResults.find(r => r.error)?.error
     if (batchUpdateError) {
       console.error('Error updating item quantities:', batchUpdateError)
       throw error(500, 'Failed to update order items')
