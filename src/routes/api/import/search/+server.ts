@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit'
+import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LRUCache } from 'lru-cache'
@@ -113,28 +113,40 @@ async function searchSingleCard(
     // Use separate queries to avoid issues with special characters in OR syntax
     
     // Query 1: Exact card_name match
-    const { data: exactMatches } = await supabase
+    const { data: exactMatches, error: exactErr } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
       .ilike('card_name', primaryName)
       .order('is_in_stock', { ascending: false })
       .limit(100)
+    if (exactErr) {
+      console.error('Search query (exact) failed:', exactErr)
+      throw error(500, 'Search unavailable')
+    }
     
     // Query 2: Flavor name match
-    const { data: flavorMatches } = await supabase
+    const { data: flavorMatches, error: flavorErr } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
       .ilike('flavor_name', primaryName)
       .order('is_in_stock', { ascending: false })
       .limit(100)
+    if (flavorErr) {
+      console.error('Search query (flavor) failed:', flavorErr)
+      throw error(500, 'Search unavailable')
+    }
     
     // Query 3: Double-faced card match (card_name starts with "primaryName // ")
-    const { data: doubleFacedMatches } = await supabase
+    const { data: doubleFacedMatches, error: doubleFacedErr } = await supabase
       .from('cards')
       .select(CARD_SELECT_COLUMNS + ', flavor_name')
       .ilike('card_name', `${primaryName} // %`)
       .order('is_in_stock', { ascending: false })
       .limit(100)
+    if (doubleFacedErr) {
+      console.error('Search query (double-faced) failed:', doubleFacedErr)
+      throw error(500, 'Search unavailable')
+    }
     
     // Combine results and deduplicate by ID
     const allResults = [

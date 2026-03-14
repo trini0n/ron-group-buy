@@ -7,6 +7,22 @@ const EXPORTS_DIR = '/tmp/exports';
 const MANIFEST_FILE = '/tmp/exports/manifest.json';
 const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
+// In-process mutex: serializes all manifest read-modify-write operations
+let manifestLock: Promise<void> = Promise.resolve();
+
+async function withManifestLock<T>(fn: () => Promise<T>): Promise<T> {
+  let resolve!: () => void;
+  const next = new Promise<void>(r => { resolve = r; });
+  const current = manifestLock;
+  manifestLock = next;
+  await current;
+  try {
+    return await fn();
+  } finally {
+    resolve();
+  }
+}
+
 interface ExportManifestEntry {
   filename: string;
   path: string;
@@ -55,14 +71,16 @@ export async function saveExportFile(buffer: Buffer, filename: string): Promise<
   const filePath = path.join(EXPORTS_DIR, filename);
   await fs.writeFile(filePath, buffer);
   
-  // Update manifest
-  const manifest = await loadManifest();
-  manifest.push({
-    filename,
-    path: filePath,
-    createdAt: Date.now()
+  // Locked read-modify-write to prevent concurrent manifest corruption
+  await withManifestLock(async () => {
+    const manifest = await loadManifest();
+    manifest.push({
+      filename,
+      path: filePath,
+      createdAt: Date.now()
+    });
+    await saveManifest(manifest);
   });
-  await saveManifest(manifest);
   
   return filePath;
 }
@@ -79,6 +97,7 @@ export function getExportFilePath(filename: string): string {
  * Returns the number of files deleted
  */
 export async function cleanupExpiredExports(): Promise<{ deleted: number; errors: string[] }> {
+  return withManifestLock(async () => {
   const manifest = await loadManifest();
   const now = Date.now();
   const errors: string[] = [];
@@ -114,6 +133,7 @@ export async function cleanupExpiredExports(): Promise<{ deleted: number; errors
   await saveManifest(remainingEntries);
   
   return { deleted, errors };
+  });
 }
 
 /**
@@ -133,8 +153,10 @@ export async function deleteExportFile(filename: string): Promise<void> {
     }
   }
   
-  // Update manifest
-  const manifest = await loadManifest();
-  const updatedManifest = manifest.filter(entry => entry.filename !== filename);
-  await saveManifest(updatedManifest);
+  // Locked read-modify-write to prevent concurrent manifest corruption
+  await withManifestLock(async () => {
+    const manifest = await loadManifest();
+    const updatedManifest = manifest.filter(entry => entry.filename !== filename);
+    await saveManifest(updatedManifest);
+  });
 }
