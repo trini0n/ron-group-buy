@@ -75,30 +75,30 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       existingCartItems?.map(item => [item.card_id, item.quantity]) ?? []
     )
 
-    // Merge order items into cart
+    // Merge order items into cart — batch all writes instead of per-item DB calls
+    const cartItemsToUpdate: Array<{ cart_id: string; card_id: string; quantity: number }> = []
+    const cartItemsToInsert: Array<{ cart_id: string; card_id: string; quantity: number }> = []
+
     for (const item of order.order_items || []) {
       if (!item.card_id) continue
-
       const existingQty = existingCartMap.get(item.card_id) ?? 0
       const newQty = existingQty + (item.quantity ?? 1)
-
       if (existingQty > 0) {
-        // Update existing cart item
-        await locals.supabase
-          .from('cart_items')
-          .update({ quantity: newQty })
-          .eq('cart_id', cart.id)
-          .eq('card_id', item.card_id)
+        cartItemsToUpdate.push({ cart_id: cart.id, card_id: item.card_id, quantity: newQty })
       } else {
-        // Insert new cart item
-        await locals.supabase
-          .from('cart_items')
-          .insert({
-            cart_id: cart.id,
-            card_id: item.card_id,
-            quantity: item.quantity ?? 1
-          })
+        cartItemsToInsert.push({ cart_id: cart.id, card_id: item.card_id, quantity: item.quantity ?? 1 })
       }
+    }
+
+    if (cartItemsToUpdate.length > 0) {
+      await locals.supabase
+        .from('cart_items')
+        .upsert(cartItemsToUpdate, { onConflict: 'cart_id,card_id' })
+    }
+    if (cartItemsToInsert.length > 0) {
+      await locals.supabase
+        .from('cart_items')
+        .insert(cartItemsToInsert)
     }
   }
 

@@ -410,16 +410,17 @@ async function mergeIntoExistingOrder(
     }
   }
 
-  // Update existing items with new quantities
-  for (const update of itemsToUpdate) {
-    const { error: updateError } = await locals.supabase
+  // Batch-update existing items with new quantities (replaces N+1 per-item loop)
+  if (itemsToUpdate.length > 0) {
+    const { error: batchUpdateError } = await locals.supabase
       .from('order_items')
-      .update({ quantity: update.quantity })
-      .eq('id', update.id)
-
-    if (updateError) {
-      console.error('Error updating item quantity:', updateError)
-      throw error(500, 'Failed to update order item')
+      .upsert(
+        itemsToUpdate.map(u => ({ id: u.id, quantity: u.quantity })),
+        { onConflict: 'id' }
+      )
+    if (batchUpdateError) {
+      console.error('Error updating item quantities:', batchUpdateError)
+      throw error(500, 'Failed to update order items')
     }
   }
 

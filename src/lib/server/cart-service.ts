@@ -885,19 +885,25 @@ export class CartService {
     }> = []
     const itemsToUpdate: Array<{ id: string; quantity: number }> = []
 
-    for (const orderItem of order.order_items) {
-      // Extract card identity from order item snapshot
-      const identity: CardIdentity = {
-        set_code: orderItem.set_code || null,
-        collector_number: orderItem.collector_number || null,
-        card_name: orderItem.card_name,
-        is_foil: orderItem.is_foil || false,
-        is_etched: orderItem.is_etched || false,
-        language: orderItem.language || 'en'
-      }
+    // Pre-warm price cache and run all identity lookups in parallel (replaces sequential per-item queries)
+    await this.getPrice('Normal')
+    const identityResults = await Promise.all(
+      order.order_items.map(orderItem => {
+        const identity: CardIdentity = {
+          set_code: orderItem.set_code || null,
+          collector_number: orderItem.collector_number || null,
+          card_name: orderItem.card_name,
+          is_foil: orderItem.is_foil || false,
+          is_etched: orderItem.is_etched || false,
+          language: orderItem.language || 'en'
+        }
+        return findCardsByIdentity(this.supabase, identity)
+      })
+    )
 
-      // Find current cards matching this identity
-      const matchingCards = await findCardsByIdentity(this.supabase, identity)
+    for (let _i = 0; _i < order.order_items.length; _i++) {
+      const orderItem = order.order_items[_i]!
+      const matchingCards = identityResults[_i]!
 
       if (matchingCards.length === 0) {
         // No matching cards found in current inventory

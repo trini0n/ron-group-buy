@@ -81,15 +81,26 @@ export async function PATCH({ locals, request }: RequestEvent) {
     if (itemsErr) {
       console.error({ error: itemsErr }, 'Failed to fetch pending order items for price backfill')
     } else if (pendingItems?.length) {
-      // Build individual updates using a simple loop to avoid TypeScript type conflicts
+      // Batch-update by card_type_snapshot — at most ~5 types so O(types) not O(items)
+      const typeToItemIds = new Map<string, string[]>()
       for (const item of pendingItems as unknown as { id: string; card_type_snapshot: string | null }[]) {
         if (item.card_type_snapshot && item.card_type_snapshot in priceMap) {
-          await locals.supabase
-            .from('order_items')
-            .update({ unit_price: priceMap[item.card_type_snapshot] })
-            .eq('id', item.id)
+          const bucket = typeToItemIds.get(item.card_type_snapshot)
+          if (bucket) {
+            bucket.push(item.id)
+          } else {
+            typeToItemIds.set(item.card_type_snapshot, [item.id])
+          }
         }
       }
+      await Promise.all(
+        Array.from(typeToItemIds.entries()).map(([cardType, ids]) =>
+          locals.supabase
+            .from('order_items')
+            .update({ unit_price: priceMap[cardType] })
+            .in('id', ids)
+        )
+      )
     }
   }
 
