@@ -169,18 +169,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     // Update the existing address with the new phone number
-    // @ts-ignore: phone_number not yet typed in generated types
     if (address.phone_number !== String(phoneNumber).trim()) {
       const { error: updateError } = await locals.supabase
         .from('addresses')
-        // @ts-ignore: phone_number not yet typed in generated types
         .update({ phone_number: String(phoneNumber).trim() })
         .eq('id', addressId)
 
       if (updateError) {
         logger.warn({ error: updateError }, 'Error updating address phone number')
       } else {
-        // @ts-ignore: phone_number not yet typed in generated types
         address.phone_number = String(phoneNumber).trim()
       }
     }
@@ -201,7 +198,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .insert({
         user_id: locals.user.id,
         ...newAddress,
-        // @ts-ignore: phone_number not yet typed in generated types
         phone_number: String(phoneNumber).trim(),
         is_default: true
       })
@@ -263,7 +259,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       shipping_state: shippingAddress.state,
       shipping_postal_code: shippingAddress.postal_code,
       shipping_country: shippingAddress.country,
-      // @ts-ignore: shipping_phone_number not yet typed in generated types
       shipping_phone_number: String(phoneNumber).trim(),
       notes: notes || null
     })

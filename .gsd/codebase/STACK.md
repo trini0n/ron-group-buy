@@ -1,105 +1,103 @@
-# STACK.md — Technology Stack
+# Technology Stack
+
+**Analysis Date:** 2026-03-14
 
 ## Languages
 
-- **TypeScript** `^5.7.2` — primary language, strict mode enabled
-- **JavaScript ESM** — `"type": "module"` in package.json
-- **Svelte** `.svelte` files with `<script lang="ts">` — component language
-- **SQL** — Supabase/Postgres migrations in `supabase/migrations/`
+**Primary:**
+
+- TypeScript 5.7.2 - All application logic, SvelteKit routes, server-side handlers, scripts; strict mode + `noUncheckedIndexedAccess`
+
+**Secondary:**
+
+- JavaScript ESM - Config files (`svelte.config.js`, `tailwind.config.js`, `postcss.config.js`, `vitest.config.ts`), utility scripts (`scripts/fix-bookmarklet.mjs`, `scripts/test-moxfield.mjs`)
+- Svelte 5 `.svelte` files - UI components (Svelte 5 runes syntax)
+- SQL - Database migrations in `supabase/migrations/`
 
 ## Runtime
 
-- **Node.js 22** on Vercel (explicit: `runtime: 'nodejs22.x'` in `svelte.config.js`)
-- **Node.js 20+** required locally (per README)
-- `tsx ^4.19.2` for running TS scripts directly
+**Environment:**
+
+- Node.js 22.x - Production target; explicit `runtime: 'nodejs22.x'` in `svelte.config.js`
+
+**Package Manager:**
+
+- npm - `package.json` with `"type": "module"`
+- Lockfile: present (`package-lock.json`)
 
 ## Frameworks
 
-- **SvelteKit** `@sveltejs/kit ^2.9.0` — full-stack web framework
-- **Svelte** `svelte ^5.12.0` — component framework (Svelte 5 runes)
-- **Vite** `vite ^6.0.3` — build tool
-- **@sveltejs/adapter-vercel** `^5.4.0` — deployment adapter
+**Core:**
 
-## Key Runtime Dependencies
+- SvelteKit ^2.9.0 - Full-stack web framework (routing, SSR, server actions)
+- Svelte ^5.12.0 - Component framework; Svelte 5 runes syntax throughout
 
-| Package                 | Version    | Purpose                               |
-| ----------------------- | ---------- | ------------------------------------- |
-| `@supabase/supabase-js` | `^2.47.10` | Database + auth client                |
-| `@supabase/ssr`         | `^0.5.2`   | Server-side Supabase session handling |
-| `zod`                   | `^3.24.1`  | Schema validation                     |
-| `lru-cache`             | `^11.0.2`  | In-process caching                    |
-| `csv-parse`             | `^6.1.0`   | CSV parsing (inventory sync)          |
-| `exceljs`               | `^4.4.0`   | Excel export generation               |
-| `clsx`                  | `^2.1.1`   | Conditional class names               |
+**Testing:**
 
-## Dev Dependencies
+- Vitest ^3.0.0 - Test runner; jsdom environment, globals enabled
+- @testing-library/svelte ^5.2.0 - Component testing utilities
+- @vitest/coverage-v8 ^3.0.0 - Code coverage provider (80%/90% thresholds)
 
-**Testing**
+**Build/Dev:**
 
-- `vitest ^3.0.0` — test runner
-- `@vitest/coverage-v8 ^3.0.0` — coverage provider
-- `@testing-library/svelte ^5.2.0` — component testing
-- `jsdom ^26.0.0` — DOM environment
+- Vite ^6.0.3 - Build tool; configured via `vite.config.ts` (sveltekit plugin only)
+- @sveltejs/adapter-vercel ^5.4.0 - Vercel deployment adapter
+- tsx ^4.19.2 - Execute TypeScript scripts directly (used for `sync:cards`)
 
-**Styling/UI**
+## Key Dependencies
 
-- `tailwindcss ^3.4.16` + `postcss ^8.4.49` + `autoprefixer ^10.4.20`
-- `bits-ui ^1.8.0` — headless UI primitives (shadcn-svelte base)
-- `svelte-sonner ^0.3.28` — toast notifications
-- `tailwind-merge ^2.6.0` + `tailwind-variants ^0.2.1`
-- `@lucide/svelte ^0.482.0` + `lucide-svelte ^0.468.0` — icons
-- `mode-watcher ^1.1.0` — dark mode
+**Critical:**
 
-**Lint/Format**
+- @supabase/supabase-js ^2.47.10 - Database client + auth (primary data layer)
+- @supabase/ssr ^0.5.2 - SSR-safe Supabase session handling; cookies managed in `src/hooks.server.ts`
+- zod ^3.24.1 - Runtime schema validation for API inputs and form data
 
-- `eslint ^9.16.0` + `typescript-eslint ^8.18.0` + `eslint-plugin-svelte ^2.46.0`
-- `prettier ^3.4.2` + `prettier-plugin-svelte` + `prettier-plugin-tailwindcss`
+**Infrastructure:**
 
-## Configuration Files
+- lru-cache ^11.0.2 - In-process LRU cache for card search deduplication (`src/routes/api/import/search/+server.ts`)
+- exceljs ^4.4.0 - Server-side Excel (.xlsx) export generation (`src/lib/server/export-builder.ts`)
+- csv-parse ^6.1.0 - CSV parsing for Google Sheets inventory sync (`src/routes/api/admin/inventory/sync/+server.ts`)
+- clsx ^2.1.1 - Conditional class name construction
+- tailwind-merge ^2.6.0 - Tailwind class deduplication
+- tailwind-variants ^0.2.1 - Variant-based component styling
+- bits-ui ^1.8.0 - Headless UI primitives (shadcn-svelte foundation; `components.json` present)
+- svelte-sonner ^0.3.28 - Toast notification UI
+- @lucide/svelte ^0.482.0 + lucide-svelte ^0.468.0 - Icon sets
+- mode-watcher ^1.1.0 - Dark/light mode management
+- country-telephone-data ^0.6.3 - Phone number prefix data for checkout forms
+- dotenv ^17.2.3 - `.env` loading in Node scripts (`sync:cards`)
 
-| File                 | Key Settings                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `svelte.config.js`   | adapter-vercel, nodejs22.x runtime, `$components` alias → `src/lib/components`       |
-| `tsconfig.json`      | strict, noUncheckedIndexedAccess, moduleResolution: bundler, allowJs, checkJs        |
-| `vite.config.ts`     | sveltekit() plugin only                                                              |
-| `vitest.config.ts`   | jsdom env, globals, setup: `tests/setup.ts`, coverage thresholds 80%/90%             |
-| `tailwind.config.js` | dark mode class strategy, MTG color palette, content: `src/**/*.{html,js,svelte,ts}` |
-| `components.json`    | shadcn-svelte schema, TS enabled, aliases to `$lib/...`                              |
-| `postcss.config.js`  | tailwindcss + autoprefixer                                                           |
+## Configuration
 
-## Environment Variables (names only)
+**Environment:**
 
-**Required**
+- SvelteKit `$env/static/public` and `$env/static/private` for type-safe env access
+- Required vars: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DISCORD_BOT_TOKEN`, `PUBLIC_APP_URL`, `CRON_SECRET`
+- `import.meta.env.DEV` used in `src/lib/server/logger.ts`
 
-- `PUBLIC_SUPABASE_URL`
-- `PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `DISCORD_BOT_TOKEN`
-- `PUBLIC_APP_URL`
-- `CRON_SECRET`
+**Build:**
 
-**Built-in**
+- `svelte.config.js` - adapter-vercel, nodejs22.x, `$components` path alias → `src/lib/components`
+- `tsconfig.json` - strict mode, `noUncheckedIndexedAccess`, `moduleResolution: bundler`, `allowJs`/`checkJs`
+- `vite.config.ts` - minimal; sveltekit() plugin only
+- `vitest.config.ts` - jsdom, globals, setup at `tests/setup.ts`, explicit coverage includes
+- `tailwind.config.js` - dark mode via class strategy; custom MTG color palette; `content: src/**/*.{html,js,svelte,ts}`
+- `postcss.config.js` - tailwindcss + autoprefixer
 
-- `import.meta.env.DEV` (Vite)
+## Platform Requirements
 
-**Referenced in `.env.example` but not yet consumed**
+**Development:**
 
-- `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE`
-- `RESEND_API_KEY`
+- Node.js 22.x (matches production)
+- Supabase CLI for `db:generate`, `db:push`, `db:reset`
+- `.env` file with all required vars (see above)
 
-## npm Scripts
+**Production:**
 
-```
-dev           → vite dev
-build         → vite build
-preview       → vite preview
-check         → svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
-lint          → prettier --check . && eslint .
-format        → prettier --write .
-test          → vitest (watch)
-test:unit     → vitest run
-test:ci       → vitest run --coverage
-coverage      → vitest run --coverage
-db:generate   → supabase gen types typescript ... > src/lib/server/database.types.ts
-sync:cards    → tsx scripts/sync-cards.ts
-```
+- Vercel platform with Node.js 22.x serverless runtime
+- Supabase project (PostgreSQL database + Auth + Row Level Security)
+- Discord bot application (for DM notifications)
+
+---
+
+_Stack analysis: 2026-03-14_

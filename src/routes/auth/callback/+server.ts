@@ -1,5 +1,7 @@
 import { redirect } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '$lib/server/database.types'
 import { createAdminClient } from '$lib/server/admin'
 import { checkProviderConflict, buildConflictRedirectUrl } from '$lib/auth/conflicts'
 import { logger } from '$lib/server/logger'
@@ -50,7 +52,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
  * Check if any newly linked provider conflicts with an existing user
  */
 async function checkForNewProviderConflict(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   user: { id: string; identities?: Array<{ provider: string; identity_data?: Record<string, unknown> }> }
 ) {
   // Check each identity for conflicts

@@ -39,7 +39,6 @@
     state: string | null;
     postal_code: string;
     country: string;
-    // @ts-ignore: added phone_number to db
     phone_number?: string | null;
     is_default: boolean | null;
   }
@@ -657,8 +656,8 @@
                       {/if}
                       <p>{address.city}, {address.state} {address.postal_code}</p>
                       <p>{address.country}</p>
-                      {#if (address as any).phone_number}
-                        <p class="mt-1 text-muted-foreground">{(address as any).phone_number}</p>
+                      {#if address.phone_number}
+                        <p class="mt-1 text-muted-foreground">{address.phone_number}</p>
                       {/if}
                     </address>
                   </div>

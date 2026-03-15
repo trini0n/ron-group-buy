@@ -9,12 +9,12 @@ See: `.gsd/codebase/CONCERNS.md` (codebase mapping completed 2026-03-14)
 
 ## Current Position
 
-Phase: 3 of 3 (Hygiene) — COMPLETE
+Phase: 3 of 6 (Hygiene) — COMPLETE
 Plan: 3 of 3
-Status: All 3 phases complete — roadmap finished
-Last activity: 2026-03-14 — Phase 03 all 3 plans executed and committed
+Status: Phases 01–03 complete — roadmap extended with 3 new phases (04–06)
+Last activity: 2026-03-14 — Roadmap extended after codebase re-map (type safety, security hardening, reliability)
 
-Progress: ██████████████ 100%
+Progress: ██████░░░░░░░░ 50%
 
 ## Accumulated Context
 

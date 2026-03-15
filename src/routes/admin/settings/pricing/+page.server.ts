@@ -13,8 +13,7 @@ export async function load({ locals }: RequestEvent) {
     throw redirect(302, '/')
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pricing, error: dbError } = await (locals.supabase as any)
+  const { data: pricing, error: dbError } = await locals.supabase
     .from('card_type_pricing')
     .select('card_type, price')
     .order('card_type')

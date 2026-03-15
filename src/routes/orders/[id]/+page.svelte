@@ -204,8 +204,8 @@
             {/if}
             {data.order.shipping_city}, {data.order.shipping_state} {data.order.shipping_postal_code}<br />
             {data.order.shipping_country}
-            {#if 'shipping_phone_number' in data.order && (data.order as any).shipping_phone_number}
-              <br /><span class="mt-1 block text-muted-foreground">{(data.order as any).shipping_phone_number}</span>
+            {#if data.order.shipping_phone_number}
+              <br /><span class="mt-1 block text-muted-foreground">{data.order.shipping_phone_number}</span>
             {/if}
           </address>
         </Card.Content>

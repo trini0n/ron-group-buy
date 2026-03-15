@@ -1,188 +1,274 @@
-# TESTING.md — Testing Patterns
+# Testing Patterns
 
-## Framework
+**Analysis Date:** 2026-03-14
 
-- **Vitest** `^3.0.0` — test runner
-- **@vitest/coverage-v8** `^3.0.0` — coverage via V8
-- **@testing-library/svelte** `^5.2.0` — component testing
-- **jsdom** `^26.0.0` — DOM simulation environment
+## Test Framework
+
+**Runner:**
+- Vitest `^3.0.0`
 - Config: `vitest.config.ts`
 
-## Running Tests
+**Assertion Library:**
+- Vitest built-in `expect` (globals enabled — no explicit import needed)
 
+**Run Commands:**
 ```bash
-npm test              # vitest watch mode (interactive)
-npm run test:unit     # vitest run (single pass, no coverage)
-npm run test:ci       # vitest run --coverage (CI mode)
-npm run coverage      # vitest run --coverage (same as test:ci)
+npm run test              # Run all tests (watch mode)
+npm run test:unit         # Run once (vitest run)
+npm run test:ci           # Run once with coverage
+npm run coverage          # Coverage report only
 ```
 
-## File Location
+## Test File Organization
 
-Tests are **co-located** in `__tests__/` directories next to the source they test:
+**Location:**
+- Co-located `__tests__/` subdirectory alongside the source module being tested
+- Top-level `tests/` is for shared setup and mock factories only — NOT for test files
 
+**Naming:**
+- `<module>.test.ts` (e.g., `utils.test.ts`, `cart-service.test.ts`, `search-utils.test.ts`)
+
+**Structure:**
 ```
-src/lib/__tests__/
-  utils.test.ts
-  admin-shared.test.ts
-  deck-utils.test.ts
-
-src/lib/server/__tests__/
-  cart-types.test.ts
-  search-utils.test.ts
-  cart-service.test.ts
-  card-identity.test.ts
-  cart-store-optimizations.test.ts
-
-src/routes/import/__tests__/
-  deck-parsing.test.ts
-
-src/routes/api/orders/__tests__/
-  orders-phone.test.ts
-
-src/routes/api/admin/exports/__tests__/
-  exports.test.ts
-```
-
-**Global setup and shared mocks:**
-
-```
+src/
+  lib/
+    __tests__/
+      utils.test.ts
+      admin-shared.test.ts
+    server/
+      __tests__/
+        cart-service.test.ts
+        cart-types.test.ts
+        cart-store-optimizations.test.ts
+        search-utils.test.ts
+        export-builder.test.ts
+        card-identity.test.ts
+  routes/
+    import/
+      __tests__/
+        deck-parsing.test.ts
+    api/
+      orders/
+        __tests__/
+          orders-phone.test.ts
+      admin/
+        exports/
+          __tests__/
+            exports.test.ts
 tests/
-  setup.ts              # Global setup (env mocking, etc.)
+  setup.ts          # Global setup — SvelteKit env mocks
   mocks/
-    supabase.ts         # Chainable Supabase query mock builder
-    localStorage.ts     # Installable localStorage mock
+    supabase.ts     # Reusable Supabase mock factory
+    localStorage.ts # Mock localStorage for store persistence tests
 ```
-
-Vitest picks up tests matching `src/**/*.{test,spec}.{js,ts}`.
 
 ## Test Structure
 
-Standard BDD with Vitest:
-
+**Suite Organization:**
 ```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+/**
+ * Unit tests for src/lib/utils.ts
+ * Tests all pure utility functions for card pricing, URLs, and formatting
+ */
 
-describe('feature name', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+import { describe, it, expect } from 'vitest'
+import { formatPrice, getCardPrice } from '../utils'
+
+describe('formatPrice', () => {
+  it('formats whole numbers with two decimal places', () => {
+    expect(formatPrice(5)).toBe('$5.00')
   })
 
-  it('does the expected thing', () => {
-    expect(myFunction(input)).toBe(expectedOutput)
-  })
-
-  it('handles edge case', () => {
-    expect(() => myFunction(badInput)).toThrow()
+  it('handles zero', () => {
+    expect(formatPrice(0)).toBe('$0.00')
   })
 })
 ```
+
+**Patterns:**
+- Each file opens with a JSDoc block summarising scope
+- One top-level `describe` per exported function/class being tested
+- Nested `describe` for sub-cases (e.g., `describe('CartService.addItems')`)
+- `beforeEach(() => vi.clearAllMocks())` at suite level when mocks are used
+- `beforeEach(() => vi.useFakeTimers())` / `afterEach(() => vi.useRealTimers())` for time-dependent tests
 
 ## Mocking
 
-### Module mocking with `vi.mock`
+**Framework:** `vi` from Vitest
 
+**Module-level mock (top of file):**
 ```typescript
-vi.mock('$env/static/public', () => ({
-  PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-  PUBLIC_SUPABASE_ANON_KEY: 'test-key'
-}))
-
-vi.mock('$app/environment', () => ({ browser: false, dev: true }))
-
 vi.mock('$lib/server/admin', () => ({
-  requireAdmin: vi.fn().mockResolvedValue({ isAdmin: true })
+  requireAdmin: vi.fn(),
+  createAdminClient: vi.fn()
 }))
+
+// Import AFTER vi.mock so the mock is applied
+import { requireAdmin, createAdminClient } from '$lib/server/admin'
 ```
 
-### Supabase mock builder (`tests/mocks/supabase.ts`)
-
-Chainable mock that mimics Supabase query builder:
-
+**Spy on module function:**
 ```typescript
-import { buildSupabaseMock } from '../../../tests/mocks/supabase'
-
-const mockSupabase = buildSupabaseMock({
-  cards: [createMockCard({ id: '1', name: 'Black Lotus' })]
-})
-// Supports chained: .from(...).select(...).eq(...).single() etc.
+vi.spyOn(pricingModule, 'fetchPrices').mockResolvedValue(FALLBACK_PRICES)
 ```
 
-### Local state mocking
-
+**Chainable Supabase mock builder (inline pattern):**
 ```typescript
-import { installLocalStorageMock } from '../../../tests/mocks/localStorage'
-installLocalStorageMock() // Adds working localStorage to jsdom
-```
-
-### Test factories
-
-Create consistent test data with factory helpers:
-
-```typescript
-function createMockCard(overrides?: Partial<Card>): Card {
-  return { id: 'uuid', name: 'Test Card', price: 1.0, ...overrides }
-}
-
-function createMockCartItem(overrides?: Partial<CartItem>): CartItem {
-  return { id: 'uuid', card_id: 'uuid', quantity: 1, ...overrides }
+function buildSupabaseMock(overrides: Record<string, unknown> = {}) {
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    insert: vi.fn().mockResolvedValue({ data: [], error: null }),
+    upsert: vi.fn().mockResolvedValue({ data: [], error: null }),
+    update: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis()
+  }
+  return { from: vi.fn().mockReturnValue(chain), _chain: chain, ...overrides }
 }
 ```
 
-## What's Tested
+**What to Mock:**
+- SvelteKit virtual modules (`$app/environment`, `$env/static/public`, `$env/static/private`) — mocked globally in `tests/setup.ts`
+- External services/clients: Supabase, SvelteKit `json`/`error` helpers
+- Internal module functions when testing in isolation (e.g., `fetchPrices`)
+- Never mock the module under test
 
-### Well covered
+## Fixtures and Test Data
 
-- `src/lib/utils.ts` — price formatting, URLs, slugging, image URLs, serial parsing/sorting
-- `src/lib/admin-shared.ts` — admin ID checks, status config, transition rules
-- `src/lib/deck-utils.ts` — deck text parsing
-- `src/lib/server/cart-types.ts` — cart type logic
-- `src/lib/server/search-utils.ts` — search utilities
-- `src/lib/server/card-identity.ts` — identity matching
-- `src/lib/server/cart-service.ts` — cart merge/creation logic
-- `src/routes/import/` — deck parsing flows
-- `src/routes/api/orders/` — phone/PayPal validation
-- `src/routes/api/admin/exports/` — export endpoint (auth, headers, cleanup)
-
-### Not covered (API routes)
-
-- `src/routes/api/cart/**`
-- `src/routes/api/admin/orders/**`
-- `src/routes/api/admin/inventory/**`
-- `src/routes/auth/callback/**` (no auth redirect tests)
-- Most `+page.server.ts` loaders
-
-## Coverage Configuration
-
-Defined in `vitest.config.ts`:
-
+**Test Data — factory functions defined per test file:**
 ```typescript
-coverage: {
-  provider: 'v8',
-  reporter: ['text', 'json', 'html'],
-  include: [
-    'src/lib/utils.ts',
-    'src/lib/admin-shared.ts',
-    'src/lib/deck-utils.ts',
-    'src/lib/server/cart-types.ts',
-    'src/lib/server/search-utils.ts',
-  ],
-  thresholds: {
-    statements: 80,
-    branches: 80,
-    functions: 90,
-    lines: 80,
+// From src/lib/server/__tests__/search-utils.test.ts
+function createMockCard(overrides: Partial<CardMatch> = {}): CardMatch {
+  return {
+    id: 'card-123',
+    serial: 'N-001',
+    card_name: 'Test Card',
+    set_code: 'TST',
+    card_type: 'Normal',
+    is_in_stock: true,
+    language: 'en',
+    ...overrides
+  }
+}
+
+// From src/lib/server/__tests__/cart-types.test.ts
+function createMockCartItem(cardId: string, quantity: number): CartItem {
+  return {
+    id: `item-${cardId}`,
+    cart_id: 'cart-123',
+    card_id: cardId,
+    quantity,
+    price_at_add: 1.25,
+    card_name_snapshot: 'Test Card',
+    card_type_snapshot: 'Normal',
+    is_in_stock_snapshot: true,
+    added_at: new Date().toISOString()
   }
 }
 ```
 
-**Note:** Coverage include is explicitly scoped to 5 modules. Routes and services are not in the coverage include list, even if they have test files.
+**Location:**
+- Shared mock factories: `tests/mocks/supabase.ts`, `tests/mocks/localStorage.ts`
+- Per-file helper factories: defined at top of test file (not exported), named `createMock*` or `make*`
 
-Coverage output: `coverage/` (HTML readable via `coverage/index.html`)
+## Coverage
 
-## Notes on Testing Approach
+**Requirements:**
+- Statements: 80%
+- Branches: 80%
+- Functions: 90%
+- Lines: 80%
 
-- **No MSW** (Mock Service Worker) — external API calls are mocked at the module level with `vi.mock`
-- **No component integration tests** found — only unit tests for logic modules
-- **No end-to-end tests** — no Playwright or Cypress
-- Some test files contain TODO comments indicating planned but unwritten assertions (`exports.test.ts:381`, `:389`)
+**Configuration:** `vitest.config.ts` — `coverage.thresholds`
+
+**Included files (explicit allowlist):**
+- `src/lib/utils.ts`
+- `src/lib/admin-shared.ts`
+- `src/lib/deck-utils.ts`
+- `src/lib/server/cart-types.ts`
+- `src/lib/server/search-utils.ts`
+
+**View Coverage:**
+```bash
+npm run coverage
+# HTML report: coverage/index.html
+```
+
+## Test Types
+
+**Unit Tests:**
+- All tests are unit tests targeting pure functions, service classes, and API route handlers
+- Tests run in jsdom environment; no real network or DB connections
+
+**Integration Tests:**
+- Not present — Supabase interactions fully mocked
+
+**E2E Tests:**
+- Not used (no Playwright or Cypress configured)
+
+## Common Patterns
+
+**Async Testing:**
+```typescript
+// Awaiting a resolved mock
+chain.in.mockResolvedValue({ data: cards, error: null })
+const result = await service.addItems(...)
+expect(result).toBeDefined()
+
+// Asserting a mock was called once
+expect(fetchPricesSpy).toHaveBeenCalledTimes(1)
+```
+
+**Error Testing:**
+```typescript
+// From src/routes/api/orders/__tests__/orders-phone.test.ts
+it('throws 400 if phoneNumber is missing', async () => {
+  const mockRequest = {
+    json: vi.fn().mockResolvedValue({
+      items: validItems,
+      paypalEmail: 'test@example.com'
+      // phoneNumber missing
+    })
+  }
+  await expect(
+    POST({ request: mockRequest, locals: mockLocals } as any)
+  ).rejects.toThrow('Phone number is required')
+})
+```
+
+**Time-dependent Testing:**
+```typescript
+// From src/lib/server/__tests__/cart-types.test.ts
+beforeEach(() => { vi.useFakeTimers() })
+afterEach(() => { vi.useRealTimers() })
+
+it('returns true for recently active cart', () => {
+  vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+  const lastActivity = new Date('2024-01-15T11:00:00Z').toISOString()
+  expect(isCartFresh(lastActivity)).toBe(true)
+})
+```
+
+**Testing HTTP error responses (SvelteKit `error()`):**
+```typescript
+vi.mock('@sveltejs/kit', () => ({
+  json: vi.fn((data) => data),
+  error: vi.fn((status, message) => {
+    const err = new Error(message);
+    (err as any).status = status;
+    throw err;
+  })
+}))
+
+it('should return 400 if order ID is missing', async () => {
+  await expect(getSingleOrderExport({ params: { id: undefined }, locals: mockLocals } as any))
+    .rejects.toMatchObject({ status: 400 })
+})
+```
+
+---
+_Testing analysis: 2026-03-14_

@@ -5,6 +5,7 @@
  * if the table is unavailable (e.g. before migration runs).
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '$lib/server/database.types'
 
 export type CardPrices = Record<string, number>
 
@@ -21,9 +22,8 @@ export const FALLBACK_PRICES: CardPrices = {
  * Fetch current card type prices from the database.
  * Returns FALLBACK_PRICES if the query fails.
  */
-export async function fetchPrices(supabase: SupabaseClient): Promise<CardPrices> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+export async function fetchPrices(supabase: SupabaseClient<Database>): Promise<CardPrices> {
+  const { data, error } = await supabase
     .from('card_type_pricing')
     .select('card_type, price')
 
