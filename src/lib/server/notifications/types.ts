@@ -65,7 +65,7 @@ export interface NotificationTemplate {
   channel: NotificationChannel;
   subject: string | null;
   body_template: string;
-  is_active: boolean;
+  is_active: boolean | null;
   updated_at: string;
   created_at: string;
 }

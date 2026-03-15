@@ -54,7 +54,7 @@
   
   // Track previous filter state to detect actual filter changes (not page changes)
   // Use a simple object that will be updated in the effect
-  let prevFilters = $state({
+  let prevFilters = $state(untrack(() => ({
     setCodes: '',
     colorIdentity: '',
     colorIdentityStrict: false,
@@ -64,7 +64,7 @@
     inStockOnly: false,
     isNew: false,
     viewMode: 'grid' as 'grid' | 'table'
-  });
+  })));
 
   // Debounce timer for search input
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
