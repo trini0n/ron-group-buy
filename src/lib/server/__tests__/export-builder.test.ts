@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { getFrameEffectLabel, getFinishLabel } from '$lib/utils';
+import { describe, it, expect } from 'vitest'
+import { getFrameEffectLabel, getFinishLabel } from '$lib/utils'
 
 describe('Export Helper Functions', () => {
   describe('getFrameEffectLabel', () => {
@@ -10,10 +10,10 @@ describe('Export Helper Functions', () => {
         is_showcase: false,
         is_borderless: false,
         is_etched: false
-      };
-      
-      expect(getFrameEffectLabel(card)).toBe(null);
-    });
+      }
+
+      expect(getFrameEffectLabel(card)).toBe(null)
+    })
 
     it('should return single frame effect', () => {
       const card = {
@@ -22,10 +22,10 @@ describe('Export Helper Functions', () => {
         is_showcase: false,
         is_borderless: false,
         is_etched: false
-      };
-      
-      expect(getFrameEffectLabel(card)).toBe('Retro');
-    });
+      }
+
+      expect(getFrameEffectLabel(card)).toBe('Retro')
+    })
 
     it('should return multiple frame effects separated by comma', () => {
       const card = {
@@ -34,10 +34,10 @@ describe('Export Helper Functions', () => {
         is_showcase: false,
         is_borderless: false,
         is_etched: true
-      };
-      
-      expect(getFrameEffectLabel(card)).toBe('Retro, Etched');
-    });
+      }
+
+      expect(getFrameEffectLabel(card)).toBe('Retro, Etched')
+    })
 
     it('should prioritize Showcase over Borderless', () => {
       const card = {
@@ -46,11 +46,11 @@ describe('Export Helper Functions', () => {
         is_showcase: true,
         is_borderless: true,
         is_etched: false
-      };
-      
+      }
+
       // Should only show Showcase, not Borderless
-      expect(getFrameEffectLabel(card)).toBe('Showcase');
-    });
+      expect(getFrameEffectLabel(card)).toBe('Showcase')
+    })
 
     it('should show Borderless when Showcase is not present', () => {
       const card = {
@@ -59,10 +59,10 @@ describe('Export Helper Functions', () => {
         is_showcase: false,
         is_borderless: true,
         is_etched: false
-      };
-      
-      expect(getFrameEffectLabel(card)).toBe('Borderless');
-    });
+      }
+
+      expect(getFrameEffectLabel(card)).toBe('Borderless')
+    })
 
     it('should handle all effects enabled (Showcase supersedes Borderless)', () => {
       const card = {
@@ -71,43 +71,50 @@ describe('Export Helper Functions', () => {
         is_showcase: true,
         is_borderless: true,
         is_etched: true
-      };
-      
+      }
+
       // Should show all except Borderless (superseded by Showcase)
-      expect(getFrameEffectLabel(card)).toBe('Retro, Extended Art, Showcase, Etched');
-    });
+      expect(getFrameEffectLabel(card)).toBe('Retro, Extended Art, Showcase, Etched')
+    })
 
     it('should return null for null card', () => {
-      expect(getFrameEffectLabel(null)).toBe(null);
-    });
-  });
+      expect(getFrameEffectLabel(null)).toBe(null)
+    })
+  })
 
   describe('getFinishLabel', () => {
     it('should prefer foil_type over card_type', () => {
       const card = {
         foil_type: 'Surge Foil',
         card_type: 'Normal'
-      };
-      
-      expect(getFinishLabel(card)).toBe('Surge Foil');
-    });
+      }
+
+      expect(getFinishLabel(card)).toBe('Surge Foil')
+    })
 
     it('should fall back to card_type when foil_type is null', () => {
       const card = {
         foil_type: null,
         card_type: 'Normal'
-      };
-      
-      expect(getFinishLabel(card)).toBe('Normal');
-    });
+      }
+
+      expect(getFinishLabel(card)).toBe('Normal')
+    })
 
     it('should handle various finish types', () => {
-      expect(getFinishLabel({ foil_type: 'Foil', card_type: 'Normal' })).toBe('Foil');
-      expect(getFinishLabel({ foil_type: 'Etched', card_type: 'Normal' })).toBe('Etched');
-      expect(getFinishLabel({ foil_type: 'Surge Foil', card_type: 'Normal' })).toBe('Surge Foil');
-    });
-  });
-});
+      expect(getFinishLabel({ foil_type: 'Foil', card_type: 'Normal' })).toBe('Foil')
+      expect(getFinishLabel({ foil_type: 'Etched', card_type: 'Normal' })).toBe('Etched')
+      expect(getFinishLabel({ foil_type: 'Surge Foil', card_type: 'Normal' })).toBe('Surge Foil')
+    })
+    it('returns Raised Foil when card_type is Raised Foil (foil_type absent)', () => {
+      expect(getFinishLabel({ foil_type: null, card_type: 'Raised Foil' })).toBe('Raised Foil')
+    })
+
+    it('returns Serialized when card_type is Serialized (foil_type absent)', () => {
+      expect(getFinishLabel({ foil_type: null, card_type: 'Serialized' })).toBe('Serialized')
+    })
+  })
+})
 
 describe('Export Data Calculations', () => {
   describe('calculateOrderTotals', () => {
@@ -116,88 +123,82 @@ describe('Export Data Calculations', () => {
         shipping_country: 'US',
         shipping_type: 'regular',
         items: [
-          { quantity: 4, unit_price: 10.0 },  // $40
-          { quantity: 1, unit_price: 25.50 }, // $25.50
-          { quantity: 2, unit_price: 5.0 }    // $10
+          { quantity: 4, unit_price: 10.0 }, // $40
+          { quantity: 1, unit_price: 25.5 }, // $25.50
+          { quantity: 2, unit_price: 5.0 } // $10
         ]
-      };
+      }
 
       // Expected: Subtotal=$75.50, Shipping=$6, Tariff=$9, Total=$90.50
       // This matches SHIPPING_RATES.us.regular
-    });
+    })
 
     it('should calculate US express shipping correctly', () => {
       const order = {
         shipping_country: 'USA',
         shipping_type: 'express',
-        items: [
-          { quantity: 1, unit_price: 100.0 }
-        ]
-      };
+        items: [{ quantity: 1, unit_price: 100.0 }]
+      }
 
       // Expected: Subtotal=$100, Shipping=$40, Tariff=$9, Total=$149
-    });
+    })
 
     it('should calculate international order totals correctly', () => {
       const order = {
         shipping_country: 'Canada',
         shipping_type: 'regular',
-        items: [
-          { quantity: 1, unit_price: 50.0 }
-        ]
-      };
+        items: [{ quantity: 1, unit_price: 50.0 }]
+      }
 
       // Expected: Subtotal=$50, Shipping=$6, Tariff=$0, Total=$56
-    });
+    })
 
     it('should calculate international express shipping correctly', () => {
       const order = {
         shipping_country: 'Japan',
         shipping_type: 'express',
-        items: [
-          { quantity: 2, unit_price: 30.0 }
-        ]
-      };
+        items: [{ quantity: 2, unit_price: 30.0 }]
+      }
 
       // Expected: Subtotal=$60, Shipping=$25, Tariff=$0, Total=$85
-    });
+    })
 
     it('should handle empty items array', () => {
       const order = {
         shipping_country: 'US',
         shipping_type: 'regular',
         items: []
-      };
+      }
 
       // Expected: Subtotal=$0, Shipping=$6, Tariff=$9, Total=$15
-    });
-  });
+    })
+  })
 
   describe('formatCurrency', () => {
     it('should format whole dollars', () => {
       // formatCurrency(100) should return "$100.00"
-    });
+    })
 
     it('should format cents', () => {
       // formatCurrency(25.5) should return "$25.50"
-    });
+    })
 
     it('should format zero', () => {
       // formatCurrency(0) should return "$0.00"
-    });
-  });
+    })
+  })
 
   describe('formatDate', () => {
     it('should format date with time', () => {
-      const date = '2026-01-31T23:45:00Z';
+      const date = '2026-01-31T23:45:00Z'
       // Should return format like: "Jan 31, 2026 at 11:45 PM" (adjusted for timezone)
-    });
+    })
 
     it('should handle null dates', () => {
       // formatDate(null) should return "—"
-    });
-  });
-});
+    })
+  })
+})
 
 describe('Line Item Row Building', () => {
   describe('buildLineItemRow', () => {
@@ -219,10 +220,10 @@ describe('Line Item Row Building', () => {
           card_type: 'Normal',
           language: 'en'
         }
-      };
+      }
 
       // Expected row: ['N-12345', 'Lightning Bolt', 'Regular', 'Normal', 'MH3', '135', '', 4]
-    });
+    })
 
     it('should use snapshot data when card is deleted', () => {
       const item = {
@@ -234,10 +235,10 @@ describe('Line Item Row Building', () => {
         set_code: 'OLD',
         collector_number: '001',
         language: 'en'
-      };
+      }
 
       // Expected row: ['F-99999', 'Deleted Card', 'Regular', 'Foil', 'OLD', '001', '', 1]
-    });
+    })
 
     it('should show language for non-English cards', () => {
       const item = {
@@ -257,11 +258,11 @@ describe('Line Item Row Building', () => {
           card_type: 'Normal',
           language: 'ja'
         }
-      };
+      }
 
       // Expected row should have 'ja' in language column
       // ['N-67890', '稲妻', 'Regular', 'Normal', 'MH3', '135', 'ja', 1]
-    });
+    })
 
     it('should not show language for English cards', () => {
       const item = {
@@ -281,11 +282,11 @@ describe('Line Item Row Building', () => {
           card_type: 'Normal',
           language: 'en'
         }
-      };
+      }
 
       // Expected row should have empty string in language column
       // ['N-12345', 'Lightning Bolt', 'Regular', 'Normal', 'MH3', '135', '', 1]
-    });
+    })
 
     it('should handle missing set code and collector number', () => {
       const item = {
@@ -297,10 +298,10 @@ describe('Line Item Row Building', () => {
         set_code: null,
         collector_number: null,
         language: 'en'
-      };
+      }
 
       // Expected row should have empty strings for set code and collector number
       // ['X-00000', 'Unknown Card', 'Regular', 'Normal', '', '', '', 1]
-    });
-  });
-});
+    })
+  })
+})
