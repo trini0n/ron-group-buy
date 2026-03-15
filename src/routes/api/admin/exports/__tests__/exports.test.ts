@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import ExcelJS from 'exceljs';
 import { GET as getSingleOrderExport } from '../order/[id]/+server';
 import { GET as getGroupBuyExport } from '../groupbuy/[id]/+server';
 import { GET as getCleanup } from '../cleanup/+server';
@@ -378,16 +379,148 @@ describe('Export API Endpoints', () => {
 
 describe('Export File Content Validation', () => {
   it('should generate valid Excel file structure', async () => {
-    // TODO: Use exceljs to parse the generated buffer and validate structure
-    // - Verify worksheet names match order numbers
-    // - Verify header section formatting
-    // - Verify line items table has correct columns
-    // - Verify data matches input
+    const { exportSingleOrder: realExportSingleOrder } = await vi.importActual<
+      typeof import('$lib/server/export-builder')
+    >('$lib/server/export-builder');
+
+    const mockOrder = {
+      id: 'order-uuid',
+      order_number: 'ORD-001',
+      status: 'submitted',
+      created_at: '2024-01-15T10:00:00Z',
+      notes: null,
+      admin_notes: null,
+      shipping_name: 'John Doe',
+      shipping_line1: '123 Main St',
+      shipping_line2: null,
+      shipping_city: 'Springfield',
+      shipping_state: 'IL',
+      shipping_postal_code: '62701',
+      shipping_country: 'US',
+      shipping_type: 'regular',
+      shipping_phone_number: null,
+      user: { email: 'john@example.com', paypal_email: null },
+      items: [
+        {
+          id: 'item-1',
+          order_id: 'order-uuid',
+          card_id: 'card-1',
+          card_serial: 'LEA-232',
+          card_name: 'Black Lotus',
+          card_type: 'foil',
+          quantity: 2,
+          unit_price: 25.00,
+          card: {
+            set_code: 'LEA',
+            collector_number: '232',
+            is_retro: false,
+            is_extended: false,
+            is_showcase: false,
+            is_borderless: false,
+            is_etched: false,
+            foil_type: 'foil',
+            card_type: 'foil',
+            language: 'en',
+            flavor_name: null
+          }
+        }
+      ]
+    };
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: mockOrder, error: null })
+      })
+    } as any);
+
+    const buffer = await realExportSingleOrder('order-uuid');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+
+    // Verify single worksheet with correct tab name
+    expect(workbook.worksheets).toHaveLength(1);
+    expect(workbook.worksheets[0].name).toBe('ORD-001');
+
+    // Verify header section: row 1 is Order Number label + value
+    const ws = workbook.worksheets[0];
+    expect(ws.getRow(1).getCell(1).value).toBe('Order Number:');
+    expect(ws.getRow(1).getCell(2).value).toBe('ORD-001');
+    expect(ws.getRow(2).getCell(1).value).toBe('Order Date:');
+    expect(ws.getRow(3).getCell(1).value).toBe('Order Status:');
+
+    // Find the line items table header row (contains 'Card Serial' in col 1)
+    let tableHeaderCells: (string | number | null)[] = [];
+    ws.eachRow((row) => {
+      if (row.getCell(1).value === 'Card Serial') {
+        tableHeaderCells = Array.from({ length: 9 }, (_, i) =>
+          row.getCell(i + 1).value as string | number | null
+        );
+      }
+    });
+
+    // Verify all 9 column headers are present
+    expect(tableHeaderCells).toHaveLength(9);
+    expect(tableHeaderCells[0]).toBe('Card Serial');
+    expect(tableHeaderCells[1]).toBe('Card Name');
+    expect(tableHeaderCells[8]).toBe('Quantity');
   });
 
   it('should handle multi-tab export with correct tab ordering', async () => {
-    // TODO: Generate export for multiple orders
-    // - Verify tabs are sorted by created_at (earliest to latest)
-    // - Verify each tab has correct order number
+    const { exportGroupBuyOrders: realExportGroupBuyOrders } = await vi.importActual<
+      typeof import('$lib/server/export-builder')
+    >('$lib/server/export-builder');
+
+    const makeOrder = (
+      id: string,
+      orderNumber: string,
+      shippingType: string,
+      createdAt: string
+    ) => ({
+      id,
+      order_number: orderNumber,
+      status: 'submitted',
+      created_at: createdAt,
+      notes: null,
+      admin_notes: null,
+      shipping_name: 'Test User',
+      shipping_line1: '123 Main St',
+      shipping_line2: null,
+      shipping_city: 'New York',
+      shipping_state: 'NY',
+      shipping_postal_code: '10001',
+      shipping_country: 'US',
+      shipping_type: shippingType,
+      shipping_phone_number: null,
+      user: { email: 'test@example.com', paypal_email: null },
+      items: []
+    });
+
+    // Mix of express/regular orders with different dates
+    const mockOrders = [
+      makeOrder('order-3', 'ORD-003', 'regular', '2024-01-03T00:00:00Z'),
+      makeOrder('order-1', 'ORD-001', 'regular', '2024-01-01T00:00:00Z'),
+      makeOrder('order-2', 'ORD-002', 'express', '2024-01-02T00:00:00Z')
+    ];
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: mockOrders, error: null })
+      })
+    } as any);
+
+    const buffer = await realExportGroupBuyOrders('groupbuy-uuid');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+
+    // Should create one tab per order
+    expect(workbook.worksheets).toHaveLength(3);
+
+    // sortOrdersByShippingAndDate: express first, then regular sorted by created_at ascending
+    expect(workbook.worksheets[0].name).toBe('ORD-002'); // express
+    expect(workbook.worksheets[1].name).toBe('ORD-001'); // regular, earliest
+    expect(workbook.worksheets[2].name).toBe('ORD-003'); // regular, latest
   });
 });
