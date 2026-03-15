@@ -33,7 +33,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const body = await request.json()
-  const { addressId, newAddress, shippingType, items, action, paypalEmail, phoneNumber, discordUsername, cartId, cartVersion, notes } = body
+  const {
+    addressId,
+    newAddress,
+    shippingType,
+    items,
+    action,
+    paypalEmail,
+    phoneNumber,
+    discordUsername,
+    cartId,
+    cartVersion,
+    notes
+  } = body
 
   if (!items || items.length === 0) {
     throw error(400, 'Cart is empty')
@@ -52,9 +64,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .from('users')
     .select('discord_id, discord_username')
     .eq('id', locals.user.id)
-    .single();
+    .single()
 
-  const hasDiscordLinked = Boolean(currentUserData?.discord_id || currentUserData?.discord_username);
+  const hasDiscordLinked = Boolean(currentUserData?.discord_id || currentUserData?.discord_username)
 
   if (!hasDiscordLinked && (!discordUsername || !String(discordUsername).trim())) {
     throw error(400, 'Discord Username is required')
@@ -78,9 +90,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   // Check for existing pending order in this group buy
-  const { data: existingOrder } = activeGroupBuy ? await locals.supabase
-    .from('orders')
-    .select(`
+  const { data: existingOrder } = activeGroupBuy
+    ? await locals.supabase
+        .from('orders')
+        .select(
+          `
       id, 
       order_number,
       order_items (
@@ -88,23 +102,29 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         quantity,
         unit_price
       )
-    `)
-    .eq('user_id', locals.user.id)
-    .eq('group_buy_id', activeGroupBuy.id)
-    .eq('status', 'pending')
-    .single() : { data: null }
+    `
+        )
+        .eq('user_id', locals.user.id)
+        .eq('group_buy_id', activeGroupBuy.id)
+        .eq('status', 'pending')
+        .single()
+    : { data: null }
 
   // If there's an existing pending order
   if (existingOrder && activeGroupBuy) {
     // If no action specified, return confirmation request
     if (!action) {
-      const itemCount = existingOrder.order_items?.reduce(
-        (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1), 0
-      ) ?? 0
-      const total = existingOrder.order_items?.reduce(
-        (sum: number, item: { quantity: number | null; unit_price: number | string }) => 
-          sum + (item.quantity ?? 1) * Number(item.unit_price), 0
-      ) ?? 0
+      const itemCount =
+        existingOrder.order_items?.reduce(
+          (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1),
+          0
+        ) ?? 0
+      const total =
+        existingOrder.order_items?.reduce(
+          (sum: number, item: { quantity: number | null; unit_price: number | string }) =>
+            sum + (item.quantity ?? 1) * Number(item.unit_price),
+          0
+        ) ?? 0
 
       return json({
         requiresConfirmation: true,
@@ -124,15 +144,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (action === 'replace') {
       // Delete existing order and items first
-      await locals.supabase
-        .from('order_items')
-        .delete()
-        .eq('order_id', existingOrder.id)
+      await locals.supabase.from('order_items').delete().eq('order_id', existingOrder.id)
 
-      await locals.supabase
-        .from('orders')
-        .delete()
-        .eq('id', existingOrder.id)
+      await locals.supabase.from('orders').delete().eq('id', existingOrder.id)
 
       // Fall through to create new order
     }
@@ -153,7 +167,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (addressError || !address) {
       throw error(400, 'Invalid address')
     }
-    
+
     // Update the existing address with the new phone number
     // @ts-ignore: phone_number not yet typed in generated types
     if (address.phone_number !== String(phoneNumber).trim()) {
@@ -162,7 +176,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         // @ts-ignore: phone_number not yet typed in generated types
         .update({ phone_number: String(phoneNumber).trim() })
         .eq('id', addressId)
-        
+
       if (updateError) {
         logger.warn({ error: updateError }, 'Error updating address phone number')
       } else {
@@ -170,7 +184,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         address.phone_number = String(phoneNumber).trim()
       }
     }
-    
+
     shippingAddress = address
   } else if (newAddress) {
     // Validate new address fields
@@ -195,15 +209,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .single()
 
     if (saveError) {
-      logger.error({
-        error: saveError,
-        errorCode: saveError.code,
-        errorMessage: saveError.message,
-        errorDetails: saveError.details,
-        errorHint: saveError.hint,
-        userId: locals.user.id,
-        addressData: newAddress
-      }, 'Failed to save address')
+      logger.error(
+        {
+          error: saveError,
+          errorCode: saveError.code,
+          errorMessage: saveError.message,
+          errorDetails: saveError.details,
+          errorHint: saveError.hint,
+          userId: locals.user.id,
+          addressData: newAddress
+        },
+        'Failed to save address'
+      )
       throw error(500, `Failed to save address: ${saveError.message || 'Unknown error'}`)
     }
     shippingAddress = savedAddress
@@ -212,21 +229,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Update user's PayPal email and Discord username
-  const updateData: { paypal_email: string, discord_username?: string } = { paypal_email: String(paypalEmail).trim() }
+  const updateData: { paypal_email: string; discord_username?: string } = { paypal_email: String(paypalEmail).trim() }
   if (discordUsername && String(discordUsername).trim()) {
-     updateData.discord_username = String(discordUsername).trim();
+    updateData.discord_username = String(discordUsername).trim()
   }
-  
+
   // Check if user has discord_id or if we are skipping discord validation for local testing?
   // The client enforces the discord username check, we will trust the client for now but update the profile unconditionally if string provided.
-  
-  const { error: profileError } = await locals.supabase
-    .from('users')
-    .update(updateData)
-    .eq('id', locals.user.id)
+
+  const { error: profileError } = await locals.supabase.from('users').update(updateData).eq('id', locals.user.id)
 
   if (profileError) {
-    logger.error({ error: profileError, userId: locals.user.id }, 'Error updating user profile (paypal_email/discord_username)');
+    logger.error(
+      { error: profileError, userId: locals.user.id },
+      'Error updating user profile (paypal_email/discord_username)'
+    )
     // This is not a critical error to stop the order, but log it.
   }
 
@@ -313,12 +330,11 @@ async function mergeIntoExistingOrder(
 ) {
   // Resolve prices server-side for new items (security: never trust client-supplied unitPrice)
   const mergePrices = await fetchPrices(locals.supabase)
-  const newCardIds = newItems.map(i => i.cardId)
-  const { data: mergeCardRows } = await locals.supabase
-    .from('cards')
-    .select('id, card_type')
-    .in('id', newCardIds)
-  const mergeCardTypeMap = new Map(mergeCardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
+  const newCardIds = newItems.map((i) => i.cardId)
+  const { data: mergeCardRows } = await locals.supabase.from('cards').select('id, card_type').in('id', newCardIds)
+  const mergeCardTypeMap = new Map(
+    mergeCardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? []
+  )
 
   // Get existing order items
   const { data: existingItems, error: fetchError } = await locals.supabase
@@ -332,9 +348,7 @@ async function mergeIntoExistingOrder(
   }
 
   // Create a map of existing items by card_id for quick lookup
-  const existingItemsMap = new Map(
-    existingItems?.map(item => [item.card_id, item]) ?? []
-  )
+  const existingItemsMap = new Map(existingItems?.map((item) => [item.card_id, item]) ?? [])
 
   const itemsToInsert: Array<{
     order_id: string
@@ -349,7 +363,7 @@ async function mergeIntoExistingOrder(
 
   for (const newItem of newItems) {
     const existing = existingItemsMap.get(newItem.cardId)
-    
+
     if (existing) {
       // Sum quantities for duplicate cards
       itemsToUpdate.push({
@@ -373,11 +387,9 @@ async function mergeIntoExistingOrder(
   // Batch-update existing items with new quantities (concurrent, not sequential)
   if (itemsToUpdate.length > 0) {
     const updateResults = await Promise.all(
-      itemsToUpdate.map(u =>
-        locals.supabase.from('order_items').update({ quantity: u.quantity }).eq('id', u.id)
-      )
+      itemsToUpdate.map((u) => locals.supabase.from('order_items').update({ quantity: u.quantity }).eq('id', u.id))
     )
-    const batchUpdateError = updateResults.find(r => r.error)?.error
+    const batchUpdateError = updateResults.find((r) => r.error)?.error
     if (batchUpdateError) {
       logger.error({ error: batchUpdateError }, 'Error updating item quantities')
       throw error(500, 'Failed to update order items')
@@ -386,9 +398,7 @@ async function mergeIntoExistingOrder(
 
   // Insert new items
   if (itemsToInsert.length > 0) {
-    const { error: insertError } = await locals.supabase
-      .from('order_items')
-      .insert(itemsToInsert)
+    const { error: insertError } = await locals.supabase.from('order_items').insert(itemsToInsert)
 
     if (insertError) {
       logger.error({ error: insertError }, 'Error inserting new items')
@@ -400,9 +410,9 @@ async function mergeIntoExistingOrder(
   const now = new Date().toISOString()
   await locals.supabase
     .from('orders')
-    .update({ 
+    .update({
       created_at: now,
-      updated_at: now 
+      updated_at: now
     })
     .eq('id', existingOrder.id)
 

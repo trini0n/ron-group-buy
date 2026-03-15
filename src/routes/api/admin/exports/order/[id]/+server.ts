@@ -1,38 +1,38 @@
-import { requireAdmin, createAdminClient } from '$lib/server/admin';
-import { exportSingleOrder } from '$lib/server/export-builder';
-import { error } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { logger } from '$lib/server/logger';
+import { requireAdmin, createAdminClient } from '$lib/server/admin'
+import { exportSingleOrder } from '$lib/server/export-builder'
+import { error } from '@sveltejs/kit'
+import type { RequestEvent } from '@sveltejs/kit'
+import { logger } from '$lib/server/logger'
 
 export async function GET({ params, locals }: RequestEvent) {
   // Require admin permission
-  await requireAdmin(locals);
-  
-  const orderId = params.id;
+  await requireAdmin(locals)
+
+  const orderId = params.id
   if (!orderId) {
-    throw error(400, 'Order ID is required');
+    throw error(400, 'Order ID is required')
   }
-  
+
   // Get order number for filename
-  const adminClient = createAdminClient();
+  const adminClient = createAdminClient()
   const { data: order, error: orderError } = await adminClient
     .from('orders')
     .select('order_number')
     .eq('id', orderId)
-    .single();
-  
+    .single()
+
   if (orderError || !order) {
-    throw error(404, 'Order not found');
+    throw error(404, 'Order not found')
   }
-  
+
   try {
     // Generate export
-    const buffer = await exportSingleOrder(orderId);
-    
+    const buffer = await exportSingleOrder(orderId)
+
     // Create filename with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const filename = `order_${order.order_number}_${timestamp}.xlsx`;
-    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+    const filename = `order_${order.order_number}_${timestamp}.xlsx`
+
     // Return file as download
     return new Response(Buffer.from(buffer), {
       headers: {
@@ -40,9 +40,9 @@ export async function GET({ params, locals }: RequestEvent) {
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': buffer.length.toString()
       }
-    });
+    })
   } catch (err) {
-    logger.error({ error: err }, 'Export error');
-    throw error(500, `Failed to export order: ${(err as Error).message}`);
+    logger.error({ error: err }, 'Export error')
+    throw error(500, `Failed to export order: ${(err as Error).message}`)
   }
-};
+}

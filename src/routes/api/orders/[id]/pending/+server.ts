@@ -21,7 +21,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Fetch the order and verify ownership
   const { data: order, error: orderError } = await locals.supabase
     .from('orders')
-    .select(`
+    .select(
+      `
       id,
       user_id,
       status,
@@ -29,7 +30,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         card_id,
         quantity
       )
-    `)
+    `
+    )
     .eq('id', orderId)
     .single()
 
@@ -47,11 +49,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   if (action === 'merge') {
     // Get or create the user's cart
-    let { data: cart } = await locals.supabase
-      .from('carts')
-      .select('id')
-      .eq('user_id', locals.user.id)
-      .single()
+    let { data: cart } = await locals.supabase.from('carts').select('id').eq('user_id', locals.user.id).single()
 
     if (!cart) {
       const { data: newCart, error: cartError } = await locals.supabase
@@ -72,9 +70,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       .select('card_id, quantity')
       .eq('cart_id', cart.id)
 
-    const existingCartMap = new Map(
-      existingCartItems?.map(item => [item.card_id, item.quantity]) ?? []
-    )
+    const existingCartMap = new Map(existingCartItems?.map((item) => [item.card_id, item.quantity]) ?? [])
 
     // Merge order items into cart — batch all writes instead of per-item DB calls
     const cartItemsToUpdate: Array<{ cart_id: string; card_id: string; quantity: number }> = []
@@ -92,45 +88,33 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     }
 
     if (cartItemsToUpdate.length > 0) {
-      await locals.supabase
-        .from('cart_items')
-        .upsert(cartItemsToUpdate, { onConflict: 'cart_id,card_id' })
+      await locals.supabase.from('cart_items').upsert(cartItemsToUpdate, { onConflict: 'cart_id,card_id' })
     }
     if (cartItemsToInsert.length > 0) {
-      await locals.supabase
-        .from('cart_items')
-        .insert(cartItemsToInsert)
+      await locals.supabase.from('cart_items').insert(cartItemsToInsert)
     }
   }
 
   // Delete the pending order (both for merge and cancel)
   // First delete order items
-  const { error: deleteItemsError } = await locals.supabase
-    .from('order_items')
-    .delete()
-    .eq('order_id', order.id)
+  const { error: deleteItemsError } = await locals.supabase.from('order_items').delete().eq('order_id', order.id)
 
   if (deleteItemsError) {
-      logger.error({ error: deleteItemsError, orderId }, 'Failed to delete order items')
+    logger.error({ error: deleteItemsError, orderId }, 'Failed to delete order items')
     throw error(500, 'Failed to delete order items')
   }
 
   // Then delete the order
-  const { error: deleteOrderError } = await locals.supabase
-    .from('orders')
-    .delete()
-    .eq('id', order.id)
+  const { error: deleteOrderError } = await locals.supabase.from('orders').delete().eq('id', order.id)
 
   if (deleteOrderError) {
-      logger.error({ error: deleteOrderError, orderId }, 'Failed to delete order')
+    logger.error({ error: deleteOrderError, orderId }, 'Failed to delete order')
     throw error(500, 'Failed to delete order')
   }
 
   return json({
     success: true,
     action,
-    message: action === 'merge' 
-      ? 'Order items merged into your cart' 
-      : 'Pending order cancelled'
+    message: action === 'merge' ? 'Order items merged into your cart' : 'Pending order cancelled'
   })
 }

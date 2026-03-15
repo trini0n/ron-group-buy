@@ -47,7 +47,7 @@ export interface DuplicateGroup {
 /**
  * Generate a normalized identity key for a card
  * Format: set_code|collector_number|card_name|is_foil|is_etched|language
- * 
+ *
  * Rules:
  * - All text fields are trimmed and lowercased
  * - Boolean fields are converted to "true" or "false"
@@ -93,7 +93,7 @@ export function isSameIdentity(card1: CardIdentity, card2: CardIdentity): boolea
 /**
  * Extract numeric portion from a serial number for comparison
  * Handles formats like "H-123", "N-9", "F-2233"
- * 
+ *
  * @param serial - Serial number string
  * @returns Numeric portion, or 0 if not found
  */
@@ -105,7 +105,7 @@ function extractSerialNumber(serial: string): number {
 /**
  * Compare two serial numbers numerically
  * First compares the prefix (letter), then the numeric portion
- * 
+ *
  * @param a - First serial
  * @param b - Second serial
  * @returns Negative if a < b, positive if a > b, 0 if equal
@@ -129,7 +129,7 @@ function compareSerials(a: string, b: string): number {
 
 /**
  * Detect duplicate card identities within a batch of cards
- * 
+ *
  * @param cards - Array of cards to check for duplicates
  * @returns Array of duplicate groups with serials to keep and mark OOS
  */
@@ -209,17 +209,15 @@ export async function resolveDuplicates(
       // Create alert record
       const firstCard = group.cards[0]
       if (!firstCard) continue // Safety check
-      const { error: alertError } = await supabase
-        .from('sync_duplicate_alerts')
-        .insert({
-          card_identity_key: group.identityKey,
-          card_name: firstCard.card_name,
-          set_code: firstCard.set_code,
-          collector_number: firstCard.collector_number,
-          duplicate_serials: group.cards.map(c => c.serial),
-          kept_serial: group.keptSerial,
-          marked_oos_serials: group.markedOosSerials
-        })
+      const { error: alertError } = await supabase.from('sync_duplicate_alerts').insert({
+        card_identity_key: group.identityKey,
+        card_name: firstCard.card_name,
+        set_code: firstCard.set_code,
+        collector_number: firstCard.collector_number,
+        duplicate_serials: group.cards.map((c) => c.serial),
+        kept_serial: group.keptSerial,
+        marked_oos_serials: group.markedOosSerials
+      })
 
       if (alertError) {
         errors.push(`Failed to create alert for: ${group.identityKey}`)

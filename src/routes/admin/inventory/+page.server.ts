@@ -5,7 +5,7 @@ export const load = async ({ url, setHeaders }) => {
   // Short cache for admin pages (1 minute) - balances freshness with reduced origin hits
   setHeaders({
     'Cache-Control': 'private, max-age=60'
-  });
+  })
 
   const adminClient = createAdminClient()
 
@@ -58,7 +58,18 @@ export const load = async ({ url, setHeaders }) => {
 
   if (error) {
     logger.error({ error }, 'Error fetching cards')
-    return { cards: [], totalCount: 0, totalDuplicates: 0, page, perPage, sets: [], searchQuery, stockFilter, setFilter: setsParam || '', duplicatesOnly }
+    return {
+      cards: [],
+      totalCount: 0,
+      totalDuplicates: 0,
+      page,
+      perPage,
+      sets: [],
+      searchQuery,
+      stockFilter,
+      setFilter: setsParam || '',
+      duplicatesOnly
+    }
   }
 
   // Get total duplicate count using SQL function (fast, no table scan)

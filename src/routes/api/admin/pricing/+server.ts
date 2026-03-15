@@ -44,10 +44,7 @@ export async function PATCH({ locals, request }: RequestEvent) {
 
   const body: { card_type: string; price: number }[] = await request.json()
 
-  if (
-    !Array.isArray(body) ||
-    body.some((r) => typeof r.card_type !== 'string' || typeof r.price !== 'number')
-  ) {
+  if (!Array.isArray(body) || body.some((r) => typeof r.card_type !== 'string' || typeof r.price !== 'number')) {
     throw error(400, 'Invalid payload')
   }
 
@@ -60,15 +57,10 @@ export async function PATCH({ locals, request }: RequestEvent) {
 
   if (upsertError) throw error(500, upsertError.message)
 
-  const priceMap: Record<string, number> = Object.fromEntries(
-    body.map((r) => [r.card_type, r.price])
-  )
+  const priceMap: Record<string, number> = Object.fromEntries(body.map((r) => [r.card_type, r.price]))
 
   // Fetch pending order IDs for the active group buy
-  const { data: pendingOrders } = await locals.supabase
-    .from('orders')
-    .select('id')
-    .eq('status', 'pending')
+  const { data: pendingOrders } = await locals.supabase.from('orders').select('id').eq('status', 'pending')
 
   const pendingOrderIds = (pendingOrders ?? []).map((o: { id: string }) => o.id)
 
@@ -96,10 +88,7 @@ export async function PATCH({ locals, request }: RequestEvent) {
       }
       await Promise.all(
         Array.from(typeToItemIds.entries()).map(([cardType, ids]) =>
-          locals.supabase
-            .from('order_items')
-            .update({ unit_price: priceMap[cardType] })
-            .in('id', ids)
+          locals.supabase.from('order_items').update({ unit_price: priceMap[cardType] }).in('id', ids)
         )
       )
     }

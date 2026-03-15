@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
   // Private cache ensures user-specific data isn't shared
   setHeaders({
     'Cache-Control': 'private, max-age=30'
-  });
+  })
 
   // Use admin client for guests to bypass RLS (guest carts don't have user_id)
   const supabase = locals.user ? locals.supabase : createAdminClient()

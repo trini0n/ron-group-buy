@@ -37,19 +37,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   if (insertError) {
-    logger.error({
-      error: insertError,
-      errorCode: insertError.code,
-      errorMessage: insertError.message,
-      errorDetails: insertError.details,
-      errorHint: insertError.hint,
-      userId: locals.user.id,
-      addressData: {
-        name: addressData.name,
-        city: addressData.city,
-        country: addressData.country
-      }
-    }, 'Error creating address')
+    logger.error(
+      {
+        error: insertError,
+        errorCode: insertError.code,
+        errorMessage: insertError.message,
+        errorDetails: insertError.details,
+        errorHint: insertError.hint,
+        userId: locals.user.id,
+        addressData: {
+          name: addressData.name,
+          city: addressData.city,
+          country: addressData.country
+        }
+      },
+      'Error creating address'
+    )
     throw error(500, `Failed to create address: ${insertError.message || 'Unknown error'}`)
   }
 

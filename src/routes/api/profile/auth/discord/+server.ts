@@ -39,7 +39,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
     // Verify user has other auth methods before unlinking
     const { data: identitiesData } = await locals.supabase.auth.getUserIdentities()
     const identities = identitiesData?.identities || []
-    
+
     if (identities.length <= 1) {
       throw error(400, 'Cannot remove last authentication method')
     }
@@ -58,10 +58,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
     }
 
     // Clear discord_id and discord_username from users table
-    await locals.supabase
-      .from('users')
-      .update({ discord_id: null, discord_username: null })
-      .eq('id', locals.user.id)
+    await locals.supabase.from('users').update({ discord_id: null, discord_username: null }).eq('id', locals.user.id)
 
     return json({ success: true })
   } catch (err: any) {

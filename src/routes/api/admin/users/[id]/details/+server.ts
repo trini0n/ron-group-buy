@@ -39,7 +39,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
   try {
     const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(params.id)
-    
+
     if (!authError && authData?.user?.identities) {
       const identities = authData.user.identities
       authMethods = {

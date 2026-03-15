@@ -15,8 +15,8 @@ Removed the dead private method `updateNotificationStatus` from `src/lib/server/
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
+| File                                      | Change                                                         |
+| ----------------------------------------- | -------------------------------------------------------------- |
 | `src/lib/server/notifications/service.ts` | Removed dead `private async updateNotificationStatus()` method |
 
 ## Verification

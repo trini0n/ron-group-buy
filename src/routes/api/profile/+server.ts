@@ -16,10 +16,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
   if (name !== undefined) updateData.name = name
   if (paypal_email !== undefined) updateData.paypal_email = paypal_email || null
 
-  const { error: updateError } = await locals.supabase
-    .from('users')
-    .update(updateData)
-    .eq('id', locals.user.id)
+  const { error: updateError } = await locals.supabase.from('users').update(updateData).eq('id', locals.user.id)
 
   if (updateError) {
     logger.error({ error: updateError }, 'Error updating profile')

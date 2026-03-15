@@ -240,10 +240,7 @@ export class CartService {
 
     // Fetch all card data and validate
     const cardIds = items.map((item) => item.card_id)
-    const { data: cards, error: cardsError } = await this.supabase
-      .from('cards')
-      .select('*')
-      .in('id', cardIds)
+    const { data: cards, error: cardsError } = await this.supabase.from('cards').select('*').in('id', cardIds)
 
     if (cardsError) {
       return { success: false, cart: null as any, error: 'Failed to fetch card data' }
@@ -358,7 +355,6 @@ export class CartService {
     const updatedCart = await this.getCartWithItems(cartId)
     return { success: true, cart: updatedCart }
   }
-
 
   /**
    * Update item quantity
@@ -819,10 +815,10 @@ export class CartService {
 
   /**
    * Merge an order into a cart using identity-based matching
-   * 
+   *
    * This resolves order items by card identity rather than card_id/serial,
    * allowing correct merging even after inventory resyncs that change serial numbers.
-   * 
+   *
    * @param orderId - The order to merge
    * @param targetCartId - The cart to merge into
    * @param options - Merge options (dry_run, etc)
@@ -836,7 +832,8 @@ export class CartService {
     // Fetch order with items
     const { data: order, error: orderError } = await this.supabase
       .from('orders')
-      .select(`
+      .select(
+        `
         id,
         order_items (
           id,
@@ -851,7 +848,8 @@ export class CartService {
           is_etched,
           language
         )
-      `)
+      `
+      )
       .eq('id', orderId)
       .single()
 
@@ -888,7 +886,7 @@ export class CartService {
     // Pre-warm price cache and run all identity lookups in parallel (replaces sequential per-item queries)
     await this.getPrice('Normal')
     const identityResults = await Promise.all(
-      order.order_items.map(orderItem => {
+      order.order_items.map((orderItem) => {
         const identity: CardIdentity = {
           set_code: orderItem.set_code || null,
           collector_number: orderItem.collector_number || null,
@@ -980,11 +978,7 @@ export class CartService {
     // Get final cart version
     let new_cart_version = 0
     if (!options.dry_run) {
-      const { data: finalCart } = await this.supabase
-        .from('carts')
-        .select('version')
-        .eq('id', targetCartId)
-        .single()
+      const { data: finalCart } = await this.supabase.from('carts').select('version').eq('id', targetCartId).single()
       new_cart_version = finalCart?.version || 0
     }
 

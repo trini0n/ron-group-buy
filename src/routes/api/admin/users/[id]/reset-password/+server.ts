@@ -37,13 +37,13 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   // Check if user has email/password auth method
   try {
     const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(params.id)
-    
+
     if (authError) {
       throw error(500, 'Failed to fetch user auth data')
     }
 
     const hasPassword = authData?.user?.identities?.some((i: any) => i.provider === 'email')
-    
+
     if (!hasPassword) {
       throw error(400, 'User does not have email/password authentication enabled')
     }
@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       throw error(500, resetError.message || 'Failed to generate password reset link')
     }
 
-    return json({ 
+    return json({
       success: true,
       message: 'Password reset email sent successfully'
     })

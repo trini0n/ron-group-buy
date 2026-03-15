@@ -107,15 +107,25 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
   // This dramatically improves UX by serving cached content instantly while updating in background
   setHeaders({
     'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800'
-  });
+  })
 
   // Parse initial filter state from URL
   const initialFilters = {
     search: url.searchParams.get('q') || '',
-    setCodes: url.searchParams.get('sets')?.split(',').filter(Boolean).map(s => s.toLowerCase()) || [],
+    setCodes:
+      url.searchParams
+        .get('sets')
+        ?.split(',')
+        .filter(Boolean)
+        .map((s) => s.toLowerCase()) || [],
     colorIdentity: url.searchParams.get('colors')?.split(',').filter(Boolean) || [],
     colorIdentityStrict: url.searchParams.get('strict') === '1',
-    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil', 'Raised Foil', 'Serialized'],
+    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || [
+      'Non-Foil',
+      'Foil',
+      'Raised Foil',
+      'Serialized'
+    ],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],
     inStockOnly: url.searchParams.get('stock') === '1',

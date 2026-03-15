@@ -217,21 +217,21 @@ export const POST: RequestHandler = async ({ locals }) => {
     }))
 
     const duplicateGroups = detectDuplicatesInBatch(cardsWithIdentity)
-    
+
     let duplicatesResolved = 0
     let alertsCreated = 0
 
     if (duplicateGroups.length > 0) {
       console.log(`⚠️  Found ${duplicateGroups.length} duplicate identity groups`)
-      
+
       // Update cards array to mark lower serials as OOS
       const oosSerials = new Set<string>()
-      duplicateGroups.forEach(group => {
-        group.markedOosSerials.forEach(serial => oosSerials.add(serial))
+      duplicateGroups.forEach((group) => {
+        group.markedOosSerials.forEach((serial) => oosSerials.add(serial))
       })
 
       // Mark duplicates as out of stock in the cards to upsert
-      cardsToUpsert.forEach(card => {
+      cardsToUpsert.forEach((card) => {
         if (oosSerials.has(card.serial)) {
           card.is_in_stock = false
         }
@@ -270,7 +270,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       console.log(`🚨 Creating ${duplicateGroups.length} admin alerts for duplicates...`)
       const result = await resolveDuplicates(adminClient, duplicateGroups)
       alertsCreated = result.alertsCreated
-      
+
       if (result.errors.length > 0) {
         logger.error({ errors: result.errors }, 'Errors creating duplicate alerts')
       } else {

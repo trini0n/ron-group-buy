@@ -32,11 +32,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   }
 
   // Get or create the user's cart
-  let { data: cart } = await locals.supabase
-    .from('carts')
-    .select('id')
-    .eq('user_id', locals.user.id)
-    .single()
+  let { data: cart } = await locals.supabase.from('carts').select('id').eq('user_id', locals.user.id).single()
 
   if (!cart) {
     const { data: newCart, error: cartError } = await locals.supabase
@@ -69,7 +65,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     }
 
     if (mergeReport.items_removed.length > 0) {
-      const removedNames = mergeReport.items_removed.slice(0, 3).map(i => i.card_name)
+      const removedNames = mergeReport.items_removed.slice(0, 3).map((i) => i.card_name)
       const more = mergeReport.items_removed.length > 3 ? ` and ${mergeReport.items_removed.length - 3} more` : ''
       messages.push(`⚠️  ${removedNames.join(', ')}${more} no longer available`)
     }

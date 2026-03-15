@@ -18,22 +18,25 @@ Originally planned for `src/lib/server/*.ts` and `src/routes/api/**/*.ts` — ex
 ## Files Modified
 
 ### `src/lib/server/`
-| File | Changes |
-|------|---------|
-| `card-identity.ts` | Added logger import; replaced 4 `console.error` calls |
+
+| File                  | Changes                                                                  |
+| --------------------- | ------------------------------------------------------------------------ |
+| `card-identity.ts`    | Added logger import; replaced 4 `console.error` calls                    |
 | `gphoto-converter.ts` | Added logger import; replaced 2 `console.warn` + 3 `console.error` calls |
-| `user-profile.ts` | Added logger import; replaced 2 `console.error` calls |
+| `user-profile.ts`     | Added logger import; replaced 2 `console.error` calls                    |
 
 ### `src/routes/api/` (30+ files)
+
 All API server files — including profile, orders, cart, admin (users, config, sync-alerts, orders, pricing, inventory, exports), import/search, and import/deck.
 
 ### `src/routes/` (page servers and auth)
-| File | Changes |
-|------|---------|
-| `+page.server.ts` | Added logger; replaced 2 `console.error` calls |
-| `admin/users/+page.server.ts` | Added logger; replaced 1 console.error |
-| `admin/inventory/+page.server.ts` | Added logger; replaced 1 console.error |
-| `auth/callback/+server.ts` | Added logger; replaced 1 console.error |
+
+| File                              | Changes                                        |
+| --------------------------------- | ---------------------------------------------- |
+| `+page.server.ts`                 | Added logger; replaced 2 `console.error` calls |
+| `admin/users/+page.server.ts`     | Added logger; replaced 1 console.error         |
+| `admin/inventory/+page.server.ts` | Added logger; replaced 1 console.error         |
+| `auth/callback/+server.ts`        | Added logger; replaced 1 console.error         |
 
 ## Verification
 

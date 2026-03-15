@@ -9,14 +9,15 @@
 **Before (fail-open):** If `CRON_SECRET` was absent, the endpoint executed unauthenticated.
 
 **After (fail-closed):**
+
 ```typescript
-const cronSecret = process.env.CRON_SECRET?.trim();
+const cronSecret = process.env.CRON_SECRET?.trim()
 if (!cronSecret) {
-  throw error(503, 'CRON_SECRET not configured');
+  throw error(503, 'CRON_SECRET not configured')
 }
-const authHeader = request.headers.get('authorization');
+const authHeader = request.headers.get('authorization')
 if (authHeader !== `Bearer ${cronSecret}`) {
-  throw error(401, 'Unauthorized');
+  throw error(401, 'Unauthorized')
 }
 ```
 
@@ -31,6 +32,7 @@ if (authHeader !== `Bearer ${cronSecret}`) {
 **After:** Uses `locals.supabase` (request-scoped anon/user client).
 
 Changes:
+
 - Removed `createAdminClient` import
 - Added `locals` to POST handler destructuring: `async ({ request, locals })`
 - `const supabase = locals.supabase` replaces `const adminClient = createAdminClient()`
@@ -41,4 +43,5 @@ Changes:
 The `cards` table has a public SELECT policy (`USING (true)`), so the anon client has identical read access for this endpoint's queries. Service-role was unnecessary and increased attack surface.
 
 ## Commit
+
 `bbe320a` — fix(security): fail-closed cron auth and remove service-role in import search

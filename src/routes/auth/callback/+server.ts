@@ -56,8 +56,7 @@ async function checkForNewProviderConflict(
   // Check each identity for conflicts
   for (const identity of user.identities || []) {
     if (identity.provider === 'google' || identity.provider === 'discord') {
-      const providerId = (identity.identity_data?.provider_id as string) || 
-                         (identity.identity_data?.sub as string)
+      const providerId = (identity.identity_data?.provider_id as string) || (identity.identity_data?.sub as string)
       if (providerId) {
         const conflict = await checkProviderConflict(supabase, user.id, identity.provider, providerId)
         if (conflict) {
@@ -111,15 +110,18 @@ async function syncUserData(user: {
     avatarUrl = (discordIdentity.identity_data.avatar_url as string) || null
   } else if (currentProvider === 'google' && googleIdentity?.identity_data) {
     name = (googleIdentity.identity_data.full_name as string) || (googleIdentity.identity_data.name as string) || null
-    avatarUrl = (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
+    avatarUrl =
+      (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
   } else {
     // Fallback: use whichever provider has data (prefer Discord, then Google)
     if (discordIdentity?.identity_data) {
-      name = (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
+      name =
+        (discordIdentity.identity_data.full_name as string) || (discordIdentity.identity_data.name as string) || null
       avatarUrl = (discordIdentity.identity_data.avatar_url as string) || null
     } else if (googleIdentity?.identity_data) {
       name = (googleIdentity.identity_data.full_name as string) || (googleIdentity.identity_data.name as string) || null
-      avatarUrl = (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
+      avatarUrl =
+        (googleIdentity.identity_data.avatar_url as string) || (googleIdentity.identity_data.picture as string) || null
     }
   }
 

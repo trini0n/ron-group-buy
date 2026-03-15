@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     // Check if user already has a password
     const { data: identitiesData } = await locals.supabase.auth.getUserIdentities()
     const hasPassword = identitiesData?.identities?.some((i: any) => i.provider === 'email')
-    
+
     if (hasPassword) {
       throw error(400, 'Account already has a password. Use PATCH to change it.')
     }

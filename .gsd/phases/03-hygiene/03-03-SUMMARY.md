@@ -12,6 +12,7 @@ Replaced two TODO-only test bodies in `exports.test.ts` with real ExcelJS-based 
 ## Tests Implemented
 
 ### `Export File Content Validation > should generate valid Excel file structure`
+
 - Uses `vi.importActual` to get the real `exportSingleOrder` implementation
 - Mocks Supabase admin client to return a test order with 1 line item
 - Parses the resulting Excel buffer with ExcelJS
@@ -23,6 +24,7 @@ Replaced two TODO-only test bodies in `exports.test.ts` with real ExcelJS-based 
   - Line items table header row contains all 9 expected columns (`Card Serial` through `Quantity`)
 
 ### `Export File Content Validation > should handle multi-tab export with correct tab ordering`
+
 - Uses `vi.importActual` to get the real `exportGroupBuyOrders` implementation
 - Creates 3 test orders: 1 express (ORD-002, 2024-01-02), 2 regular (ORD-001 early, ORD-003 late)
 - Asserts:
@@ -32,8 +34,8 @@ Replaced two TODO-only test bodies in `exports.test.ts` with real ExcelJS-based 
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
+| File                                                     | Change                                                                                                     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `src/routes/api/admin/exports/__tests__/exports.test.ts` | Added `import ExcelJS from 'exceljs'`; replaced 2 TODO test bodies with real assertions (~133 lines added) |
 
 ## Verification

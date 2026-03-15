@@ -26,10 +26,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
   const showResolved = url.searchParams.get('resolved') === 'true'
 
-  let query = adminClient
-    .from('sync_duplicate_alerts')
-    .select('*')
-    .order('sync_timestamp', { ascending: false })
+  let query = adminClient.from('sync_duplicate_alerts').select('*').order('sync_timestamp', { ascending: false })
 
   if (!showResolved) {
     query = query.eq('resolved', false)

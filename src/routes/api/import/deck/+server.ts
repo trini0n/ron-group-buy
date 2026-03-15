@@ -272,17 +272,23 @@ async function fetchArchidektDeck(url: string): Promise<{ name: string; cards: D
     else if (categories.includes('Companion')) boardType = 'companions'
     else if (categories.includes('Sideboard') || categories.includes('Maybeboard')) boardType = 'sideboard'
 
-    let typeLine =
-      entry.card.typeLine ?? entry.card.oracleCard.typeLine ?? entry.card.oracleCard.type ?? ''
+    let typeLine = entry.card.typeLine ?? entry.card.oracleCard.typeLine ?? entry.card.oracleCard.type ?? ''
     if (!typeLine) {
       const typeMap: Record<string, string> = {
-        Creature: 'Creature', Creatures: 'Creature',
-        Instant: 'Instant', Instants: 'Instant',
-        Sorcery: 'Sorcery', Sorceries: 'Sorcery',
-        Artifact: 'Artifact', Artifacts: 'Artifact',
-        Enchantment: 'Enchantment', Enchantments: 'Enchantment',
-        Planeswalker: 'Planeswalker', Planeswalkers: 'Planeswalker',
-        Land: 'Land', Lands: 'Land'
+        Creature: 'Creature',
+        Creatures: 'Creature',
+        Instant: 'Instant',
+        Instants: 'Instant',
+        Sorcery: 'Sorcery',
+        Sorceries: 'Sorcery',
+        Artifact: 'Artifact',
+        Artifacts: 'Artifact',
+        Enchantment: 'Enchantment',
+        Enchantments: 'Enchantment',
+        Planeswalker: 'Planeswalker',
+        Planeswalkers: 'Planeswalker',
+        Land: 'Land',
+        Lands: 'Land'
       }
       typeLine = categories.map((c) => typeMap[c]).find(Boolean) ?? ''
     }

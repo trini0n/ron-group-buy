@@ -90,7 +90,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   // Send tracking notification if tracking number was just added
   if (isAddingTracking && currentOrder) {
     const notificationService = createNotificationService(adminClient)
-    
+
     // Build tracking URL (use 17track.net as universal tracker)
     const trackingUrl = `https://t.17track.net/en#nums=${tracking_number}`
 
@@ -103,14 +103,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
     }
 
     // Fire and forget
-    notificationService.send({
-      userId: currentOrder.user_id,
-      orderId: currentOrder.id,
-      type: 'tracking_added',
-      variables
-    }).catch(err => {
-      logger.error({ orderId: currentOrder.id, error: err }, 'Failed to send tracking notification')
-    })
+    notificationService
+      .send({
+        userId: currentOrder.user_id,
+        orderId: currentOrder.id,
+        type: 'tracking_added',
+        variables
+      })
+      .catch((err) => {
+        logger.error({ orderId: currentOrder.id, error: err }, 'Failed to send tracking notification')
+      })
   }
 
   return json({ success: true })

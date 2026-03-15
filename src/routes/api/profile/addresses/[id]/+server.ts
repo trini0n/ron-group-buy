@@ -28,15 +28,18 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     .single()
 
   if (updateError) {
-    logger.error({
-      error: updateError,
-      errorCode: updateError.code,
-      errorMessage: updateError.message,
-      errorDetails: updateError.details,
-      errorHint: updateError.hint,
-      userId: locals.user.id,
-      addressId: params.id
-    }, 'Error updating address')
+    logger.error(
+      {
+        error: updateError,
+        errorCode: updateError.code,
+        errorMessage: updateError.message,
+        errorDetails: updateError.details,
+        errorHint: updateError.hint,
+        userId: locals.user.id,
+        addressId: params.id
+      },
+      'Error updating address'
+    )
     throw error(500, `Failed to update address: ${updateError.message || 'Unknown error'}`)
   }
 
@@ -56,15 +59,18 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     .eq('user_id', locals.user.id)
 
   if (deleteError) {
-    logger.error({
-      error: deleteError,
-      errorCode: deleteError.code,
-      errorMessage: deleteError.message,
-      errorDetails: deleteError.details,
-      errorHint: deleteError.hint,
-      userId: locals.user.id,
-      addressId: params.id
-    }, 'Error deleting address')
+    logger.error(
+      {
+        error: deleteError,
+        errorCode: deleteError.code,
+        errorMessage: deleteError.message,
+        errorDetails: deleteError.details,
+        errorHint: deleteError.hint,
+        userId: locals.user.id,
+        addressId: params.id
+      },
+      'Error deleting address'
+    )
     throw error(500, `Failed to delete address: ${deleteError.message || 'Unknown error'}`)
   }
 

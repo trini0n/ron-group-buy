@@ -1,32 +1,34 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-import { logger } from './logger';
+import { promises as fs } from 'fs'
+import path from 'path'
+import { logger } from './logger'
 
 // Export file storage configuration
-const EXPORTS_DIR = '/tmp/exports';
-const MANIFEST_FILE = '/tmp/exports/manifest.json';
-const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const EXPORTS_DIR = '/tmp/exports'
+const MANIFEST_FILE = '/tmp/exports/manifest.json'
+const TTL_MS = 12 * 60 * 60 * 1000 // 12 hours
 
 // In-process mutex: serializes all manifest read-modify-write operations
-let manifestLock: Promise<void> = Promise.resolve();
+let manifestLock: Promise<void> = Promise.resolve()
 
 async function withManifestLock<T>(fn: () => Promise<T>): Promise<T> {
-  let resolve!: () => void;
-  const next = new Promise<void>(r => { resolve = r; });
-  const current = manifestLock;
-  manifestLock = next;
-  await current;
+  let resolve!: () => void
+  const next = new Promise<void>((r) => {
+    resolve = r
+  })
+  const current = manifestLock
+  manifestLock = next
+  await current
   try {
-    return await fn();
+    return await fn()
   } finally {
-    resolve();
+    resolve()
   }
 }
 
 interface ExportManifestEntry {
-  filename: string;
-  path: string;
-  createdAt: number;
+  filename: string
+  path: string
+  createdAt: number
 }
 
 /**
@@ -34,9 +36,9 @@ interface ExportManifestEntry {
  */
 async function ensureExportsDir(): Promise<void> {
   try {
-    await fs.access(EXPORTS_DIR);
+    await fs.access(EXPORTS_DIR)
   } catch {
-    await fs.mkdir(EXPORTS_DIR, { recursive: true });
+    await fs.mkdir(EXPORTS_DIR, { recursive: true })
   }
 }
 
@@ -45,11 +47,11 @@ async function ensureExportsDir(): Promise<void> {
  */
 async function loadManifest(): Promise<ExportManifestEntry[]> {
   try {
-    const data = await fs.readFile(MANIFEST_FILE, 'utf-8');
-    return JSON.parse(data);
+    const data = await fs.readFile(MANIFEST_FILE, 'utf-8')
+    return JSON.parse(data)
   } catch {
     // File doesn't exist or is invalid, return empty manifest
-    return [];
+    return []
   }
 }
 
@@ -57,8 +59,8 @@ async function loadManifest(): Promise<ExportManifestEntry[]> {
  * Save the export manifest
  */
 async function saveManifest(manifest: ExportManifestEntry[]): Promise<void> {
-  await ensureExportsDir();
-  await fs.writeFile(MANIFEST_FILE, JSON.stringify(manifest, null, 2), 'utf-8');
+  await ensureExportsDir()
+  await fs.writeFile(MANIFEST_FILE, JSON.stringify(manifest, null, 2), 'utf-8')
 }
 
 /**
@@ -66,30 +68,30 @@ async function saveManifest(manifest: ExportManifestEntry[]): Promise<void> {
  * Returns the full file path
  */
 export async function saveExportFile(buffer: Buffer, filename: string): Promise<string> {
-  await ensureExportsDir();
-  
-  const filePath = path.join(EXPORTS_DIR, filename);
-  await fs.writeFile(filePath, buffer);
-  
+  await ensureExportsDir()
+
+  const filePath = path.join(EXPORTS_DIR, filename)
+  await fs.writeFile(filePath, buffer)
+
   // Locked read-modify-write to prevent concurrent manifest corruption
   await withManifestLock(async () => {
-    const manifest = await loadManifest();
+    const manifest = await loadManifest()
     manifest.push({
       filename,
       path: filePath,
       createdAt: Date.now()
-    });
-    await saveManifest(manifest);
-  });
-  
-  return filePath;
+    })
+    await saveManifest(manifest)
+  })
+
+  return filePath
 }
 
 /**
  * Get the file path for an export file
  */
 export function getExportFilePath(filename: string): string {
-  return path.join(EXPORTS_DIR, filename);
+  return path.join(EXPORTS_DIR, filename)
 }
 
 /**
@@ -98,65 +100,65 @@ export function getExportFilePath(filename: string): string {
  */
 export async function cleanupExpiredExports(): Promise<{ deleted: number; errors: string[] }> {
   return withManifestLock(async () => {
-  const manifest = await loadManifest();
-  const now = Date.now();
-  const errors: string[] = [];
-  let deleted = 0;
-  
-  const remainingEntries: ExportManifestEntry[] = [];
-  
-  for (const entry of manifest) {
-    const age = now - entry.createdAt;
-    
-    if (age > TTL_MS) {
-      // File is expired, delete it
-      try {
-        await fs.unlink(entry.path);
-        deleted++;
-        logger.debug({ filename: entry.filename, age }, 'Export file deleted');
-      } catch (error) {
-        // File might already be deleted or inaccessible
-        const errorCode = (error as NodeJS.ErrnoException).code;
-        if (errorCode !== 'ENOENT') {
-          // Only log if it's NOT a "file not found" error
-          logger.warn({ error, filename: entry.filename }, '...to delete export file');
-          errors.push(`Failed to delete ${entry.filename}: ${error}`);
+    const manifest = await loadManifest()
+    const now = Date.now()
+    const errors: string[] = []
+    let deleted = 0
+
+    const remainingEntries: ExportManifestEntry[] = []
+
+    for (const entry of manifest) {
+      const age = now - entry.createdAt
+
+      if (age > TTL_MS) {
+        // File is expired, delete it
+        try {
+          await fs.unlink(entry.path)
+          deleted++
+          logger.debug({ filename: entry.filename, age }, 'Export file deleted')
+        } catch (error) {
+          // File might already be deleted or inaccessible
+          const errorCode = (error as NodeJS.ErrnoException).code
+          if (errorCode !== 'ENOENT') {
+            // Only log if it's NOT a "file not found" error
+            logger.warn({ error, filename: entry.filename }, '...to delete export file')
+            errors.push(`Failed to delete ${entry.filename}: ${error}`)
+          }
         }
+      } else {
+        // File is still valid, keep in manifest
+        remainingEntries.push(entry)
       }
-    } else {
-      // File is still valid, keep in manifest
-      remainingEntries.push(entry);
     }
-  }
-  
-  // Save updated manifest
-  await saveManifest(remainingEntries);
-  
-  return { deleted, errors };
-  });
+
+    // Save updated manifest
+    await saveManifest(remainingEntries)
+
+    return { deleted, errors }
+  })
 }
 
 /**
  * Delete a specific export file
  */
 export async function deleteExportFile(filename: string): Promise<void> {
-  const filePath = path.join(EXPORTS_DIR, filename);
-  
+  const filePath = path.join(EXPORTS_DIR, filename)
+
   try {
-    await fs.unlink(filePath);
-    logger.debug({ filename }, 'Export file deleted');
+    await fs.unlink(filePath)
+    logger.debug({ filename }, 'Export file deleted')
   } catch (error) {
     // Only log if it's NOT a "file not found" error
-    const errorCode = (error as NodeJS.ErrnoException).code;
+    const errorCode = (error as NodeJS.ErrnoException).code
     if (errorCode !== 'ENOENT') {
-      logger.warn({ error, filename }, 'Failed to delete export file');
+      logger.warn({ error, filename }, 'Failed to delete export file')
     }
   }
-  
+
   // Locked read-modify-write to prevent concurrent manifest corruption
   await withManifestLock(async () => {
-    const manifest = await loadManifest();
-    const updatedManifest = manifest.filter(entry => entry.filename !== filename);
-    await saveManifest(updatedManifest);
-  });
+    const manifest = await loadManifest()
+    const updatedManifest = manifest.filter((entry) => entry.filename !== filename)
+    await saveManifest(updatedManifest)
+  })
 }

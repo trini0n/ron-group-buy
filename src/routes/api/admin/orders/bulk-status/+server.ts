@@ -7,7 +7,7 @@ import { logger } from '$lib/server/logger'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Verify admin access
-  if (!await isAdminRequest(locals)) {
+  if (!(await isAdminRequest(locals))) {
     throw error(403, 'Admin access required')
   }
 
@@ -27,7 +27,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // Get current order statuses and user info for notifications
   const { data: currentOrders, error: fetchError } = await adminClient
     .from('orders')
-    .select(`
+    .select(
+      `
       id,
       status,
       order_number,
@@ -36,7 +37,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       tracking_carrier,
       users!inner(discord_id),
       group_buy_config(name)
-    `)
+    `
+    )
     .in('id', orderIds)
 
   if (fetchError) {
@@ -45,10 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Update all orders
-  const { error: updateError } = await adminClient
-    .from('orders')
-    .update({ status })
-    .in('id', orderIds)
+  const { error: updateError } = await adminClient.from('orders').update({ status }).in('id', orderIds)
 
   if (updateError) {
     logger.error({ error: updateError }, 'Error updating orders')
@@ -56,18 +55,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Create status history entries for each order
-  const historyEntries = currentOrders?.map(order => ({
-    order_id: order.id,
-    old_status: order.status,
-    new_status: status,
-    notes: `Bulk status update`,
-    changed_by: locals.user?.id
-  })) || []
+  const historyEntries =
+    currentOrders?.map((order) => ({
+      order_id: order.id,
+      old_status: order.status,
+      new_status: status,
+      notes: `Bulk status update`,
+      changed_by: locals.user?.id
+    })) || []
 
   if (historyEntries.length > 0) {
-    await adminClient
-      .from('order_status_history')
-      .insert(historyEntries)
+    await adminClient.from('order_status_history').insert(historyEntries)
   }
 
   // Queue notifications for users with Discord connected
@@ -79,9 +77,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (order.users?.discord_id) {
       try {
         // Build tracking URL if tracking exists
-        const trackingUrl = order.tracking_number
-          ? `https://t.17track.net/en#nums=${order.tracking_number}`
-          : undefined
+        const trackingUrl = order.tracking_number ? `https://t.17track.net/en#nums=${order.tracking_number}` : undefined
 
         const result = await notificationService.send({
           userId: order.user_id,

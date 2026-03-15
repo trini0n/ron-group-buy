@@ -113,10 +113,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       if (!ronPrintUrl) {
         console.warn(`No Ron Print URL found in sheet for serial: ${serial}`)
         // Set to null to clear the image
-        const { error: updateError } = await adminClient
-          .from('cards')
-          .update({ ron_image_url: null })
-          .eq('id', cardId)
+        const { error: updateError } = await adminClient.from('cards').update({ ron_image_url: null }).eq('id', cardId)
 
         if (updateError) {
           logger.error({ error: updateError, serial }, 'Failed to clear image')
