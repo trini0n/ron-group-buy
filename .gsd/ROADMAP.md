@@ -9,7 +9,7 @@ Address all technical debt and security concerns identified during codebase mapp
 - [x] **Phase 01: Security** - Fix all 4 P0 security vulnerabilities before any other work
 - [x] **Phase 02: Correctness** - Fix P1 correctness bugs (N+1 writes, race conditions, silent errors) and P2 maintainability (admin auth consolidation, duplicate logic, type debt)
 - [x] **Phase 03: Hygiene** - P3 cleanup (dead code, logging, alias consistency, test TODOs)
-- [ ] **Phase 04: Type Safety** - Regenerate DB types, eliminate all `@ts-ignore` / `as any` casts, fix Svelte 5 reactivity warnings, resolve notification settings compile error
+- [x] **Phase 04: Type Safety** - Regenerate DB types, eliminate all `@ts-ignore` / `as any` casts, fix Svelte 5 reactivity warnings, resolve notification settings compile error
 - [ ] **Phase 05: Security Hardening** - Move admin IDs off client bundle, add admin lockout fallback, server-side phone validation, gphoto SSRF hostname check
 - [ ] **Phase 06: Reliability & Performance** - Replace unbounded deck Map with LRU cache, eliminate duplicate AdminClient, Zod validation on POST bodies, wire checkout session locking, gate layout DB queries
 
@@ -90,8 +90,8 @@ Plans:
 
 Plans:
 
-- [ ] 04-01: Regenerate DB types and remove @ts-ignore / as any casts _(planned)_
-- [ ] 04-02: Fix Svelte 5 state*referenced_locally + notification settings TypeScript error *(planned)\_
+- [x] 04-01: Regenerate DB types and remove @ts-ignore / as any casts
+- [x] 04-02: Fix Svelte 5 state_referenced_locally + notification settings TypeScript error
 
 ### Phase 05: Security Hardening
 
