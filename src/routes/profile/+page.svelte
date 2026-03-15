@@ -11,6 +11,7 @@
   import * as Tooltip from '$components/ui/tooltip';
   import { Separator } from '$components/ui/separator';
   import PhoneInput from '$components/ui/PhoneInput.svelte';
+  import CountrySelect from '$components/ui/CountrySelect.svelte';
   import { invalidateAll, goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
   import {
@@ -755,11 +756,11 @@
     <form onsubmit={(e) => { e.preventDefault(); saveAddress(); }}>
       <div class="space-y-4 py-4">
         <div class="space-y-2">
-          <Label for="addr_name">Full Name</Label>
+          <Label for="addr_name">Full Name <span class="text-red-500">*</span></Label>
           <Input id="addr_name" bind:value={addressForm.name} required />
         </div>
         <div class="space-y-2">
-          <Label for="addr_line1">Address Line 1</Label>
+          <Label for="addr_line1">Address Line 1 <span class="text-red-500">*</span></Label>
           <Input id="addr_line1" bind:value={addressForm.line1} required />
         </div>
         <div class="space-y-2">
@@ -768,7 +769,7 @@
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <Label for="addr_city">City</Label>
+            <Label for="addr_city">City <span class="text-red-500">*</span></Label>
             <Input id="addr_city" bind:value={addressForm.city} required />
           </div>
           <div class="space-y-2">
@@ -778,12 +779,12 @@
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <Label for="addr_postal">Postal Code</Label>
+            <Label for="addr_postal">Postal Code <span class="text-red-500">*</span></Label>
             <Input id="addr_postal" bind:value={addressForm.postal_code} required />
           </div>
           <div class="space-y-2">
-            <Label for="addr_country">Country</Label>
-            <Input id="addr_country" bind:value={addressForm.country} required />
+            <Label for="addr_country">Country <span class="text-red-500">*</span></Label>
+            <CountrySelect id="addr_country" bind:value={addressForm.country} required={true} />
           </div>
         </div>
         <div class="space-y-2">

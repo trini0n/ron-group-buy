@@ -8,6 +8,7 @@
   import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import PhoneInput from '$lib/components/ui/PhoneInput.svelte';
+  import CountrySelect from '$lib/components/ui/CountrySelect.svelte';
   import { Check } from "lucide-svelte";
 
   import { Separator } from '$components/ui/separator';
@@ -366,11 +367,11 @@
         {#if useNewAddress || data.addresses.length === 0}
           <div class="space-y-4 rounded-lg border p-4">
             <div>
-              <Label for="name">Full Name</Label>
+              <Label for="name">Full Name <span class="text-red-500">*</span></Label>
               <Input id="name" bind:value={newAddress.name} required />
             </div>
             <div>
-              <Label for="line1">Address Line 1</Label>
+              <Label for="line1">Address Line 1 <span class="text-red-500">*</span></Label>
               <Input id="line1" bind:value={newAddress.line1} required />
             </div>
             <div>
@@ -379,7 +380,7 @@
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label for="city">City</Label>
+                <Label for="city">City <span class="text-red-500">*</span></Label>
                 <Input id="city" bind:value={newAddress.city} required />
               </div>
               <div>
@@ -389,12 +390,12 @@
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label for="postal_code">Postal Code</Label>
+                <Label for="postal_code">Postal Code <span class="text-red-500">*</span></Label>
                 <Input id="postal_code" bind:value={newAddress.postal_code} required />
               </div>
               <div>
-                <Label for="country">Country</Label>
-                <Input id="country" bind:value={newAddress.country} required />
+                <Label for="country">Country <span class="text-red-500">*</span></Label>
+                <CountrySelect id="country" bind:value={newAddress.country} required={true} />
               </div>
             </div>
           </div>
