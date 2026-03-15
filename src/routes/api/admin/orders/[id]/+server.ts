@@ -123,7 +123,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { error: itemsError } = await adminClient.from('order_items').delete().eq('order_id', params.id)
 
   if (itemsError) {
-    console.error('Error deleting order items:', itemsError)
+    logger.error({ error: itemsError, orderId: params.id }, 'Error deleting order items')
     throw error(500, 'Failed to delete order items')
   }
 
@@ -131,7 +131,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { error: orderError } = await adminClient.from('orders').delete().eq('id', params.id)
 
   if (orderError) {
-    console.error('Error deleting order:', orderError)
+    logger.error({ error: orderError, orderId: params.id }, 'Error deleting order')
     throw error(500, 'Failed to delete order')
   }
 

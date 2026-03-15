@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Create a new group buy config
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -39,7 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   if (insertError) {
-    console.error('Error creating config:', insertError)
+    logger.error({ error: insertError }, 'Error creating config')
     throw error(500, 'Failed to create group buy')
   }
 

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Update a group buy config
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
@@ -46,7 +47,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     .single()
 
   if (updateError) {
-    console.error('Error updating config:', updateError)
+    logger.error({ error: updateError }, 'Error updating config')
     throw error(500, 'Failed to update group buy')
   }
 
@@ -77,7 +78,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   const { error: deleteError } = await adminClient.from('group_buy_config').delete().eq('id', params.id)
 
   if (deleteError) {
-    console.error('Error deleting config:', deleteError)
+    logger.error({ error: deleteError }, 'Error deleting config')
     throw error(500, 'Failed to delete group buy')
   }
 

@@ -1,4 +1,5 @@
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 export const load = async ({ url }) => {
   const adminClient = createAdminClient()
@@ -24,7 +25,7 @@ export const load = async ({ url }) => {
   const { data: users, count, error } = await query
 
   if (error) {
-    console.error('Error fetching users:', error)
+    logger.error({ error }, 'Error fetching users')
     return { users: [], totalCount: 0, page, perPage }
   }
 

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { parseDeckList } from '$lib/deck-utils'
+import { logger } from '$lib/server/logger'
 
 interface MoxfieldCard {
   quantity: number
@@ -118,7 +119,7 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (err) {
     // Re-throw SvelteKit errors as-is
     if (err && typeof err === 'object' && 'status' in err && 'body' in err) throw err
-    console.error('[import/deck] Unhandled error:', err)
+    logger.error({ error: err }, '[import/deck] Unhandled error')
     const errorMessage = err instanceof Error ? err.message : 'Failed to fetch deck'
     throw error(500, errorMessage)
   }

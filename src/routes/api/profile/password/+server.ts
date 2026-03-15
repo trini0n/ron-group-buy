@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { checkEmailConflict } from '$lib/auth/conflicts'
 import { AUTH_ERROR_CODES, createAuthError, AUTH_ERROR_HTTP_STATUS } from '$lib/auth/errors'
+import { logger } from '$lib/server/logger'
 
 // Add password to account
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -47,13 +48,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     })
 
     if (updateError) {
-      console.error('Error adding password:', updateError)
+      logger.error({ error: updateError }, 'Error adding password')
       throw error(500, updateError.message || 'Failed to add password')
     }
 
     return json({ success: true })
   } catch (err: any) {
-    console.error('Add password error:', err)
+    logger.error({ error: err }, 'Add password error')
     if (err.status) throw err
     throw error(500, err.message || 'Failed to add password')
   }
@@ -94,13 +95,13 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
     })
 
     if (updateError) {
-      console.error('Error changing password:', updateError)
+      logger.error({ error: updateError }, 'Error changing password')
       throw error(500, updateError.message || 'Failed to change password')
     }
 
     return json({ success: true })
   } catch (err: any) {
-    console.error('Change password error:', err)
+    logger.error({ error: err }, 'Change password error')
     if (err.status) throw err
     throw error(500, err.message || 'Failed to change password')
   }

@@ -1,6 +1,7 @@
 import { cleanupExpiredExports } from '$lib/server/export-storage';
 import { error, json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
 
 export async function GET({ request }: RequestEvent) {
   // Fail-closed: CRON_SECRET must be configured. Missing secret → 503, wrong token → 401.
@@ -21,7 +22,7 @@ export async function GET({ request }: RequestEvent) {
       errors: result.errors
     });
   } catch (err) {
-    console.error('Cleanup error:', err);
+    logger.error({ error: err }, 'Cleanup error');
     throw error(500, `Cleanup failed: ${(err as Error).message}`);
   }
 };

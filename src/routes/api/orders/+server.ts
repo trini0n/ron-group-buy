@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types'
 import { fetchPrices } from '$lib/server/pricing'
 import { getCardPrice } from '$lib/utils'
 import { ensureUserRow } from '$lib/server/user-profile'
+import { logger } from '$lib/server/logger'
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -163,7 +164,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .eq('id', addressId)
         
       if (updateError) {
-        console.error('Error updating address phone number:', updateError)
+        logger.warn({ error: updateError }, 'Error updating address phone number')
       } else {
         // @ts-ignore: phone_number not yet typed in generated types
         address.phone_number = String(phoneNumber).trim()
@@ -194,7 +195,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .single()
 
     if (saveError) {
-      console.error('Error saving address in checkout:', {
+      logger.error({
         error: saveError,
         errorCode: saveError.code,
         errorMessage: saveError.message,
@@ -202,7 +203,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         errorHint: saveError.hint,
         userId: locals.user.id,
         addressData: newAddress
-      })
+      }, 'Failed to save address')
       throw error(500, `Failed to save address: ${saveError.message || 'Unknown error'}`)
     }
     shippingAddress = savedAddress
@@ -225,7 +226,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .eq('id', locals.user.id)
 
   if (profileError) {
-    console.error('Error updating user profile (paypal_email/discord_username):', profileError);
+    logger.error({ error: profileError, userId: locals.user.id }, 'Error updating user profile (paypal_email/discord_username)');
     // This is not a critical error to stop the order, but log it.
   }
 
@@ -253,7 +254,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   if (orderError || !order) {
-    console.error('Order creation error:', orderError)
+    logger.error({ error: orderError }, 'Order creation error')
     throw error(500, 'Failed to create order')
   }
 
@@ -289,7 +290,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { error: itemsError } = await locals.supabase.from('order_items').insert(orderItems)
 
   if (itemsError) {
-    console.error('Order items error:', itemsError)
+    logger.error({ error: itemsError }, 'Order items error')
     // Rollback order
     await locals.supabase.from('orders').delete().eq('id', order.id)
     throw error(500, 'Failed to create order items')
@@ -326,7 +327,7 @@ async function mergeIntoExistingOrder(
     .eq('order_id', existingOrder.id)
 
   if (fetchError) {
-    console.error('Error fetching existing items:', fetchError)
+    logger.error({ error: fetchError }, 'Error fetching existing items')
     throw error(500, 'Failed to fetch existing order')
   }
 
@@ -378,7 +379,7 @@ async function mergeIntoExistingOrder(
     )
     const batchUpdateError = updateResults.find(r => r.error)?.error
     if (batchUpdateError) {
-      console.error('Error updating item quantities:', batchUpdateError)
+      logger.error({ error: batchUpdateError }, 'Error updating item quantities')
       throw error(500, 'Failed to update order items')
     }
   }
@@ -390,7 +391,7 @@ async function mergeIntoExistingOrder(
       .insert(itemsToInsert)
 
     if (insertError) {
-      console.error('Error inserting new items:', insertError)
+      logger.error({ error: insertError }, 'Error inserting new items')
       throw error(500, 'Failed to add new items to order')
     }
   }

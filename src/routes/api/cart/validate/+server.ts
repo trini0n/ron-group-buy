@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // POST /api/cart/validate - Validate cart and get detailed changes report
 export const POST: RequestHandler = async ({ locals, cookies }) => {
@@ -54,7 +55,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
       has_quantity_adjustments: validation.quantity_adjustments.length > 0
     })
   } catch (err) {
-    console.error('Error validating cart:', err)
+    logger.error({ error: err }, 'Error validating cart')
     throw error(500, 'Failed to validate cart')
   }
 }

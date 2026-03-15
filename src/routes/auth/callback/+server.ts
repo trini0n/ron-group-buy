@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient } from '$lib/server/admin'
 import { checkProviderConflict, buildConflictRedirectUrl } from '$lib/auth/conflicts'
+import { logger } from '$lib/server/logger'
 
 export const GET: RequestHandler = async ({ url, locals }) => {
   const code = url.searchParams.get('code')
@@ -153,6 +154,6 @@ async function syncUserData(user: {
   )
 
   if (error) {
-    console.error('Error syncing user data:', error)
+    logger.error({ error }, 'Error syncing user data')
   }
 }

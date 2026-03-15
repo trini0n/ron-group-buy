@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // PATCH /api/cart/[itemId] - Update item quantity
 export const PATCH: RequestHandler = async ({ params, request, locals, cookies }) => {
@@ -56,7 +57,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals, cookies }
     })
   } catch (err: any) {
     if (err.status) throw err
-    console.error('Error updating cart item:', err)
+    logger.error({ error: err }, 'Error updating cart item')
     throw error(500, 'Failed to update item')
   }
 }
@@ -103,7 +104,7 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
     })
   } catch (err: any) {
     if (err.status) throw err
-    console.error('Error removing cart item:', err)
+    logger.error({ error: err }, 'Error removing cart item')
     throw error(500, 'Failed to remove item')
   }
 }

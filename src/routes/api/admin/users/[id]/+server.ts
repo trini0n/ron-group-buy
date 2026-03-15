@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -36,7 +37,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
   const { error: updateError } = await adminClient.from('users').update(updateData).eq('id', params.id)
 
   if (updateError) {
-    console.error('Error updating user:', updateError)
+    logger.error({ error: updateError, userId: params.id }, 'Error updating user')
     throw error(500, 'Failed to update user')
   }
 

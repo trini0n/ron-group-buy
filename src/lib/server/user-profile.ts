@@ -2,6 +2,7 @@ import { createAdminClient } from '$lib/server/admin'
 import { error } from '@sveltejs/kit'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
+import { logger } from '$lib/server/logger'
 
 /**
  * Ensures a row exists in the public.users table for the given auth user.
@@ -26,11 +27,11 @@ export async function ensureUserRow(supabase: SupabaseClient, user: User): Promi
       discord_username: user.user_metadata?.full_name || null
     })
     if (createError) {
-      console.error('ensureUserRow: failed to create user record', { userId: user.id, error: createError })
+      logger.error({ userId: user.id, error: createError }, 'ensureUserRow: failed to create user record')
       throw error(500, 'User account sync failed. Please sign out and sign back in.')
     }
   } else if (checkError) {
-    console.error('ensureUserRow: failed to check user record', { userId: user.id, error: checkError })
+    logger.error({ userId: user.id, error: checkError }, 'ensureUserRow: failed to check user record')
     throw error(500, 'Failed to verify user account')
   }
 }

@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
+import { logger } from '$lib/server/logger'
 
 /**
  * Merge a submitted order back into the user's cart using identity-based matching.
@@ -79,7 +80,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       report: mergeReport
     })
   } catch (err) {
-    console.error('Error merging order into cart:', err)
+    logger.error({ error: err, orderId: params.id }, 'Error merging order into cart')
     throw error(500, err instanceof Error ? err.message : 'Failed to merge order into cart')
   }
 }

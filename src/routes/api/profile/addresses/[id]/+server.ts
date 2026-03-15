@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 // Update an address
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
@@ -27,7 +28,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     .single()
 
   if (updateError) {
-    console.error('Error updating address:', {
+    logger.error({
       error: updateError,
       errorCode: updateError.code,
       errorMessage: updateError.message,
@@ -35,7 +36,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
       errorHint: updateError.hint,
       userId: locals.user.id,
       addressId: params.id
-    })
+    }, 'Error updating address')
     throw error(500, `Failed to update address: ${updateError.message || 'Unknown error'}`)
   }
 
@@ -55,7 +56,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     .eq('user_id', locals.user.id)
 
   if (deleteError) {
-    console.error('Error deleting address:', {
+    logger.error({
       error: deleteError,
       errorCode: deleteError.code,
       errorMessage: deleteError.message,
@@ -63,7 +64,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       errorHint: deleteError.hint,
       userId: locals.user.id,
       addressId: params.id
-    })
+    }, 'Error deleting address')
     throw error(500, `Failed to delete address: ${deleteError.message || 'Unknown error'}`)
   }
 

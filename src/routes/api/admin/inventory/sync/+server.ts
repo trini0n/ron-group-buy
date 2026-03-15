@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getCardTypeFromSerial } from '$lib/utils'
+import { logger } from '$lib/server/logger'
 import { detectDuplicatesInBatch, resolveDuplicates, type CardWithIdentity } from '$lib/server/card-identity'
 
 // Published CSV URL for the Library sheet
@@ -254,7 +255,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       })
 
       if (upsertError) {
-        console.error(`❌ Error upserting batch ${Math.floor(i / batchSize) + 1}:`, upsertError.message)
+        logger.error({ error: upsertError.message, batch: Math.floor(i / batchSize) + 1 }, 'Error upserting sync batch')
         errorCount += batch.length
       } else {
         successCount += batch.length
@@ -271,7 +272,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       alertsCreated = result.alertsCreated
       
       if (result.errors.length > 0) {
-        console.error(`❌ ${result.errors.length} errors creating alerts:`, result.errors)
+        logger.error({ errors: result.errors }, 'Errors creating duplicate alerts')
       } else {
         console.log(`✅ Created ${alertsCreated} duplicate alerts for admin review`)
       }
@@ -288,7 +289,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       alerts_created: alertsCreated
     })
   } catch (err) {
-    console.error('❌ Sync failed:', err)
+    logger.error({ error: err }, 'Sync failed')
     if (err instanceof Error && 'status' in err) {
       throw err
     }

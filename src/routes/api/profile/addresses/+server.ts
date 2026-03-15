@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { ensureUserRow } from '$lib/server/user-profile'
+import { logger } from '$lib/server/logger'
 
 // Create a new address
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -36,20 +37,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .single()
 
   if (insertError) {
-    console.error('Error creating address:', {
+    logger.error({
       error: insertError,
       errorCode: insertError.code,
       errorMessage: insertError.message,
       errorDetails: insertError.details,
       errorHint: insertError.hint,
       userId: locals.user.id,
-      userEmail: locals.user.email,
       addressData: {
         name: addressData.name,
         city: addressData.city,
         country: addressData.country
       }
-    })
+    }, 'Error creating address')
     throw error(500, `Failed to create address: ${insertError.message || 'Unknown error'}`)
   }
 

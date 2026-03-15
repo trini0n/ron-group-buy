@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -38,7 +39,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
   const { error: updateError, count } = await adminClient.from('cards').update({ is_in_stock }).in('id', card_ids)
 
   if (updateError) {
-    console.error('Error updating cards:', updateError)
+    logger.error({ error: updateError }, 'Error updating cards')
     throw error(500, 'Failed to update cards')
   }
 

@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -47,7 +48,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       throw error(400, 'User does not have email/password authentication enabled')
     }
   } catch (err: any) {
-    console.error('Error checking auth identities:', err)
+    logger.error({ error: err }, 'Error checking auth identities')
     if (err.status) throw err
     throw error(500, 'Failed to verify user authentication method')
   }
@@ -60,7 +61,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     })
 
     if (resetError) {
-      console.error('Error generating password reset link:', resetError)
+      logger.error({ error: resetError }, 'Error generating password reset link')
       throw error(500, resetError.message || 'Failed to generate password reset link')
     }
 
@@ -69,7 +70,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
       message: 'Password reset email sent successfully'
     })
   } catch (err: any) {
-    console.error('Password reset error:', err)
+    logger.error({ error: err }, 'Password reset error')
     if (err.status) throw err
     throw error(500, err.message || 'Failed to send password reset email')
   }

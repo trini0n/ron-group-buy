@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, requireAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Toggle admin status for a user
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -41,7 +42,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     )
 
     if (insertError) {
-      console.error('Error adding admin:', insertError)
+      logger.error({ error: insertError }, 'Error adding admin')
       throw error(500, 'Failed to add admin')
     }
   } else {
@@ -60,7 +61,7 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     const { error: deleteError } = await adminClient.from('admins').delete().eq('discord_id', targetUser.discord_id)
 
     if (deleteError) {
-      console.error('Error removing admin:', deleteError)
+      logger.error({ error: deleteError }, 'Error removing admin')
       throw error(500, 'Failed to remove admin')
     }
   }

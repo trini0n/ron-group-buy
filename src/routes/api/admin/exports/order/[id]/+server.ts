@@ -2,6 +2,7 @@ import { requireAdmin, createAdminClient } from '$lib/server/admin';
 import { exportSingleOrder } from '$lib/server/export-builder';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
 
 export async function GET({ params, locals }: RequestEvent) {
   // Require admin permission
@@ -41,7 +42,7 @@ export async function GET({ params, locals }: RequestEvent) {
       }
     });
   } catch (err) {
-    console.error('Export error:', err);
+    logger.error({ error: err }, 'Export error');
     throw error(500, `Failed to export order: ${(err as Error).message}`);
   }
 };

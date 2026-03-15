@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 // Link Google OAuth account
 export const POST: RequestHandler = async ({ locals, url }) => {
@@ -16,14 +17,14 @@ export const POST: RequestHandler = async ({ locals, url }) => {
     })
 
     if (linkError) {
-      console.error('Error linking Google account:', linkError)
+      logger.error({ error: linkError }, 'Error linking Google account')
       throw error(500, linkError.message || 'Failed to link Google account')
     }
 
     // Return the OAuth URL for redirect
     return json({ url: data.url })
   } catch (err: any) {
-    console.error('Link Google error:', err)
+    logger.error({ error: err }, 'Link Google error')
     throw error(500, err.message || 'Failed to link Google account')
   }
 }
@@ -52,7 +53,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
     const { error: unlinkError } = await locals.supabase.auth.unlinkIdentity(googleIdentity)
 
     if (unlinkError) {
-      console.error('Error unlinking Google account:', unlinkError)
+      logger.error({ error: unlinkError }, 'Error unlinking Google account')
       throw error(500, unlinkError.message || 'Failed to unlink Google account')
     }
 
@@ -64,7 +65,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
 
     return json({ success: true })
   } catch (err: any) {
-    console.error('Unlink Google error:', err)
+    logger.error({ error: err }, 'Unlink Google error')
     if (err.status) throw err
     throw error(500, err.message || 'Failed to unlink Google account')
   }

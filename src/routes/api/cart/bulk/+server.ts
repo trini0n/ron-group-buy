@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from '@sveltejs/kit'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // POST /api/cart/bulk - Add multiple items to cart at once
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
@@ -76,7 +77,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     })
   } catch (err: any) {
     if (err.status) throw err
-    console.error('Error adding bulk items to cart:', err)
+    logger.error({ error: err }, 'Error adding bulk items to cart')
     throw error(500, 'Failed to add items to cart')
   }
 }

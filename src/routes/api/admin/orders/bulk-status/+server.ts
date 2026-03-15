@@ -3,6 +3,7 @@ import { createAdminClient, isAdminRequest } from '$lib/server/admin'
 import { createNotificationService } from '$lib/server/notifications'
 import { PUBLIC_APP_URL } from '$env/static/public'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Verify admin access
@@ -39,7 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .in('id', orderIds)
 
   if (fetchError) {
-    console.error('Error fetching orders:', fetchError)
+    logger.error({ error: fetchError }, 'Error fetching orders')
     throw error(500, 'Failed to fetch orders')
   }
 
@@ -50,7 +51,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .in('id', orderIds)
 
   if (updateError) {
-    console.error('Error updating orders:', updateError)
+    logger.error({ error: updateError }, 'Error updating orders')
     throw error(500, 'Failed to update orders')
   }
 
@@ -101,7 +102,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           notificationsSent++
         }
       } catch (err) {
-        console.error(`Failed to send notification for order ${order.id}:`, err)
+        logger.error({ error: err, orderId: order.id }, 'Failed to send notification for order')
         // Continue processing other notifications
       }
     }

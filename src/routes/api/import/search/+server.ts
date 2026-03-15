@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LRUCache } from 'lru-cache'
+import { logger } from '$lib/server/logger'
 
 interface DeckCard {
   quantity: number
@@ -120,7 +121,7 @@ async function searchSingleCard(
       .order('is_in_stock', { ascending: false })
       .limit(100)
     if (exactErr) {
-      console.error('Search query (exact) failed:', exactErr)
+      logger.error({ error: exactErr }, 'Search query (exact) failed')
       throw error(500, 'Search unavailable')
     }
     
@@ -132,7 +133,7 @@ async function searchSingleCard(
       .order('is_in_stock', { ascending: false })
       .limit(100)
     if (flavorErr) {
-      console.error('Search query (flavor) failed:', flavorErr)
+      logger.error({ error: flavorErr }, 'Search query (flavor) failed')
       throw error(500, 'Search unavailable')
     }
     
@@ -144,7 +145,7 @@ async function searchSingleCard(
       .order('is_in_stock', { ascending: false })
       .limit(100)
     if (doubleFacedErr) {
-      console.error('Search query (double-faced) failed:', doubleFacedErr)
+      logger.error({ error: doubleFacedErr }, 'Search query (double-faced) failed')
       throw error(500, 'Search unavailable')
     }
     

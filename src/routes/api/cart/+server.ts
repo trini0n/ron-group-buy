@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // GET /api/cart - Get current cart with validation
 export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
@@ -58,7 +59,7 @@ export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
       validation
     })
   } catch (err) {
-    console.error('Error fetching cart:', err)
+    logger.error({ error: err }, 'Error fetching cart')
     throw error(500, 'Failed to fetch cart')
   }
 }
@@ -128,7 +129,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     })
   } catch (err: any) {
     if (err.status) throw err
-    console.error('Error adding to cart:', err)
+    logger.error({ error: err }, 'Error adding to cart')
     throw error(500, 'Failed to add item to cart')
   }
 }
@@ -157,7 +158,7 @@ export const DELETE: RequestHandler = async ({ locals, cookies }) => {
 
     return json({ success: true })
   } catch (err) {
-    console.error('Error clearing cart:', err)
+    logger.error({ error: err }, 'Error clearing cart')
     throw error(500, 'Failed to clear cart')
   }
 }

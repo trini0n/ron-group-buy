@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 // Update user profile
 export const PATCH: RequestHandler = async ({ request, locals }) => {
@@ -21,7 +22,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
     .eq('id', locals.user.id)
 
   if (updateError) {
-    console.error('Error updating profile:', updateError)
+    logger.error({ error: updateError }, 'Error updating profile')
     throw error(500, 'Failed to update profile')
   }
 

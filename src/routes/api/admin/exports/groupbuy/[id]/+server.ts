@@ -2,6 +2,7 @@ import { requireAdmin, createAdminClient } from '$lib/server/admin';
 import { exportGroupBuyOrders } from '$lib/server/export-builder';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
 
 /**
  * Slugify a string for use in filenames
@@ -52,7 +53,7 @@ export async function GET({ params, locals }: RequestEvent) {
       }
     });
   } catch (err) {
-    console.error('Export error:', err);
+    logger.error({ error: err }, 'Export error');
     throw error(500, `Failed to export group buy: ${(err as Error).message}`);
   }
 };

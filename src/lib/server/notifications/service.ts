@@ -110,25 +110,6 @@ export class NotificationService {
   }
 
   /**
-   * Updates notification status after send attempt
-   */
-  private async updateNotificationStatus(
-    notificationId: string,
-    status: 'sent' | 'failed',
-    error?: string
-  ): Promise<void> {
-    await this.supabase
-      .from('notifications')
-      .update({
-        status,
-        attempts: this.supabase.rpc('increment', { row_id: notificationId }),
-        sent_at: status === 'sent' ? new Date().toISOString() : null,
-        error: error || null
-      })
-      .eq('id', notificationId);
-  }
-
-  /**
    * Check if user should receive this notification type via Discord
    */
   private async shouldSendDiscord(

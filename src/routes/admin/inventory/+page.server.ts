@@ -1,4 +1,5 @@
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 export const load = async ({ url, setHeaders }) => {
   // Short cache for admin pages (1 minute) - balances freshness with reduced origin hits
@@ -56,7 +57,7 @@ export const load = async ({ url, setHeaders }) => {
   const { data: cards, count, error } = await query
 
   if (error) {
-    console.error('Error fetching cards:', error)
+    logger.error({ error }, 'Error fetching cards')
     return { cards: [], totalCount: 0, totalDuplicates: 0, page, perPage, sets: [], searchQuery, stockFilter, setFilter: setsParam || '', duplicatesOnly }
   }
 

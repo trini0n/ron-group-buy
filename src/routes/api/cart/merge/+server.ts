@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // GET /api/cart/merge - Check if merge is needed
 export const GET: RequestHandler = async ({ locals, cookies }) => {
@@ -50,7 +51,7 @@ export const GET: RequestHandler = async ({ locals, cookies }) => {
       }
     })
   } catch (err) {
-    console.error('Error checking merge status:', err)
+    logger.error({ error: err }, 'Error checking merge status')
     throw error(500, 'Failed to check merge status')
   }
 }
@@ -151,7 +152,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
       message: 'Cart merged successfully'
     })
   } catch (err) {
-    console.error('Error merging cart:', err)
+    logger.error({ error: err }, 'Error merging cart')
     throw error(500, 'Failed to merge cart')
   }
 }

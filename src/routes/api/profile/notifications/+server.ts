@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 // Update notification preferences
 export const PUT: RequestHandler = async ({ request, locals }) => {
@@ -16,7 +17,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
   })
 
   if (upsertError) {
-    console.error('Error updating notifications:', upsertError)
+    logger.error({ error: upsertError }, 'Error updating notifications')
     throw error(500, 'Failed to update notification preferences')
   }
 

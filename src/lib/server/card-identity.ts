@@ -2,6 +2,7 @@
 // Handles card identity generation, matching, and duplicate detection during sync
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from '$lib/server/logger'
 
 /**
  * Card identity fields used for matching across inventory resyncs
@@ -198,7 +199,7 @@ export async function resolveDuplicates(
 
         if (updateError) {
           errors.push(`Failed to mark serials OOS: ${group.markedOosSerials.join(', ')}`)
-          console.error('Error marking cards OOS:', updateError)
+          logger.error({ error: updateError, serials: group.markedOosSerials }, 'Error marking cards OOS')
           continue
         }
 
@@ -222,14 +223,14 @@ export async function resolveDuplicates(
 
       if (alertError) {
         errors.push(`Failed to create alert for: ${group.identityKey}`)
-        console.error('Error creating alert:', alertError)
+        logger.error({ error: alertError, identityKey: group.identityKey }, 'Error creating alert')
         continue
       }
 
       alertsCreated++
     } catch (err) {
       errors.push(`Exception resolving duplicates for: ${group.identityKey}`)
-      console.error('Exception in resolveDuplicates:', err)
+      logger.error({ error: err, identityKey: group.identityKey }, 'Exception in resolveDuplicates')
     }
   }
 
@@ -268,7 +269,7 @@ export async function findCardsByIdentity(
   const { data, error } = await query
 
   if (error) {
-    console.error('Error finding cards by identity:', error)
+    logger.error({ error }, 'Error finding cards by identity')
     return []
   }
 

@@ -11,6 +11,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestEvent } from '@sveltejs/kit'
 import { isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 async function requireAdmin(locals: RequestEvent['locals']) {
   const { data: userData } = await locals.supabase
@@ -79,7 +80,7 @@ export async function PATCH({ locals, request }: RequestEvent) {
       .in('order_id', pendingOrderIds)
 
     if (itemsErr) {
-      console.error({ error: itemsErr }, 'Failed to fetch pending order items for price backfill')
+      logger.error({ error: itemsErr }, 'Failed to fetch pending order items for price backfill')
     } else if (pendingItems?.length) {
       // Batch-update by card_type_snapshot — at most ~5 types so O(types) not O(items)
       const typeToItemIds = new Map<string, string[]>()

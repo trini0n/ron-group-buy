@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getDirectPhotoUrl } from '$lib/server/gphoto-converter'
+import { logger } from '$lib/server/logger'
 
 // Published CSV URL for the Library sheet
 const LIBRARY_CSV_URL =
@@ -58,7 +59,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .in('id', card_ids)
 
     if (fetchError) {
-      console.error('Error fetching cards:', fetchError)
+      logger.error({ error: fetchError }, 'Error fetching cards')
       throw error(500, 'Failed to fetch cards')
     }
 
@@ -118,7 +119,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .eq('id', cardId)
 
         if (updateError) {
-          console.error(`Failed to clear image for ${serial}:`, updateError)
+          logger.error({ error: updateError, serial }, 'Failed to clear image')
           errorCount++
         } else {
           console.log(`🗑️ Cleared image for ${serial} (no URL in sheet)`)
@@ -138,7 +139,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             .eq('id', cardId)
 
           if (updateError) {
-            console.error(`Failed to update ${serial}:`, updateError)
+            logger.error({ error: updateError, serial }, 'Failed to update card')
             errorCount++
           } else {
             console.log(`✅ Updated ${serial}: ${directUrl.substring(0, 50)}...`)
@@ -152,7 +153,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             .eq('id', cardId)
 
           if (updateError) {
-            console.error(`Failed to update ${serial}:`, updateError)
+            logger.error({ error: updateError, serial }, 'Failed to update card (fallback URL)')
             errorCount++
           } else {
             console.log(`⚠️ Stored original URL for ${serial} (conversion failed)`)
@@ -163,7 +164,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         // Small delay between conversions to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 200))
       } catch (err) {
-        console.error(`Error processing ${serial}:`, err)
+        logger.error({ error: err, serial }, 'Error processing card')
         errorCount++
       }
     }
@@ -177,7 +178,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       total: card_ids.length
     })
   } catch (err) {
-    console.error('❌ Resync failed:', err)
+    logger.error({ error: err }, 'Resync failed')
     if (err instanceof Error && 'status' in err) {
       throw err
     }

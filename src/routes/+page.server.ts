@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types'
 import { createAdminClient } from '$lib/server/admin'
 import type { Card } from '$lib/server/types'
+import { logger } from '$lib/server/logger'
 
 // In-memory cache for cards and sets
 interface CacheEntry<T> {
@@ -35,7 +36,7 @@ async function fetchCards(): Promise<Card[]> {
       .range(offset, offset + batchSize - 1)
 
     if (error) {
-      console.error('Error fetching cards:', error)
+      logger.error({ error }, 'Error fetching cards')
       break
     }
 
@@ -74,7 +75,7 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
       .range(offset, offset + batchSize - 1)
 
     if (error) {
-      console.error('Error fetching sets:', error)
+      logger.error({ error }, 'Error fetching sets')
       break
     }
 

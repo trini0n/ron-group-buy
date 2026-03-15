@@ -8,6 +8,7 @@
  *   - https://photos.google.com/share/...
  *   - https://photos.app.goo.gl/...
  */
+import { logger } from '$lib/server/logger'
 
 const GOOGLE_CONTENT_PREFIX = 'https://lh3.googleusercontent.com/'
 
@@ -44,7 +45,7 @@ export async function getDirectPhotoUrl(
         return cached.direct_url
       }
     } catch (error) {
-      console.warn('Cache lookup failed, proceeding with fetch:', error)
+      logger.warn({ error }, 'Cache lookup failed, proceeding with fetch')
     }
   }
 
@@ -56,7 +57,7 @@ export async function getDirectPhotoUrl(
     })
 
     if (!response.ok) {
-      console.error(`Failed to fetch ${shareUrl}: ${response.status}`)
+      logger.error({ url: shareUrl, status: response.status }, 'Failed to fetch Google Photos URL')
       return null
     }
 
@@ -68,7 +69,7 @@ export async function getDirectPhotoUrl(
     const matches = html.match(regex)
 
     if (!matches || matches.length === 0) {
-      console.error(`No direct URL found in ${shareUrl}`)
+      logger.error({ url: shareUrl }, 'No direct URL found in Google Photos page')
       return null
     }
 
@@ -95,13 +96,13 @@ export async function getDirectPhotoUrl(
         })
         console.log(`💾 Cached conversion for ${shareUrl.substring(0, 50)}...`)
       } catch (error) {
-        console.warn('Failed to cache URL:', error)
+        logger.warn({ error }, 'Failed to cache URL')
       }
     }
 
     return directUrl
   } catch (error) {
-    console.error(`Error converting ${shareUrl}:`, error)
+    logger.error({ error, url: shareUrl }, 'Error converting Google Photos URL')
     return null
   }
 }

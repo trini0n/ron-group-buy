@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { logger } from '$lib/server/logger'
 
 /**
  * Handle pending order actions: merge into cart or cancel
@@ -110,7 +111,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .eq('order_id', order.id)
 
   if (deleteItemsError) {
-    console.error('Failed to delete order items:', deleteItemsError)
+      logger.error({ error: deleteItemsError, orderId }, 'Failed to delete order items')
     throw error(500, 'Failed to delete order items')
   }
 
@@ -121,7 +122,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     .eq('id', order.id)
 
   if (deleteOrderError) {
-    console.error('Failed to delete order:', deleteOrderError)
+      logger.error({ error: deleteOrderError, orderId }, 'Failed to delete order')
     throw error(500, 'Failed to delete order')
   }
 

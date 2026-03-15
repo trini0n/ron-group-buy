@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -37,7 +38,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   const { data: alerts, error: fetchError } = await query
 
   if (fetchError) {
-    console.error('Error fetching sync alerts:', fetchError)
+    logger.error({ error: fetchError }, 'Error fetching sync alerts')
     throw error(500, 'Failed to fetch sync alerts')
   }
 
@@ -69,7 +70,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     .eq('id', alertId)
 
   if (updateError) {
-    console.error('Error resolving alert:', updateError)
+    logger.error({ error: updateError }, 'Error resolving alert')
     throw error(500, 'Failed to resolve alert')
   }
 

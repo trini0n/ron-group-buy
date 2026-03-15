@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
+import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -48,7 +49,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       }
     }
   } catch (err) {
-    console.error('Error fetching auth identities:', err)
+    logger.error({ error: err }, 'Error fetching auth identities')
     // Continue without auth methods if there's an error
   }
 
