@@ -8,7 +8,7 @@ Address all technical debt and security concerns identified during codebase mapp
 
 - [x] **Phase 01: Security** - Fix all 4 P0 security vulnerabilities before any other work
 - [x] **Phase 02: Correctness** - Fix P1 correctness bugs (N+1 writes, race conditions, silent errors) and P2 maintainability (admin auth consolidation, duplicate logic, type debt)
-- [ ] **Phase 03: Hygiene** - P3 cleanup (dead code, logging, alias consistency, test TODOs)
+- [x] **Phase 03: Hygiene** - P3 cleanup (dead code, logging, alias consistency, test TODOs)
 
 ## Phase Details
 
@@ -66,6 +66,6 @@ Plans:
 
 Plans:
 
-- [ ] 03-01: Remove dead updateNotificationStatus
-- [ ] 03-02: Migrate console.error to logger.error
-- [ ] 03-03: Implement export test assertions
+- [x] 03-01: Remove dead updateNotificationStatus
+- [x] 03-02: Migrate console.error to logger.error
+- [x] 03-03: Implement export test assertions
