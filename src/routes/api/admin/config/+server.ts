@@ -6,8 +6,8 @@ import { z } from 'zod'
 
 const CreateConfigSchema = z.object({
   name: z.string().min(1),
-  opens_at: z.string().optional(),
-  closes_at: z.string().optional(),
+  opens_at: z.string().nullable().optional(),
+  closes_at: z.string().nullable().optional(),
   is_active: z.boolean().optional()
 })
 
