@@ -1,22 +1,6 @@
 // Admin shared constants (can be used on client and server)
 // No server-only imports here!
 
-// Discord IDs that have admin access
-export const ADMIN_DISCORD_IDS = [
-  '83470831350448128', // Owner
-  '431606995100106762' // Seller
-] as const
-
-export type AdminDiscordId = (typeof ADMIN_DISCORD_IDS)[number]
-
-/**
- * Check if a Discord ID has admin access
- */
-export function isAdminDiscordId(discordId: string | null | undefined): boolean {
-  if (!discordId) return false
-  return ADMIN_DISCORD_IDS.includes(discordId as AdminDiscordId)
-}
-
 /**
  * Order status labels and colors for display
  */
@@ -76,4 +60,3 @@ export function getNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
       return []
   }
 }
-

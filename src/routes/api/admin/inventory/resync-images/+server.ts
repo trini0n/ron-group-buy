@@ -4,6 +4,11 @@ import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getDirectPhotoUrl } from '$lib/server/gphoto-converter'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const ResyncImagesSchema = z.object({
+  card_ids: z.array(z.string().min(1)).min(1).max(50)
+})
 
 // Published CSV URL for the Library sheet
 const LIBRARY_CSV_URL =
@@ -38,18 +43,11 @@ async function verifyAdmin(locals: App.Locals) {
 export const POST: RequestHandler = async ({ request, locals }) => {
   const { adminClient } = await verifyAdmin(locals)
 
-  const body = await request.json()
-  const { card_ids } = body
-
-  // Validate input
-  if (!Array.isArray(card_ids) || card_ids.length === 0) {
-    throw error(400, 'card_ids must be a non-empty array')
+  const parseResult = ResyncImagesSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
-
-  // Limit batch size to prevent abuse
-  if (card_ids.length > 50) {
-    throw error(400, 'Maximum 50 cards can be resynced at once')
-  }
+  const { card_ids } = parseResult.data
 
   try {
     // Fetch the cards to get their serials

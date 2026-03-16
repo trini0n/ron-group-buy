@@ -9,6 +9,12 @@ import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { createNotificationService } from '$lib/server/notifications'
 import type { NotificationType, TemplateVariables } from '$lib/server/notifications'
 import { PUBLIC_APP_URL } from '$env/static/public'
+import { z } from 'zod'
+
+const NotifyOrderSchema = z.object({
+  type: z.string().optional(),
+  customMessage: z.string().optional()
+})
 
 // Base URL for order links (full URL for Discord)
 const getOrderUrl = (orderId: string) => `${PUBLIC_APP_URL}/orders/${orderId}`
@@ -33,16 +39,17 @@ async function verifyAdmin(locals: App.Locals) {
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { adminClient } = await verifyAdmin(locals)
 
-  const body = await request.json()
-  const { type, customMessage } = body as { 
-    type?: NotificationType
-    customMessage?: string 
+  const parseResult = NotifyOrderSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
+  const { type, customMessage } = parseResult.data as { type?: NotificationType; customMessage?: string }
 
   // Get order details
   const { data: order, error: orderError } = await adminClient
     .from('orders')
-    .select(`
+    .select(
+      `
       id,
       order_number,
       status,
@@ -50,7 +57,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       tracking_number,
       tracking_carrier,
       paypal_invoice_url
-    `)
+    `
+    )
     .eq('id', params.id)
     .single()
 
@@ -62,21 +70,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   // If custom message provided, send directly
   if (customMessage) {
-    const result = await notificationService.sendCustom(
-      order.user_id,
-      order.id,
-      customMessage
-    )
+    const result = await notificationService.sendCustom(order.user_id, order.id, customMessage)
     return json({ success: result.success, error: result.error })
   }
 
   // Otherwise, send a templated notification based on type
   const notificationType = type || 'order_status_change'
-  
+
   // Build tracking URL if tracking exists (use 17track.net as universal tracker)
-  const trackingUrl = order.tracking_number 
-    ? `https://t.17track.net/en#nums=${order.tracking_number}`
-    : ''
+  const trackingUrl = order.tracking_number ? `https://t.17track.net/en#nums=${order.tracking_number}` : ''
 
   const variables: TemplateVariables = {
     order_number: order.order_number,
@@ -94,9 +96,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     variables
   })
 
-  return json({ 
-    success: result.success, 
+  return json({
+    success: result.success,
     error: result.error,
-    messageId: result.messageId 
+    messageId: result.messageId
   })
 }

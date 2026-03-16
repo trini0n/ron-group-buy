@@ -2,6 +2,19 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { ensureUserRow } from '$lib/server/user-profile'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const CreateAddressSchema = z.object({
+  name: z.string().min(1),
+  line1: z.string().min(1),
+  line2: z.string().optional(),
+  city: z.string().min(1),
+  state: z.string().optional(),
+  postal_code: z.string().min(1),
+  country: z.string().min(1),
+  phone_number: z.string().optional(),
+  is_default: z.boolean().default(false)
+})
 
 // Create a new address
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -9,7 +22,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(401, 'Unauthorized')
   }
 
-  const addressData = await request.json()
+  const parseResult = CreateAddressSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
+  const addressData = parseResult.data
 
   // Verify user exists in users table - if not, create it (handles auth callback sync failures)
   await ensureUserRow(locals.supabase, locals.user)

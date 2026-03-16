@@ -4,40 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  ADMIN_DISCORD_IDS,
-  isAdminDiscordId,
-  getNextStatuses,
-  ORDER_STATUS_CONFIG
-} from '../admin-shared'
-
-describe('ADMIN_DISCORD_IDS', () => {
-  it('contains expected admin IDs', () => {
-    expect(ADMIN_DISCORD_IDS).toContain('83470831350448128')
-    expect(ADMIN_DISCORD_IDS).toContain('431606995100106762')
-  })
-})
-
-describe('isAdminDiscordId', () => {
-  it('returns true for valid admin IDs', () => {
-    expect(isAdminDiscordId('83470831350448128')).toBe(true)
-    expect(isAdminDiscordId('431606995100106762')).toBe(true)
-  })
-
-  it('returns false for non-admin IDs', () => {
-    expect(isAdminDiscordId('12345678901234567')).toBe(false)
-    expect(isAdminDiscordId('random-id')).toBe(false)
-  })
-
-  it('returns false for null/undefined', () => {
-    expect(isAdminDiscordId(null)).toBe(false)
-    expect(isAdminDiscordId(undefined)).toBe(false)
-  })
-
-  it('returns false for empty string', () => {
-    expect(isAdminDiscordId('')).toBe(false)
-  })
-})
+import { getNextStatuses, ORDER_STATUS_CONFIG } from '../admin-shared'
 
 describe('ORDER_STATUS_CONFIG', () => {
   it('has all expected statuses', () => {

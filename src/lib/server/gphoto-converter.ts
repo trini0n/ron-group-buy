@@ -11,6 +11,7 @@
 import { logger } from '$lib/server/logger'
 
 const GOOGLE_CONTENT_PREFIX = 'https://lh3.googleusercontent.com/'
+const ALLOWED_GPHOTO_HOSTNAMES = new Set(['photos.google.com', 'lh3.googleusercontent.com'])
 
 /**
  * Extract direct image URL from a Google Photos sharing page
@@ -55,6 +56,16 @@ export async function getDirectPhotoUrl(shareUrl: string, adminClient?: any): Pr
 
     if (!response.ok) {
       logger.error({ url: shareUrl, status: response.status }, 'Failed to fetch Google Photos URL')
+      return null
+    }
+
+    // SSRF guard: validate the final resolved hostname after any redirects
+    const finalHostname = new URL(response.url).hostname
+    if (!ALLOWED_GPHOTO_HOSTNAMES.has(finalHostname)) {
+      logger.error(
+        { shareUrl, finalUrl: response.url, finalHostname },
+        'SSRF guard: unexpected hostname after redirect — aborting'
+      )
       return null
     }
 

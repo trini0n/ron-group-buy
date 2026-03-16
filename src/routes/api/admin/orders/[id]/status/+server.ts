@@ -5,6 +5,12 @@ import { createNotificationService } from '$lib/server/notifications'
 import type { TemplateVariables } from '$lib/server/notifications'
 import { logger } from '$lib/server/logger'
 import { PUBLIC_APP_URL } from '$env/static/public'
+import { z } from 'zod'
+
+const UpdateOrderStatusSchema = z.object({
+  status: z.string().min(1),
+  notes: z.string().optional()
+})
 
 // Base URL for order links (full URL for Discord)
 const getOrderUrl = (orderId: string) => `${PUBLIC_APP_URL}/orders/${orderId}`
@@ -29,11 +35,14 @@ async function verifyAdmin(locals: App.Locals) {
 export const POST: RequestHandler = async ({ params, request, locals }) => {
   const { user, adminClient } = await verifyAdmin(locals)
 
-  const body = await request.json()
-  const { status, notes } = body
+  const parseResult = UpdateOrderStatusSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
+  const { status, notes } = parseResult.data
 
-  // Validate status
-  if (!status || !(status in ORDER_STATUS_CONFIG)) {
+  // Validate status is a known transition
+  if (!(status in ORDER_STATUS_CONFIG)) {
     throw error(400, 'Invalid status')
   }
 
@@ -84,10 +93,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   // Send notification for status change (async, don't block the response)
   if (oldStatus !== newStatus) {
     const notificationService = createNotificationService(adminClient)
-    
+
     // Get user's PayPal email (fallback to regular email if not set)
     const paypalEmail = order.user?.paypal_email || order.user?.email
-    
+
     const variables: TemplateVariables = {
       order_number: order.order_number,
       status: ORDER_STATUS_CONFIG[newStatus]?.label || newStatus,
@@ -96,20 +105,23 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       paypal_email: paypalEmail,
       paypal_email_text: paypalEmail ? ` (**${paypalEmail}**)` : undefined,
       // Add PayPal inbox reminder when status is Invoiced
-      invoiced_message: newStatus === 'invoiced' && paypalEmail
-        ? `\n\nPlease check your PayPal email inbox (**${paypalEmail}**) for the invoice.` 
-        : undefined
+      invoiced_message:
+        newStatus === 'invoiced' && paypalEmail
+          ? `\n\nPlease check your PayPal email inbox (**${paypalEmail}**) for the invoice.`
+          : undefined
     }
 
     // Fire and forget - don't await to avoid blocking the response
-    notificationService.send({
-      userId: order.user_id,
-      orderId: order.id,
-      type: 'order_status_change',
-      variables
-    }).catch(err => {
-      logger.error({ orderId: order.id, error: err }, 'Failed to send status change notification')
-    })
+    notificationService
+      .send({
+        userId: order.user_id,
+        orderId: order.id,
+        type: 'order_status_change',
+        variables
+      })
+      .catch((err) => {
+        logger.error({ orderId: order.id, error: err }, 'Failed to send status change notification')
+      })
   }
 
   return json({

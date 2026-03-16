@@ -1,6 +1,11 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const PendingOrderActionSchema = z.object({
+  action: z.enum(['merge', 'cancel'])
+})
 
 /**
  * Handle pending order actions: merge into cart or cancel
@@ -11,12 +16,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   }
 
   const orderId = params.id
-  const body = await request.json()
-  const { action } = body
-
-  if (!action || !['merge', 'cancel'].includes(action)) {
-    throw error(400, 'Invalid action. Must be "merge" or "cancel"')
+  const parseResult = PendingOrderActionSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
+  const { action } = parseResult.data
 
   // Fetch the order and verify ownership
   const { data: order, error: orderError } = await locals.supabase

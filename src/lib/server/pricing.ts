@@ -23,9 +23,7 @@ export const FALLBACK_PRICES: CardPrices = {
  * Returns FALLBACK_PRICES if the query fails.
  */
 export async function fetchPrices(supabase: SupabaseClient<Database>): Promise<CardPrices> {
-  const { data, error } = await supabase
-    .from('card_type_pricing')
-    .select('card_type, price')
+  const { data, error } = await supabase.from('card_type_pricing').select('card_type, price')
 
   if (error || !data?.length) {
     console.warn({ error }, 'Failed to fetch card_type_pricing, using fallback prices')

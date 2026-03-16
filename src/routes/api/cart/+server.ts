@@ -4,6 +4,13 @@ import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const AddToCartSchema = z.object({
+  card_id: z.string().min(1),
+  quantity: z.number().int().min(1).max(99).default(1),
+  expected_version: z.number().int().optional()
+})
 
 // GET /api/cart - Get current cart with validation
 export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
@@ -70,16 +77,11 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   const supabase = locals.user ? locals.supabase : createAdminClient()
   const cartService = new CartService(supabase)
 
-  const body = await request.json()
-  const { card_id, quantity = 1, expected_version } = body
-
-  if (!card_id) {
-    throw error(400, 'card_id is required')
+  const parseResult = AddToCartSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
-
-  if (quantity < 1 || quantity > 99) {
-    throw error(400, 'quantity must be between 1 and 99')
-  }
+  const { card_id, quantity, expected_version } = parseResult.data
 
   try {
     let cart

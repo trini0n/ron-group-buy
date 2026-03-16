@@ -4,6 +4,13 @@ import { createNotificationService } from '$lib/server/notifications'
 import { PUBLIC_APP_URL } from '$env/static/public'
 import type { RequestHandler } from './$types'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const VALID_ORDER_STATUSES = ['pending', 'invoiced', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'] as const
+const BulkStatusSchema = z.object({
+  orderIds: z.array(z.string().min(1)).min(1),
+  status: z.enum(VALID_ORDER_STATUSES)
+})
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // Verify admin access
@@ -11,16 +18,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(403, 'Admin access required')
   }
 
-  const { orderIds, status } = await request.json()
-
-  if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
-    throw error(400, 'No orders specified')
+  const parseResult = BulkStatusSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
-
-  const validStatuses = ['pending', 'invoiced', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']
-  if (!status || !validStatuses.includes(status)) {
-    throw error(400, 'Invalid status')
-  }
+  const { orderIds, status } = parseResult.data
 
   const adminClient = createAdminClient()
 

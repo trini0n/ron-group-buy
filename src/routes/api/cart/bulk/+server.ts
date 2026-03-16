@@ -4,6 +4,19 @@ import type { RequestHandler } from '@sveltejs/kit'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const BulkCartSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        card_id: z.string().min(1),
+        quantity: z.number().int().min(1).max(99)
+      })
+    )
+    .min(1),
+  expected_version: z.number().int().optional()
+})
 
 // POST /api/cart/bulk - Add multiple items to cart at once
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
@@ -11,22 +24,11 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   const supabase = locals.user ? locals.supabase : createAdminClient()
   const cartService = new CartService(supabase)
 
-  const body = await request.json()
-  const { items, expected_version } = body
-
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    throw error(400, 'items array is required and must not be empty')
+  const parseResult = BulkCartSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
-
-  // Validate each item
-  for (const item of items) {
-    if (!item.card_id) {
-      throw error(400, 'Each item must have a card_id')
-    }
-    if (!item.quantity || item.quantity < 1 || item.quantity > 99) {
-      throw error(400, 'Each item quantity must be between 1 and 99')
-    }
-  }
+  const { items, expected_version } = parseResult.data
 
   try {
     let cart

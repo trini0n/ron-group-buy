@@ -2,6 +2,12 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const ResolveSyncAlertSchema = z.object({
+  alertId: z.string().min(1),
+  notes: z.string().optional()
+})
 
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
@@ -49,12 +55,11 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   const { user, adminClient } = await verifyAdmin(locals)
 
-  const body = await request.json()
-  const { alertId, notes } = body
-
-  if (!alertId) {
-    throw error(400, 'Alert ID is required')
+  const parseResult = ResolveSyncAlertSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
   }
+  const { alertId, notes } = parseResult.data
 
   const { error: updateError } = await adminClient
     .from('sync_duplicate_alerts')

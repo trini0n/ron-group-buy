@@ -4,6 +4,12 @@ import type { RequestHandler } from './$types'
 import { CartService } from '$lib/server/cart-service'
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const MergeCartSchema = z.object({
+  confirm: z.boolean().default(false),
+  skip: z.boolean().default(false)
+})
 
 // GET /api/cart/merge - Check if merge is needed
 export const GET: RequestHandler = async ({ locals, cookies }) => {
@@ -74,8 +80,12 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const { confirm = false, skip = false } = body
+  const raw = await request.json().catch(() => ({}))
+  const parseResult = MergeCartSchema.safeParse(raw)
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
+  const { confirm, skip } = parseResult.data
 
   try {
     const guestCart = await cartService.getGuestCart(guestId)

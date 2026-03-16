@@ -4,6 +4,49 @@ import { fetchPrices } from '$lib/server/pricing'
 import { getCardPrice } from '$lib/utils'
 import { ensureUserRow } from '$lib/server/user-profile'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+import { CartService } from '$lib/server/cart-service'
+
+const AddressSchema = z.object({
+  name: z.string().min(1),
+  line1: z.string().min(1),
+  line2: z.string().optional(),
+  city: z.string().min(1),
+  state: z.string().optional(),
+  postal_code: z.string().min(1),
+  country: z.string().min(1),
+  phone_number: z.string().optional(),
+  is_default: z.boolean().optional()
+})
+
+const OrderItemSchema = z.object({
+  cardId: z.string().min(1),
+  serial: z.string().min(1),
+  name: z.string().min(1),
+  cardType: z.string().min(1),
+  quantity: z.number().int().min(1),
+  unitPrice: z.number(),
+  setCode: z.string().nullable().optional(),
+  collectorNumber: z.string().nullable().optional(),
+  isFoil: z.boolean().optional(),
+  isEtched: z.boolean().optional(),
+  language: z.string().optional()
+})
+
+const CreateOrderSchema = z.object({
+  addressId: z.string().optional(),
+  newAddress: AddressSchema.optional(),
+  shippingType: z.enum(['regular', 'express']).optional(),
+  items: z.array(OrderItemSchema).min(1),
+  action: z.enum(['replace', 'merge']).optional(),
+  paypalEmail: z.string().trim().min(1),
+  phoneNumber: z.string().trim().min(1),
+  discordUsername: z.string().optional(),
+  cartId: z.string().optional(),
+  cartVersion: z.number().optional(),
+  notes: z.string().optional(),
+  checkout_session_id: z.string().optional()
+})
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -32,7 +75,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(401, 'Authentication required')
   }
 
-  const body = await request.json()
+  const parseResult = CreateOrderSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
   const {
     addressId,
     newAddress,
@@ -44,19 +90,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     discordUsername,
     cartId,
     cartVersion,
-    notes
-  } = body
+    notes,
+    checkout_session_id
+  } = parseResult.data
 
-  if (!items || items.length === 0) {
-    throw error(400, 'Cart is empty')
+  const e164Regex = /^\+[1-9]\d{1,14}$/
+  if (!e164Regex.test(String(phoneNumber).trim())) {
+    throw error(400, 'Invalid phone number format. Must be E.164 (e.g. +15551234567)')
   }
 
-  // Phone number, PayPal email, and Discord username are required
-  if (!phoneNumber || !String(phoneNumber).trim()) {
-    throw error(400, 'Phone number is required')
-  }
-  if (!paypalEmail || !String(paypalEmail).trim()) {
-    throw error(400, 'PayPal Email is required')
+  // Validate checkout session if provided (prevents cart drift between form open and submit)
+  if (checkout_session_id) {
+    const cartService = new CartService(locals.supabase)
+    const sessionResult = await cartService.validateCheckoutSession(checkout_session_id)
+    if (!sessionResult.valid) {
+      return json(
+        {
+          error: sessionResult.reason ?? 'Checkout session invalid',
+          needs_refresh: sessionResult.needs_refresh ?? false
+        },
+        { status: 409 }
+      )
+    }
   }
 
   // Fetch user data first to see if they already have Discord linked
@@ -70,16 +125,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   if (!hasDiscordLinked && (!discordUsername || !String(discordUsername).trim())) {
     throw error(400, 'Discord Username is required')
-  }
-
-  // Validate shipping type
-  if (shippingType && !['regular', 'express'].includes(shippingType)) {
-    throw error(400, 'Invalid shipping type')
-  }
-
-  // Validate action if provided
-  if (action && !['replace', 'merge'].includes(action)) {
-    throw error(400, 'Invalid action')
   }
 
   // Get active group buy

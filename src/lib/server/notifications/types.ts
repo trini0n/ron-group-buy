@@ -2,99 +2,96 @@
  * Notification system types and interfaces
  */
 
-export type NotificationType = 
-  | 'order_status_change'
-  | 'tracking_added'
-  | 'payment_reminder';
+export type NotificationType = 'order_status_change' | 'tracking_added' | 'payment_reminder'
 
-export type NotificationChannel = 'discord' | 'email';
+export type NotificationChannel = 'discord' | 'email'
 
-export type NotificationStatus = 'pending' | 'sent' | 'failed';
+export type NotificationStatus = 'pending' | 'sent' | 'failed'
 
 /**
  * Template variables available for interpolation
  */
 export interface TemplateVariables {
-  order_number: string;
-  group_buy_name?: string;
-  status?: string;
-  previous_status?: string;
-  invoiced_message?: string;
-  tracking_number?: string;
-  tracking_carrier?: string;
-  tracking_url?: string;
-  order_url: string;
-  paypal_email?: string;
-  paypal_email_text?: string;
-  user_name?: string;
+  order_number: string
+  group_buy_name?: string
+  status?: string
+  previous_status?: string
+  invoiced_message?: string
+  tracking_number?: string
+  tracking_carrier?: string
+  tracking_url?: string
+  order_url: string
+  paypal_email?: string
+  paypal_email_text?: string
+  user_name?: string
 }
 
 /**
  * Payload for creating a notification
  */
 export interface NotificationPayload {
-  userId: string;
-  orderId: string;
-  type: NotificationType;
-  variables: TemplateVariables;
+  userId: string
+  orderId: string
+  type: NotificationType
+  variables: TemplateVariables
 }
 
 /**
  * Database notification record
  */
 export interface NotificationRecord {
-  id: string;
-  user_id: string;
-  order_id: string | null;
-  type: NotificationType;
-  channel: NotificationChannel;
-  payload: Record<string, unknown>;
-  status: NotificationStatus;
-  attempts: number;
-  sent_at: string | null;
-  error: string | null;
-  created_at: string;
+  id: string
+  user_id: string
+  order_id: string | null
+  type: NotificationType
+  channel: NotificationChannel
+  payload: Record<string, unknown>
+  status: NotificationStatus
+  attempts: number
+  sent_at: string | null
+  error: string | null
+  created_at: string
 }
 
 /**
  * Database notification template record
  */
 export interface NotificationTemplate {
-  id: string;
-  type: NotificationType;
-  channel: NotificationChannel;
-  subject: string | null;
-  body_template: string;
-  is_active: boolean | null;
-  updated_at: string;
-  created_at: string;
+  id: string
+  type: NotificationType
+  channel: NotificationChannel
+  subject: string | null
+  body_template: string
+  is_active: boolean | null
+  updated_at: string
+  created_at: string
 }
 
 /**
  * Result from sending a notification
  */
 export interface SendResult {
-  success: boolean;
-  error?: string;
-  messageId?: string;
+  success: boolean
+  error?: string
+  messageId?: string
 }
 
 /**
  * User notification preferences
  */
 export interface NotificationPreferences {
-  discord_order_status_change: boolean;
-  discord_tracking_added: boolean;
-  discord_order_shipped: boolean;
-  discord_payment_reminder: boolean;
+  discord_order_status_change: boolean
+  discord_tracking_added: boolean
+  discord_order_shipped: boolean
+  discord_payment_reminder: boolean
 }
 
 /**
  * User data needed for sending notifications
  */
 export interface NotificationUser {
-  id: string;
-  discord_id: string | null;
-  email: string;
-  name: string | null;
+  id: string
+  discord_id: string | null
+  email: string
+  name: string | null
 }

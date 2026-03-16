@@ -1,20 +1,23 @@
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private'
+import { env } from '$env/dynamic/private'
 import { PUBLIC_SUPABASE_URL } from '$env/static/public'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 
-// Import for internal use
-import { isAdminDiscordId } from '$lib/admin-shared'
+// Re-export shared order-status constants and types for convenience in server files
+export { ORDER_STATUS_CONFIG, getNextStatuses, type OrderStatus } from '$lib/admin-shared'
 
-// Re-export shared constants and types for convenience in server files
-export {
-  ADMIN_DISCORD_IDS,
-  isAdminDiscordId,
-  ORDER_STATUS_CONFIG,
-  getNextStatuses,
-  type AdminDiscordId,
-  type OrderStatus
-} from '$lib/admin-shared'
+// Parse admin Discord IDs from env var at module load (server-only)
+function getAdminDiscordIds(): string[] {
+  return (env.ADMIN_DISCORD_IDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+}
+
+function isAdminDiscordId(discordId: string): boolean {
+  return getAdminDiscordIds().includes(discordId)
+}
 
 /**
  * Admin Supabase client with service role key
@@ -33,7 +36,10 @@ export function createAdminClient() {
  * Check if a Discord ID has admin access (checks both hardcoded and database)
  * This is the unified admin check that should be used server-side
  */
-export async function isAdmin(discordId: string | null | undefined): Promise<boolean> {
+export async function isAdmin(
+  discordId: string | null | undefined,
+  adminClient?: ReturnType<typeof createAdminClient>
+): Promise<boolean> {
   if (!discordId) {
     return false
   }
@@ -44,12 +50,8 @@ export async function isAdmin(discordId: string | null | undefined): Promise<boo
   }
 
   // Then check database admins table
-  const adminClient = createAdminClient()
-  const { data } = await adminClient
-    .from('admins')
-    .select('discord_id')
-    .eq('discord_id', discordId)
-    .single()
+  const client = adminClient ?? createAdminClient()
+  const { data } = await client.from('admins').select('discord_id').eq('discord_id', discordId).single()
 
   return !!data
 }
@@ -63,14 +65,19 @@ export async function isAdminRequest(locals: App.Locals): Promise<boolean> {
     return false
   }
 
-  const adminClient = createAdminClient()
-  const { data: userData } = await adminClient
-    .from('users')
-    .select('discord_id')
-    .eq('id', locals.user.id)
-    .single()
+  // Emergency fallback: UUID-based access for non-Discord accounts
+  const emergencyUuids = (env.ADMIN_EMERGENCY_UUIDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+  if (emergencyUuids.includes(locals.user.id)) {
+    return true
+  }
 
-  return isAdmin(userData?.discord_id)
+  const adminClient = createAdminClient()
+  const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', locals.user.id).single()
+
+  return isAdmin(userData?.discord_id, adminClient)
 }
 
 /**
@@ -84,14 +91,19 @@ export async function requireAdmin(locals: App.Locals): Promise<void> {
     throw error(401, 'Unauthorized')
   }
 
-  const adminClient = createAdminClient()
-  const { data: userData } = await adminClient
-    .from('users')
-    .select('discord_id')
-    .eq('id', locals.user.id)
-    .single()
+  // Emergency fallback: UUID-based access for non-Discord accounts
+  const emergencyUuids = (env.ADMIN_EMERGENCY_UUIDS ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+  if (emergencyUuids.includes(locals.user.id)) {
+    return
+  }
 
-  if (!(await isAdmin(userData?.discord_id))) {
+  const adminClient = createAdminClient()
+  const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', locals.user.id).single()
+
+  if (!(await isAdmin(userData?.discord_id, adminClient))) {
     const { error } = await import('@sveltejs/kit')
     throw error(403, 'Forbidden')
   }

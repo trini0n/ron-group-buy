@@ -13,7 +13,8 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
   // Check if user is admin and get profile data (including avatar_url)
   let isAdminUser = false
   let userProfile: { name?: string | null; avatar_url?: string | null; discord_id?: string | null } | null = null
-  
+  let cardPrices = null
+
   if (locals.user) {
     const { data: userData } = await locals.supabase
       .from('users')
@@ -24,9 +25,8 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     // Use unified admin check that queries both hardcoded and database admins
     isAdminUser = await isAdmin(userData?.discord_id)
     userProfile = userData
+    cardPrices = await fetchPrices(locals.supabase)
   }
-
-  const cardPrices = await fetchPrices(locals.supabase)
 
   return {
     session: locals.session,

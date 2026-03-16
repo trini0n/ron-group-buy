@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { parseDeckList } from '$lib/deck-utils'
 import { logger } from '$lib/server/logger'
+import { LRUCache } from 'lru-cache'
 
 interface MoxfieldCard {
   quantity: number
@@ -62,27 +63,10 @@ interface DeckCard {
   typeLine?: string
 }
 
-// Simple in-memory cache with 5 minute TTL
-const deckCache = new Map<string, { data: unknown; timestamp: number }>()
-const CACHE_TTL = 5 * 60 * 1000
-
-function getCached(key: string): unknown | null {
-  const cached = deckCache.get(key)
-  if (!cached) return null
-  if (Date.now() - cached.timestamp > CACHE_TTL) {
-    deckCache.delete(key)
-    return null
-  }
-  return cached.data
-}
-
-function setCache(key: string, data: unknown) {
-  deckCache.set(key, { data, timestamp: Date.now() })
-  if (deckCache.size > 100) {
-    const firstKey = deckCache.keys().next().value
-    if (firstKey) deckCache.delete(firstKey)
-  }
-}
+const deckCache = new LRUCache<string, object>({
+  max: 100,
+  ttl: 5 * 60 * 1000
+})
 
 export const POST: RequestHandler = async ({ request }) => {
   const { url, source } = await request.json()
@@ -92,7 +76,7 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   const cacheKey = `${source}:${url}`
-  const cached = getCached(cacheKey)
+  const cached = deckCache.get(cacheKey) ?? null
   if (cached) {
     return json(cached)
   }
@@ -114,7 +98,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const response = { name: deckName, cards }
-    setCache(cacheKey, response)
+    deckCache.set(cacheKey, response)
     return json(response)
   } catch (err) {
     // Re-throw SvelteKit errors as-is

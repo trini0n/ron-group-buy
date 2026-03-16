@@ -2,6 +2,11 @@ import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { createAdminClient, requireAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const ToggleAdminSchema = z.object({
+  isAdmin: z.boolean()
+})
 
 // Toggle admin status for a user
 export const POST: RequestHandler = async ({ request, params, locals }) => {
@@ -25,8 +30,11 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
     throw error(400, 'User must have Discord linked to be an admin')
   }
 
-  const body = await request.json()
-  const { isAdmin } = body
+  const parseResult = ToggleAdminSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
+  const { isAdmin } = parseResult.data
 
   if (isAdmin) {
     // Add to admins table
