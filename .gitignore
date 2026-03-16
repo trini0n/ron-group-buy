@@ -5,6 +5,13 @@ node_modules/
 .svelte-kit/
 build/
 .vercel/
+.github/agents/
+.github/instructions/
+.github/prompts
+/github/skills
+FUNDING.yml
+pull_request_template.md
+.gsd
 
 # Environment files
 .env
