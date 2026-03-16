@@ -13,6 +13,7 @@
 **PASS**
 
 Evidence (`Select-String` against `src/lib/server/database.types.ts`):
+
 ```
 :28:   phone_number: string | null
 :43:   phone_number?: string | null
@@ -22,6 +23,7 @@ Evidence (`Select-String` against `src/lib/server/database.types.ts`):
 :762:  shipping_phone_number?: string | null
 :789:  shipping_phone_number?: string | null
 ```
+
 All three field definitions are present.
 
 ---
@@ -55,12 +57,14 @@ All three field definitions are present.
 **PASS**
 
 File read confirms:
+
 ```ts
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '$lib/server/database.types'
 ...
 export async function fetchPrices(supabase: SupabaseClient<Database>): Promise<CardPrices> {
 ```
+
 No `as any` present anywhere in the file.
 
 ---
@@ -86,10 +90,12 @@ No `as any` present anywhere in the file.
 **PASS**
 
 Function definition at line 54–55:
+
 ```ts
 async function checkForNewProviderConflict(
   supabase: SupabaseClient<Database>,
 ```
+
 Fully typed with `SupabaseClient<Database>`.
 
 ---
@@ -99,11 +105,13 @@ Fully typed with `SupabaseClient<Database>`.
 **PASS**
 
 `Select-String -Pattern "untrack"` results:
+
 ```
 :15:  // Initialize from URL params via server - use untrack since we only want initial values
 :16:  const initialFilters = untrack(() => data.initialFilters);
 :57:  let prevFilters = $state(untrack(() => ({
 ```
+
 Line 57 confirms `prevFilters` is initialized as `$state(untrack(() => ({...})))`.
 
 ---
@@ -113,6 +121,7 @@ Line 57 confirms `prevFilters` is initialized as `$state(untrack(() => ({...})))
 **PASS**
 
 `Select-String` result:
+
 ```
 :68:  is_active: boolean | null;
 ```
@@ -141,20 +150,20 @@ No errors exist in any production source file.
 
 ## Summary
 
-| # | Must-Have | Status |
-|---|-----------|--------|
-| 1 | `database.types.ts` has `phone_number`, `shipping_phone_number`, `card_type_pricing` | ✅ PASS |
-| 2 | Zero `@ts-ignore` in `api/orders/+server.ts` | ✅ PASS |
-| 3 | Zero `@ts-ignore` in `profile/+page.svelte` | ✅ PASS |
-| 4 | Zero `@ts-ignore` in `orders/[id]/+page.svelte` | ✅ PASS |
-| 5 | `pricing.ts` uses `SupabaseClient<Database>`, no `as any` | ✅ PASS |
-| 6 | Zero `as any` on `shipping_phone_number` in orders `[id]` page | ✅ PASS |
-| 7 | `pricing/+page.server.ts` no `as any` | ✅ PASS |
-| 8 | `checkForNewProviderConflict` has `supabase: SupabaseClient<Database>` | ✅ PASS |
-| 9 | `prevFilters` wrapped with `untrack(() => (...))` | ✅ PASS |
-| 10 | `is_active: boolean \| null` in notifications types | ✅ PASS |
-| 11 | Zero `state_referenced_locally` warnings | ✅ PASS |
-| 12 | Zero errors (pre-existing test file errors acceptable) | ✅ PASS |
+| #   | Must-Have                                                                            | Status  |
+| --- | ------------------------------------------------------------------------------------ | ------- |
+| 1   | `database.types.ts` has `phone_number`, `shipping_phone_number`, `card_type_pricing` | ✅ PASS |
+| 2   | Zero `@ts-ignore` in `api/orders/+server.ts`                                         | ✅ PASS |
+| 3   | Zero `@ts-ignore` in `profile/+page.svelte`                                          | ✅ PASS |
+| 4   | Zero `@ts-ignore` in `orders/[id]/+page.svelte`                                      | ✅ PASS |
+| 5   | `pricing.ts` uses `SupabaseClient<Database>`, no `as any`                            | ✅ PASS |
+| 6   | Zero `as any` on `shipping_phone_number` in orders `[id]` page                       | ✅ PASS |
+| 7   | `pricing/+page.server.ts` no `as any`                                                | ✅ PASS |
+| 8   | `checkForNewProviderConflict` has `supabase: SupabaseClient<Database>`               | ✅ PASS |
+| 9   | `prevFilters` wrapped with `untrack(() => (...))`                                    | ✅ PASS |
+| 10  | `is_active: boolean \| null` in notifications types                                  | ✅ PASS |
+| 11  | Zero `state_referenced_locally` warnings                                             | ✅ PASS |
+| 12  | Zero errors (pre-existing test file errors acceptable)                               | ✅ PASS |
 
 ---
 

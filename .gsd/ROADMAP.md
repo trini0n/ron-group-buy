@@ -10,8 +10,8 @@ Address all technical debt and security concerns identified during codebase mapp
 - [x] **Phase 02: Correctness** - Fix P1 correctness bugs (N+1 writes, race conditions, silent errors) and P2 maintainability (admin auth consolidation, duplicate logic, type debt)
 - [x] **Phase 03: Hygiene** - P3 cleanup (dead code, logging, alias consistency, test TODOs)
 - [x] **Phase 04: Type Safety** - Regenerate DB types, eliminate all `@ts-ignore` / `as any` casts, fix Svelte 5 reactivity warnings, resolve notification settings compile error
-- [ ] **Phase 05: Security Hardening** - Move admin IDs off client bundle, add admin lockout fallback, server-side phone validation, gphoto SSRF hostname check
-- [ ] **Phase 06: Reliability & Performance** - Replace unbounded deck Map with LRU cache, eliminate duplicate AdminClient, Zod validation on POST bodies, wire checkout session locking, gate layout DB queries
+- [x] **Phase 05: Security Hardening** - Move admin IDs off client bundle, add admin lockout fallback, server-side phone validation, gphoto SSRF hostname check
+- [x] **Phase 06: Reliability & Performance** - Replace unbounded deck Map with LRU cache, eliminate duplicate AdminClient, Zod validation on POST bodies, wire checkout session locking, gate layout DB queries
 
 ## Phase Details
 
@@ -109,8 +109,8 @@ Plans:
 
 Plans:
 
-- [ ] 05-01: Move admin IDs to env var + add non-Discord admin lockout fallback
-- [ ] 05-02: Server-side phone format validation + gphoto SSRF final hostname check
+- [x] 05-01: Move admin IDs to env var + add non-Discord admin lockout fallback
+- [x] 05-02: Server-side phone format validation + gphoto SSRF final hostname check
 
 ### Phase 06: Reliability & Performance
 
@@ -129,6 +129,8 @@ Plans:
 
 Plans:
 
-- [ ] 06-01: Replace deck Map with LRUCache + fix duplicate AdminClient creation
-- [ ] 06-02: Add Zod schemas to all POST API route bodies
-- [ ] 06-03: Wire checkout session locking to checkout route + gate layout fetchPrices behind auth
+- [x] 06-01: Replace deck Map with LRUCache + fix duplicate AdminClient creation
+- [x] 06-02: Add Zod schemas to all POST API route bodies
+- [x] 06-03: Wire checkout session locking to checkout route + gate layout fetchPrices behind auth
+
+Phase plans created 2026-03-15. Wave 1: 06-01 and 06-02 (independent). Wave 2: 06-03 (depends on 06-02).
