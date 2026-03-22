@@ -63,7 +63,7 @@
         }
     } else {
         // 3. React to internal nationalNumber/country changes and emit back to parent
-        const formattedNewPhone = nationalNumber && nationalNumber.trim() ? `${currentCode} ${nationalNumber.trim()}` : '';
+        const formattedNewPhone = nationalNumber && nationalNumber.trim() ? `${currentCode}${nationalNumber.trim()}` : '';
         if (phoneNumber !== formattedNewPhone) {
             phoneNumber = formattedNewPhone;
             prevPhoneProp = formattedNewPhone; // sync tracker so we don't treat this as an external change next tick
