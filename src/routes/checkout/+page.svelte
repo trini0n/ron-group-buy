@@ -143,6 +143,10 @@
   let tariffCost = $derived(rates.tariff);
   let estimatedTotal = $derived(cartStore.total + shippingCost + tariffCost);
 
+  let hasLinkedDiscord = $derived(
+    Boolean((data as any).userData?.discord_id || (data as any).userData?.discord_username)
+  );
+
   // Collapsible items state
   let showItems = $state(false);
 
@@ -581,7 +585,7 @@
       </div>
 
       <!-- Discord Requirement Section -->
-      {#if !(data as any).userData?.discord_id && !(data as any).userData?.discord_username}
+      {#if !hasLinkedDiscord}
         <div class="lg:col-span-2">
           <h2 class="mb-4 text-xl font-semibold">Contact Information</h2>
           <Card>
