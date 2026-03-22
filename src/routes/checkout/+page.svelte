@@ -215,16 +215,16 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          addressId: useNewAddress ? null : selectedAddressId,
-          newAddress: useNewAddress ? newAddress : null,
+          addressId: useNewAddress ? undefined : selectedAddressId ?? undefined,
+          newAddress: useNewAddress ? newAddress : undefined,
           shippingType,
           notes: orderNote,
           paypalEmail,
           phoneNumber,
           discordUsername: discordUsername.trim() || undefined,
-          cartId: cartStore.cartId,
+          cartId: cartStore.cartId ?? undefined,
           cartVersion: cartStore.version,
-          action: data.existingPendingOrder ? 'merge' : null, // Auto-merge if existing order
+          action: data.existingPendingOrder ? 'merge' : undefined, // Auto-merge if existing order
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -249,7 +249,7 @@
         await cartStore.clear();
         window.location.href = `/orders/${result.orderId}?success=true`;
       } else {
-        alert(`Error: ${result.message}`);
+        alert(`Error: ${result.message ?? result.error ?? 'Unknown error'}`);
       }
     } catch (err) {
       alert('Failed to submit order. Please try again.');
