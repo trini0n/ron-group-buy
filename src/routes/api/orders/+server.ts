@@ -94,6 +94,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     checkout_session_id
   } = parseResult.data
 
+  let replaceOldOrderId: string | null = null
+
   const e164Regex = /^\+[1-9]\d{1,14}$/
   if (!e164Regex.test(String(phoneNumber).trim())) {
     throw error(400, 'Invalid phone number format. Must be E.164 (e.g. +15551234567)')
@@ -188,12 +190,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (action === 'replace') {
-      // Delete existing order and items first
-      await locals.supabase.from('order_items').delete().eq('order_id', existingOrder.id)
-
-      await locals.supabase.from('orders').delete().eq('id', existingOrder.id)
-
-      // Fall through to create new order
+      // Track old order ID — the atomic RPC will handle deletion + creation together
+      replaceOldOrderId = existingOrder.id
     }
   }
 
@@ -288,33 +286,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     // This is not a critical error to stop the order, but log it.
   }
 
-  // Create order with group_buy_id
-  const { data: order, error: orderError } = await locals.supabase
-    .from('orders')
-    .insert({
-      user_id: locals.user.id,
-      order_number: generateOrderNumber(),
-      status: 'pending',
-      group_buy_id: activeGroupBuy?.id ?? null,
-      shipping_type: shippingType || 'regular',
-      shipping_name: shippingAddress.name,
-      shipping_line1: shippingAddress.line1,
-      shipping_line2: shippingAddress.line2,
-      shipping_city: shippingAddress.city,
-      shipping_state: shippingAddress.state,
-      shipping_postal_code: shippingAddress.postal_code,
-      shipping_country: shippingAddress.country,
-      shipping_phone_number: String(phoneNumber).trim(),
-      notes: notes || null
-    })
-    .select()
-    .single()
-
-  if (orderError || !order) {
-    logger.error({ error: orderError }, 'Order creation error')
-    throw error(500, 'Failed to create order')
-  }
-
   // Resolve prices and card types server-side (security: never trust client-supplied unitPrice)
   const prices = await fetchPrices(locals.supabase)
   const cardIds = items.map((item: OrderItem) => item.cardId)
@@ -327,16 +298,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
   const serverCardTypeMap = new Map(cardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
 
-  // Create order items with identity snapshot
-  const orderItems = items.map((item: OrderItem) => ({
-    order_id: order.id,
+  // Build items payload for the RPC — no order_id, the DB function sets it
+  const rpcItems = items.map((item: OrderItem) => ({
     card_id: item.cardId,
     card_serial: item.serial,
     card_name: item.name,
     card_type: item.cardType,
     quantity: item.quantity,
     unit_price: getCardPrice(serverCardTypeMap.get(item.cardId) ?? item.cardType, prices),
-    // Snapshot card identity for future merge operations
     set_code: item.setCode || null,
     collector_number: item.collectorNumber || null,
     is_foil: item.isFoil ?? false,
@@ -344,19 +313,46 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     language: item.language || 'en'
   }))
 
-  const { error: itemsError } = await locals.supabase.from('order_items').insert(orderItems)
-
-  if (itemsError) {
-    logger.error({ error: itemsError }, 'Order items error')
-    // Rollback order
-    await locals.supabase.from('orders').delete().eq('id', order.id)
-    throw error(500, 'Failed to create order items')
+  if (replaceOldOrderId) {
+    const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('replace_order', {
+      p_user_id: locals.user.id,
+      p_old_order_id: replaceOldOrderId,
+      p_order_number: generateOrderNumber(),
+      p_group_buy_id: activeGroupBuy?.id ?? null,
+      p_shipping_type: shippingType || 'regular',
+      p_shipping_name: shippingAddress.name,
+      p_shipping_line1: shippingAddress.line1,
+      p_shipping_line2: shippingAddress.line2 ?? null,
+      p_shipping_city: shippingAddress.city,
+      p_shipping_state: shippingAddress.state ?? null,
+      p_shipping_postal_code: shippingAddress.postal_code,
+      p_shipping_country: shippingAddress.country,
+      p_shipping_phone_number: String(phoneNumber).trim(),
+      p_notes: notes || null,
+      p_items: rpcItems
+    })
+    if (rpcError || !rpcResult) { throw error(500, 'Failed to replace order') }
+    return json({ orderId: rpcResult.order_id, orderNumber: rpcResult.order_number })
   }
 
-  return json({
-    orderId: order.id,
-    orderNumber: order.order_number
+  const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('create_order_with_items', {
+    p_user_id: locals.user.id,
+    p_order_number: generateOrderNumber(),
+    p_group_buy_id: activeGroupBuy?.id ?? null,
+    p_shipping_type: shippingType || 'regular',
+    p_shipping_name: shippingAddress.name,
+    p_shipping_line1: shippingAddress.line1,
+    p_shipping_line2: shippingAddress.line2 ?? null,
+    p_shipping_city: shippingAddress.city,
+    p_shipping_state: shippingAddress.state ?? null,
+    p_shipping_postal_code: shippingAddress.postal_code,
+    p_shipping_country: shippingAddress.country,
+    p_shipping_phone_number: String(phoneNumber).trim(),
+    p_notes: notes || null,
+    p_items: rpcItems
   })
+  if (rpcError || !rpcResult) { throw error(500, 'Failed to create order') }
+  return json({ orderId: rpcResult.order_id, orderNumber: rpcResult.order_number })
 }
 
 /**
