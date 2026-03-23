@@ -27,6 +27,10 @@ export async function ensureUserRow(supabase: SupabaseClient, user: User): Promi
       discord_username: user.user_metadata?.full_name || null
     })
     if (createError) {
+      if (createError.code === '23505') {
+        // Race condition: concurrent request already inserted the row — treat as success
+        return
+      }
       logger.error({ userId: user.id, error: createError }, 'ensureUserRow: failed to create user record')
       throw error(500, 'User account sync failed. Please sign out and sign back in.')
     }
