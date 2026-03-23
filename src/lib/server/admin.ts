@@ -77,6 +77,7 @@ export async function isAdminRequest(locals: App.Locals): Promise<boolean> {
   const adminClient = createAdminClient()
   const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', locals.user.id).single()
 
+  // Pass existing adminClient to avoid a second service-role instantiation (SECURITY-03)
   return isAdmin(userData?.discord_id, adminClient)
 }
 
