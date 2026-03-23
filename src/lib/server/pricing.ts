@@ -6,6 +6,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '$lib/server/database.types'
+import { logger } from '$lib/server/logger'
 
 export type CardPrices = Record<string, number>
 
@@ -26,7 +27,7 @@ export async function fetchPrices(supabase: SupabaseClient<Database>): Promise<C
   const { data, error } = await supabase.from('card_type_pricing').select('card_type, price')
 
   if (error || !data?.length) {
-    console.warn({ error }, 'Failed to fetch card_type_pricing, using fallback prices')
+    logger.warn({ error }, 'Failed to fetch card_type_pricing, using fallback prices')
     return FALLBACK_PRICES
   }
 
