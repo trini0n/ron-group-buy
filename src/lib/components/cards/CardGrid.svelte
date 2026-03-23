@@ -75,12 +75,12 @@
 
       // Color identity filter
       if (f.colorIdentity.length > 0) {
-        const cardColors = (card.color_identity?.split(', ') || []).filter(c => c);
+        const cardColors = (card.color_identity?.split(', ') || []).filter((c: string) => c);
         if (f.colorIdentityStrict) {
-          const hasDisallowedColor = cardColors.some((c) => !f.colorIdentity.includes(c));
+          const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c));
           if (hasDisallowedColor) return false;
         } else {
-          const hasMatchingColor = f.colorIdentity.some((c) => cardColors.includes(c));
+          const hasMatchingColor = f.colorIdentity.some((c: string) => cardColors.includes(c));
           if (!hasMatchingColor) return false;
         }
       }
@@ -101,7 +101,7 @@
         const typeLine = card.type_line.toLowerCase();
         const parts = typeLine.split('—')
         const mainTypes = parts[0]?.trim() || ''
-        const cardTypeWords = mainTypes.split(/\s+/).filter((t) => !SUPERTYPES.includes(t));
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t));
         const hasMatchingType = f.cardTypes.some((selectedType) =>
           cardTypeWords.includes(selectedType.toLowerCase())
         );
