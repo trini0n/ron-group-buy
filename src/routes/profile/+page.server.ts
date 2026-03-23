@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   // Get notification preferences
   const { data: notifications } = await locals.supabase
     .from('notification_preferences')
-    .select('id, user_id, email_order_confirmed, email_invoice_sent, email_payment_received, email_order_shipped, discord_order_shipped, discord_payment_reminder')
+    .select('user_id, email_order_confirmed, email_invoice_sent, email_payment_received, email_order_shipped, discord_order_shipped, discord_payment_reminder')
     .eq('user_id', locals.user.id)
     .single()
 
