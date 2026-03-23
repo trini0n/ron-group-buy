@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LRUCache } from 'lru-cache'
 import { logger } from '$lib/server/logger'
+import { isFoil, sortMatches, type CardMatch } from '$lib/server/search-utils'
 
 interface DeckCard {
   quantity: number
@@ -12,21 +13,6 @@ interface DeckCard {
   boardType?: string
   typeLine?: string
   foil?: boolean
-}
-
-interface CardMatch {
-  id: string
-  serial: string
-  card_name: string
-  set_code: string | null
-  set_name: string | null
-  collector_number: string | null
-  card_type: string
-  foil_type: string | null
-  is_in_stock: boolean | null
-  scryfall_id: string | null
-  type_line: string | null
-  language: string | null
 }
 
 interface SearchResult {
@@ -76,26 +62,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const results = await parallelSearchCards(supabase, cards)
 
   return json(results)
-}
-
-function isFoil(card: CardMatch): boolean {
-  return card.card_type === 'Foil' || card.card_type === 'Holo' || !!card.foil_type
-}
-
-function sortMatches(matches: CardMatch[], preferFoil?: boolean): CardMatch[] {
-  return [...matches].sort((a, b) => {
-    // 1. Stock status - in stock first
-    if (a.is_in_stock !== b.is_in_stock) return a.is_in_stock ? -1 : 1
-
-    // 2. Foil preference if specified
-    if (preferFoil) {
-      const aFoil = isFoil(a)
-      const bFoil = isFoil(b)
-      if (aFoil !== bFoil) return aFoil ? -1 : 1
-    }
-
-    return 0
-  })
 }
 
 async function searchSingleCard(supabase: SupabaseClient, card: DeckCard): Promise<SearchResult> {

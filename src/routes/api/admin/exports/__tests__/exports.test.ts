@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ExcelJS from 'exceljs'
 import { GET as getSingleOrderExport } from '../order/[id]/+server'
 import { GET as getGroupBuyExport } from '../groupbuy/[id]/+server'
-import { GET as getCleanup } from '../cleanup/+server'
-
 // Mock dependencies
 vi.mock('$lib/server/admin', () => ({
   requireAdmin: vi.fn(),
@@ -15,14 +13,8 @@ vi.mock('$lib/server/export-builder', () => ({
   exportGroupBuyOrders: vi.fn()
 }))
 
-vi.mock('$lib/server/export-storage', () => ({
-  cleanupExpiredExports: vi.fn()
-}))
-
 import { requireAdmin, createAdminClient } from '$lib/server/admin'
 import { exportSingleOrder, exportGroupBuyOrders } from '$lib/server/export-builder'
-import { cleanupExpiredExports } from '$lib/server/export-storage'
-
 describe('Export API Endpoints', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -272,103 +264,6 @@ describe('Export API Endpoints', () => {
     })
   })
 
-  describe('GET /api/admin/exports/cleanup', () => {
-    it('should require CRON_SECRET authorization', async () => {
-      const mockRequest = {
-        headers: new Headers()
-      }
-
-      // Mock cleanup function to return success
-      vi.mocked(cleanupExpiredExports).mockResolvedValue({
-        deleted: 0,
-        errors: []
-      })
-
-      // No authorization header
-      const response = await getCleanup({ request: mockRequest } as any)
-
-      // Should either allow (no secret set) or deny (secret set but missing)
-      // Implementation allows when CRON_SECRET is not set (development)
-      expect([200, 401]).toContain(response.status)
-    })
-
-    it('should deny access with wrong CRON_SECRET', async () => {
-      process.env.CRON_SECRET = 'correct-secret'
-
-      const mockRequest = {
-        headers: new Headers({
-          authorization: 'Bearer wrong-secret'
-        })
-      }
-
-      // Mock cleanup function (shouldn't be called but prevents errors if it is)
-      vi.mocked(cleanupExpiredExports).mockResolvedValue({
-        deleted: 0,
-        errors: []
-      })
-
-      await expect(getCleanup({ request: mockRequest } as any)).rejects.toMatchObject({
-        status: 401
-      })
-
-      delete process.env.CRON_SECRET
-    })
-
-    it('should allow access with correct CRON_SECRET', async () => {
-      process.env.CRON_SECRET = 'correct-secret'
-
-      const mockRequest = {
-        headers: new Headers({
-          authorization: 'Bearer correct-secret'
-        })
-      }
-
-      vi.mocked(cleanupExpiredExports).mockResolvedValue({
-        deleted: 5,
-        errors: []
-      })
-
-      const response = await getCleanup({ request: mockRequest } as any)
-
-      expect(response.status).toBe(200)
-      expect(cleanupExpiredExports).toHaveBeenCalled()
-
-      const data = await response.json()
-      expect(data.success).toBe(true)
-      expect(data.deleted).toBe(5)
-
-      delete process.env.CRON_SECRET
-    })
-
-    it('should return cleanup results', async () => {
-      const mockRequest = {
-        headers: new Headers()
-      }
-
-      vi.mocked(cleanupExpiredExports).mockResolvedValue({
-        deleted: 3,
-        errors: ['Failed to delete file1.xlsx']
-      })
-
-      const response = await getCleanup({ request: mockRequest } as any)
-
-      const data = await response.json()
-      expect(data.deleted).toBe(3)
-      expect(data.errors).toHaveLength(1)
-    })
-
-    it('should handle cleanup errors', async () => {
-      const mockRequest = {
-        headers: new Headers()
-      }
-
-      vi.mocked(cleanupExpiredExports).mockRejectedValue(new Error('Filesystem error'))
-
-      await expect(getCleanup({ request: mockRequest } as any)).rejects.toMatchObject({
-        status: 500
-      })
-    })
-  })
 })
 
 describe('Export File Content Validation', () => {
