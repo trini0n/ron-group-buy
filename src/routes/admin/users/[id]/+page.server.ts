@@ -5,7 +5,7 @@ export const load = async ({ params }: { params: { id: string } }) => {
   const adminClient = createAdminClient()
 
   // Fetch user
-  const { data: user, error: userError } = await adminClient.from('users').select('*').eq('id', params.id).single()
+  const { data: user, error: userError } = await adminClient.from('users').select('id, email, name, avatar_url, discord_username, discord_id, google_id, paypal_email, created_at, admin_notes, is_blocked, blocked_reason').eq('id', params.id).single()
 
   if (userError || !user) {
     throw error(404, 'User not found')
@@ -40,7 +40,7 @@ export const load = async ({ params }: { params: { id: string } }) => {
   // Fetch user's addresses
   const { data: addresses } = await adminClient
     .from('addresses')
-    .select('*')
+    .select('id, user_id, name, line1, line2, city, state, postal_code, country, phone_number, is_default')
     .eq('user_id', params.id)
     .order('is_default', { ascending: false })
 

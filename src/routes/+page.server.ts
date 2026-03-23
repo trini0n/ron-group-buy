@@ -32,7 +32,7 @@ async function fetchCards(): Promise<Card[]> {
   while (hasMore) {
     const { data: batch, error } = await adminClient
       .from('cards')
-      .select('*')
+      .select('id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id')
       .range(offset, offset + batchSize - 1)
 
     if (error) {

@@ -46,7 +46,7 @@ export class CartService {
     }
 
     // Try to find existing cart
-    let query = this.supabase.from('carts').select('*')
+    let query = this.supabase.from('carts').select('id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at')
 
     if (userId) {
       query = query.eq('user_id', userId)
@@ -78,17 +78,14 @@ export class CartService {
    * Get cart with items and full card data
    */
   async getCartWithItems(cartId: string): Promise<Cart & { items: (CartItem & { card: Card })[] }> {
-    const { data: cart, error: cartError } = await this.supabase.from('carts').select('*').eq('id', cartId).single()
+    const { data: cart, error: cartError } = await this.supabase.from('carts').select('id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at').eq('id', cartId).single()
 
     if (cartError) throw cartError
 
     const { data: items, error: itemsError } = await this.supabase
       .from('cart_items')
       .select(
-        `
-        *,
-        card:cards(*)
-      `
+        'id, cart_id, card_id, quantity, price_at_add, card_name_snapshot, card_type_snapshot, is_in_stock_snapshot, added_at, card:cards(id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id)'
       )
       .eq('cart_id', cartId)
       .order('added_at', { ascending: true })
@@ -98,14 +95,14 @@ export class CartService {
     return {
       ...cart,
       items: items || []
-    } as Cart & { items: (CartItem & { card: Card })[] }
+    } as unknown as Cart & { items: (CartItem & { card: Card })[] }
   }
 
   /**
    * Get cart by user ID with items
    */
   async getUserCart(userId: string): Promise<(Cart & { items: (CartItem & { card: Card })[] }) | null> {
-    const { data: cart } = await this.supabase.from('carts').select('*').eq('user_id', userId).maybeSingle()
+    const { data: cart } = await this.supabase.from('carts').select('id').eq('user_id', userId).maybeSingle()
 
     if (!cart) return null
 
@@ -118,7 +115,7 @@ export class CartService {
   async getGuestCart(guestId: string): Promise<(Cart & { items: (CartItem & { card: Card })[] }) | null> {
     const { data: cart } = await this.supabase
       .from('carts')
-      .select('*')
+      .select('id')
       .eq('guest_id', guestId)
       .is('merged_into_cart_id', null) // Don't return merged carts
       .maybeSingle()
@@ -158,7 +155,7 @@ export class CartService {
     }
 
     // Get card data for snapshot
-    const { data: card, error: cardError } = await this.supabase.from('cards').select('*').eq('id', cardId).single()
+    const { data: card, error: cardError } = await this.supabase.from('cards').select('id, card_name, card_type, is_in_stock').eq('id', cardId).single()
 
     if (cardError || !card) {
       return { success: false, cart: null, error: 'Card not found' }
@@ -240,7 +237,7 @@ export class CartService {
 
     // Fetch all card data and validate
     const cardIds = items.map((item) => item.card_id)
-    const { data: cards, error: cardsError } = await this.supabase.from('cards').select('*').in('id', cardIds)
+    const { data: cards, error: cardsError } = await this.supabase.from('cards').select('id, card_name, card_type, is_in_stock').in('id', cardIds)
 
     if (cardsError) {
       return { success: false, cart: null, error: 'Failed to fetch card data' }
@@ -686,7 +683,7 @@ export class CartService {
   async claimGuestCart(guestId: string, userId: string): Promise<Cart | null> {
     const { data: guestCart } = await this.supabase
       .from('carts')
-      .select('*')
+      .select('id')
       .eq('guest_id', guestId)
       .is('merged_into_cart_id', null)
       .maybeSingle()
@@ -771,7 +768,7 @@ export class CartService {
   ): Promise<{ valid: boolean; reason?: string; needs_refresh?: boolean }> {
     const { data: session, error } = await this.supabase
       .from('checkout_sessions')
-      .select('*')
+      .select('id, status, expires_at, cart_id, cart_version_at_start, cart_hash')
       .eq('id', sessionId)
       .single()
 

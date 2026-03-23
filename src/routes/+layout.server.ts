@@ -6,7 +6,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
   // Get current group buy config
   const { data: groupBuyConfig } = await locals.supabase
     .from('group_buy_config')
-    .select('*')
+    .select('id, is_active, opens_at, closes_at, name')
     .eq('is_active', true)
     .single()
 

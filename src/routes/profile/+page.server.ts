@@ -7,26 +7,26 @@ export const load: PageServerLoad = async ({ locals }) => {
   }
 
   // Get user profile from users table
-  const { data: profile } = await locals.supabase.from('users').select('*').eq('id', locals.user.id).single()
+  const { data: profile } = await locals.supabase.from('users').select('id, name, avatar_url, discord_username, discord_id, google_id, paypal_email').eq('id', locals.user.id).single()
 
   // Get saved addresses
   const { data: addresses } = await locals.supabase
     .from('addresses')
-    .select('*')
+    .select('id, user_id, name, line1, line2, city, state, postal_code, country, phone_number, is_default')
     .eq('user_id', locals.user.id)
     .order('is_default', { ascending: false })
 
   // Get notification preferences
   const { data: notifications } = await locals.supabase
     .from('notification_preferences')
-    .select('*')
+    .select('id, user_id, email_order_confirmed, email_invoice_sent, email_payment_received, email_order_shipped, discord_order_shipped, discord_payment_reminder')
     .eq('user_id', locals.user.id)
     .single()
 
   // Get order count
   const { count: orderCount } = await locals.supabase
     .from('orders')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', locals.user.id)
 
   // Check if user has identities to determine auth methods
