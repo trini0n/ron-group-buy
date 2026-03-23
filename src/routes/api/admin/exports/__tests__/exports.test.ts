@@ -434,10 +434,10 @@ describe('Export File Content Validation', () => {
 
     // Verify single worksheet with correct tab name
     expect(workbook.worksheets).toHaveLength(1)
-    expect(workbook.worksheets[0].name).toBe('ORD-001')
+    expect(workbook.worksheets[0]!.name).toBe('ORD-001')
 
     // Verify header section: row 1 is Order Number label + value
-    const ws = workbook.worksheets[0]
+    const ws = workbook.worksheets[0]!
     expect(ws.getRow(1).getCell(1).value).toBe('Order Number:')
     expect(ws.getRow(1).getCell(2).value).toBe('ORD-001')
     expect(ws.getRow(2).getCell(1).value).toBe('Order Date:')
@@ -504,8 +504,8 @@ describe('Export File Content Validation', () => {
     expect(workbook.worksheets).toHaveLength(3)
 
     // sortOrdersByShippingAndDate: express first, then regular sorted by created_at ascending
-    expect(workbook.worksheets[0].name).toBe('ORD-002') // express
-    expect(workbook.worksheets[1].name).toBe('ORD-001') // regular, earliest
-    expect(workbook.worksheets[2].name).toBe('ORD-003') // regular, latest
+    expect(workbook.worksheets[0]!.name).toBe('ORD-002') // express
+    expect(workbook.worksheets[1]!.name).toBe('ORD-001') // regular, earliest
+    expect(workbook.worksheets[2]!.name).toBe('ORD-003') // regular, latest
   })
 })
