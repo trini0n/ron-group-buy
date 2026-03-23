@@ -41,7 +41,7 @@ const CreateOrderSchema = z.object({
   action: z.enum(['replace', 'merge']).optional(),
   paypalEmail: z.string().trim().min(1),
   phoneNumber: z.string().trim().min(1),
-  discordUsername: z.string().optional(),
+  discordUsername: z.string().regex(/^[a-zA-Z0-9_.]{2,32}$/, 'Invalid Discord username format').optional(),
   cartId: z.string().optional(),
   cartVersion: z.number().optional(),
   notes: z.string().optional(),
@@ -314,7 +314,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }))
 
   if (replaceOldOrderId) {
-    const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('replace_order', {
+    const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('replace_order' as any, {
       p_user_id: locals.user.id,
       p_old_order_id: replaceOldOrderId,
       p_order_number: generateOrderNumber(),
@@ -332,10 +332,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       p_items: rpcItems
     })
     if (rpcError || !rpcResult) { throw error(500, 'Failed to replace order') }
-    return json({ orderId: rpcResult.order_id, orderNumber: rpcResult.order_number })
+    const replaceResult = rpcResult as { order_id: string; order_number: string }
+    return json({ orderId: replaceResult.order_id, orderNumber: replaceResult.order_number })
   }
 
-  const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('create_order_with_items', {
+  const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('create_order_with_items' as any, {
     p_user_id: locals.user.id,
     p_order_number: generateOrderNumber(),
     p_group_buy_id: activeGroupBuy?.id ?? null,
@@ -352,7 +353,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     p_items: rpcItems
   })
   if (rpcError || !rpcResult) { throw error(500, 'Failed to create order') }
-  return json({ orderId: rpcResult.order_id, orderNumber: rpcResult.order_number })
+  const createResult = rpcResult as { order_id: string; order_number: string }
+  return json({ orderId: createResult.order_id, orderNumber: createResult.order_number })
 }
 
 /**
