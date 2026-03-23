@@ -1,7 +1,7 @@
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
 
-export const load = async ({ url }) => {
+export const load = async ({ url }: { url: URL }) => {
   const adminClient = createAdminClient()
 
   // Parse filters from URL

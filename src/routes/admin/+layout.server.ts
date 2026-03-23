@@ -1,7 +1,8 @@
+import type { LayoutServerLoad } from './$types'
 import { redirect } from '@sveltejs/kit'
 import { isAdmin, createAdminClient } from '$lib/server/admin'
 
-export const load = async ({ locals, url }) => {
+export const load: LayoutServerLoad = async ({ locals, url }) => {
   const user = locals.user
 
   // Check if user is logged in

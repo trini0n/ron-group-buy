@@ -1,7 +1,7 @@
 import { createAdminClient } from '$lib/server/admin'
 import { error } from '@sveltejs/kit'
 
-export const load = async ({ params }) => {
+export const load = async ({ params }: { params: { id: string } }) => {
   const adminClient = createAdminClient()
 
   // Fetch user

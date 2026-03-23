@@ -1,8 +1,7 @@
 import { redirect } from '@sveltejs/kit'
-import type { PageServerLoad } from './$types'
 import { isAdmin, createAdminClient } from '$lib/server/admin'
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load = async ({ locals }: { locals: App.Locals }) => {
   if (!locals.user) {
     throw redirect(303, '/auth/login')
   }

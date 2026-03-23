@@ -1,7 +1,7 @@
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
 
-export const load = async ({ url, setHeaders }) => {
+export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers: Record<string, string>) => void }) => {
   // Short cache for admin pages (1 minute) - balances freshness with reduced origin hits
   setHeaders({
     'Cache-Control': 'private, max-age=60'
