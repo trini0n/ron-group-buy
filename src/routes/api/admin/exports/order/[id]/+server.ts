@@ -37,7 +37,7 @@ export async function GET({ params, locals }: RequestEvent) {
     return new Response(Buffer.from(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
         'Content-Length': buffer.length.toString()
       }
     })
