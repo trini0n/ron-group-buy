@@ -9,6 +9,7 @@
  *   - https://photos.app.goo.gl/...
  */
 import { logger } from '$lib/server/logger'
+import { createAdminClient } from '$lib/server/admin'
 
 const GOOGLE_CONTENT_PREFIX = 'https://lh3.googleusercontent.com/'
 const ALLOWED_GPHOTO_HOSTNAMES = new Set(['photos.google.com', 'lh3.googleusercontent.com'])
@@ -17,7 +18,7 @@ const ALLOWED_GPHOTO_HOSTNAMES = new Set(['photos.google.com', 'lh3.googleuserco
  * Extract direct image URL from a Google Photos sharing page
  * Now with database caching to avoid redundant external requests
  */
-export async function getDirectPhotoUrl(shareUrl: string, adminClient?: any): Promise<string | null> {
+export async function getDirectPhotoUrl(shareUrl: string, adminClient?: ReturnType<typeof createAdminClient>): Promise<string | null> {
   // Skip if already a direct URL
   if (shareUrl.startsWith(GOOGLE_CONTENT_PREFIX)) {
     return shareUrl
@@ -122,7 +123,7 @@ export async function getDirectPhotoUrl(shareUrl: string, adminClient?: any): Pr
 export async function convertUrlsWithRateLimit(
   urls: (string | null)[],
   delayMs: number = 200,
-  adminClient?: any
+  adminClient?: ReturnType<typeof createAdminClient>
 ): Promise<(string | null)[]> {
   const results: (string | null)[] = []
 
