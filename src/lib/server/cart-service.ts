@@ -136,7 +136,7 @@ export class CartService {
     cardId: string,
     quantity: number,
     expectedVersion?: number
-  ): Promise<{ success: boolean; cart: Cart; error?: string }> {
+  ): Promise<{ success: boolean; cart: Cart | null; error?: string }> {
     // Get current cart version
     const { data: cart, error: cartError } = await this.supabase
       .from('carts')
@@ -145,14 +145,14 @@ export class CartService {
       .single()
 
     if (cartError) {
-      return { success: false, cart: null as any, error: 'Cart not found' }
+      return { success: false, cart: null, error: 'Cart not found' }
     }
 
     // Optimistic concurrency check
     if (expectedVersion !== undefined && cart.version !== expectedVersion) {
       return {
         success: false,
-        cart: null as any,
+        cart: null,
         error: `Version mismatch: expected ${expectedVersion}, got ${cart.version}`
       }
     }
@@ -161,11 +161,11 @@ export class CartService {
     const { data: card, error: cardError } = await this.supabase.from('cards').select('*').eq('id', cardId).single()
 
     if (cardError || !card) {
-      return { success: false, cart: null as any, error: 'Card not found' }
+      return { success: false, cart: null, error: 'Card not found' }
     }
 
     if (!card.is_in_stock) {
-      return { success: false, cart: null as any, error: 'Card is out of stock' }
+      return { success: false, cart: null, error: 'Card is out of stock' }
     }
 
     const price = await this.getPrice(card.card_type)
@@ -186,7 +186,7 @@ export class CartService {
         .eq('id', existingItem.id)
 
       if (updateError) {
-        return { success: false, cart: null as any, error: updateError.message }
+        return { success: false, cart: null, error: updateError.message }
       }
     } else {
       // Insert new item with snapshot
@@ -201,7 +201,7 @@ export class CartService {
       })
 
       if (insertError) {
-        return { success: false, cart: null as any, error: insertError.message }
+        return { success: false, cart: null, error: insertError.message }
       }
     }
 
@@ -217,7 +217,7 @@ export class CartService {
     cartId: string,
     items: Array<{ card_id: string; quantity: number }>,
     expectedVersion?: number
-  ): Promise<{ success: boolean; cart: Cart; error?: string }> {
+  ): Promise<{ success: boolean; cart: Cart | null; error?: string }> {
     // Get current cart version
     const { data: cart, error: cartError } = await this.supabase
       .from('carts')
@@ -226,14 +226,14 @@ export class CartService {
       .single()
 
     if (cartError) {
-      return { success: false, cart: null as any, error: 'Cart not found' }
+      return { success: false, cart: null, error: 'Cart not found' }
     }
 
     // Optimistic concurrency check
     if (expectedVersion !== undefined && cart.version !== expectedVersion) {
       return {
         success: false,
-        cart: null as any,
+        cart: null,
         error: `Version mismatch: expected ${expectedVersion}, got ${cart.version}`
       }
     }
@@ -243,7 +243,7 @@ export class CartService {
     const { data: cards, error: cardsError } = await this.supabase.from('cards').select('*').in('id', cardIds)
 
     if (cardsError) {
-      return { success: false, cart: null as any, error: 'Failed to fetch card data' }
+      return { success: false, cart: null, error: 'Failed to fetch card data' }
     }
 
     // Create a map for quick lookup
@@ -263,13 +263,13 @@ export class CartService {
     }
 
     if (invalidCards.length > 0) {
-      return { success: false, cart: null as any, error: `${invalidCards.length} card(s) not found` }
+      return { success: false, cart: null, error: `${invalidCards.length} card(s) not found` }
     }
 
     if (outOfStockCards.length > 0) {
       return {
         success: false,
-        cart: null as any,
+        cart: null,
         error: `${outOfStockCards.length} card(s) out of stock: ${outOfStockCards.slice(0, 3).join(', ')}${outOfStockCards.length > 3 ? '...' : ''}`
       }
     }
@@ -330,7 +330,7 @@ export class CartService {
       const { error: insertError } = await this.supabase.from('cart_items').insert(itemsToInsert)
 
       if (insertError) {
-        return { success: false, cart: null as any, error: insertError.message }
+        return { success: false, cart: null, error: insertError.message }
       }
     }
 
@@ -347,7 +347,7 @@ export class CartService {
       })
 
       if (updateError) {
-        return { success: false, cart: null as any, error: updateError.message }
+        return { success: false, cart: null, error: updateError.message }
       }
     }
 
@@ -364,7 +364,7 @@ export class CartService {
     itemId: string,
     quantity: number,
     expectedVersion?: number
-  ): Promise<{ success: boolean; cart: Cart; error?: string }> {
+  ): Promise<{ success: boolean; cart: Cart | null; error?: string }> {
     // Get current cart version
     const { data: cart, error: cartError } = await this.supabase
       .from('carts')
@@ -373,14 +373,14 @@ export class CartService {
       .single()
 
     if (cartError) {
-      return { success: false, cart: null as any, error: 'Cart not found' }
+      return { success: false, cart: null, error: 'Cart not found' }
     }
 
     // Optimistic concurrency check
     if (expectedVersion !== undefined && cart.version !== expectedVersion) {
       return {
         success: false,
-        cart: null as any,
+        cart: null,
         error: `Version mismatch: expected ${expectedVersion}, got ${cart.version}`
       }
     }
@@ -390,7 +390,7 @@ export class CartService {
       const { error } = await this.supabase.from('cart_items').delete().eq('id', itemId).eq('cart_id', cartId)
 
       if (error) {
-        return { success: false, cart: null as any, error: error.message }
+        return { success: false, cart: null, error: error.message }
       }
     } else {
       // Update quantity
@@ -401,7 +401,7 @@ export class CartService {
         .eq('cart_id', cartId)
 
       if (error) {
-        return { success: false, cart: null as any, error: error.message }
+        return { success: false, cart: null, error: error.message }
       }
     }
 
@@ -416,7 +416,7 @@ export class CartService {
     cartId: string,
     itemId: string,
     expectedVersion?: number
-  ): Promise<{ success: boolean; cart: Cart; error?: string }> {
+  ): Promise<{ success: boolean; cart: Cart | null; error?: string }> {
     return this.updateItemQuantity(cartId, itemId, 0, expectedVersion)
   }
 
