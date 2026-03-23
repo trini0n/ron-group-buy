@@ -63,6 +63,10 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
       throw error(400, result.error || 'Failed to add items')
     }
 
+    if (!result.cart) {
+      throw error(500, 'Cart unavailable')
+    }
+
     return json({
       success: true,
       cart: {

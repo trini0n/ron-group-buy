@@ -42,6 +42,10 @@ export const PATCH: RequestHandler = async ({ params, request, locals, cookies }
       throw error(400, result.error || 'Failed to update item')
     }
 
+    if (!result.cart) {
+      throw error(500, 'Cart unavailable')
+    }
+
     return json({
       success: true,
       cart: {
@@ -87,6 +91,10 @@ export const DELETE: RequestHandler = async ({ params, locals, cookies }) => {
 
     if (!result.success) {
       throw error(400, result.error || 'Failed to remove item')
+    }
+
+    if (!result.cart) {
+      throw error(500, 'Cart unavailable')
     }
 
     return json({
