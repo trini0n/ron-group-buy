@@ -10,7 +10,7 @@ export interface CartItem {
   price_at_add: number | null
   card_name_snapshot: string | null
   card_type_snapshot: string | null
-  is_in_stock_snapshot: boolean
+  is_in_stock_snapshot: boolean | null
   added_at: string
   // Joined card data
   card?: Card
