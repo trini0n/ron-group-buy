@@ -303,7 +303,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     card_id: item.cardId,
     card_serial: item.serial,
     card_name: item.name,
-    card_type: item.cardType,
+    // Use server-verified card_type (same source as unit_price) to prevent client spoofing
+    card_type: serverCardTypeMap.get(item.cardId) ?? item.cardType,
     quantity: item.quantity,
     unit_price: getCardPrice(serverCardTypeMap.get(item.cardId) ?? item.cardType, prices),
     set_code: item.setCode || null,
@@ -331,7 +332,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       p_notes: notes || null,
       p_items: rpcItems
     })
-    if (rpcError || !rpcResult) { throw error(500, 'Failed to replace order') }
+    if (rpcError || !rpcResult) {
+      logger.error(
+        { error: rpcError, userId: locals.user.id, oldOrderId: replaceOldOrderId },
+        'replace_order RPC failed'
+      )
+      throw error(500, 'Failed to replace order')
+    }
     const replaceResult = rpcResult as { order_id: string; order_number: string }
     return json({ orderId: replaceResult.order_id, orderNumber: replaceResult.order_number })
   }
@@ -352,7 +359,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     p_notes: notes || null,
     p_items: rpcItems
   })
-  if (rpcError || !rpcResult) { throw error(500, 'Failed to create order') }
+  if (rpcError || !rpcResult) {
+    logger.error(
+      { error: rpcError, userId: locals.user.id, itemCount: rpcItems.length },
+      'create_order_with_items RPC failed'
+    )
+    throw error(500, 'Failed to create order')
+  }
   const createResult = rpcResult as { order_id: string; order_number: string }
   return json({ orderId: createResult.order_id, orderNumber: createResult.order_number })
 }
