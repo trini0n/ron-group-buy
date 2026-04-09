@@ -511,6 +511,17 @@ function createCartStore() {
   }
 
   /**
+   * Apply a merge response from the pending endpoint directly to store state.
+   * Avoids a syncFromServer() round-trip when the endpoint already returns cart state.
+   */
+  function applyMergeResponse(result: { cart: { id: string; version: number }; items: CartItem[] }): void {
+    cartId = result.cart.id
+    version = result.cart.version
+    items = result.items
+    persistLocal()
+  }
+
+  /**
    * Handle auth state change - check for merge
    */
   async function onAuthChange(isLoggedIn: boolean): Promise<void> {
@@ -588,6 +599,7 @@ function createCartStore() {
     skipMerge,
     validate,
     onAuthChange,
+    applyMergeResponse,
 
     // Helpers
     isInCart

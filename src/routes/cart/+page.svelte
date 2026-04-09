@@ -42,29 +42,48 @@
 
   async function handlePendingOrderAction(action: 'merge' | 'cancel') {
     if (!data.existingPendingOrder) return;
-    
+
     isPendingOrderAction = true;
     try {
       const response = await fetch(`/api/orders/${data.existingPendingOrder.id}/pending`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({
+          action,
+          expectedVersion: cartStore.version > 0 ? cartStore.version : undefined
+        })
       });
 
-      if (response.ok) {
-        pendingOrderDialogOpen = false;
-        if (action === 'merge') {
-          await cartStore.syncFromServer();
-          toast.success('Order items added to your cart');
-        } else {
-          toast.success('Pending order cancelled');
-        }
-        // Force page reload to clear the pending order from data
-        window.location.reload();
-      } else {
+      if (response.status === 409) {
+        // Cart was concurrently modified — refresh page data and show informational toast
         const err = await response.json();
-        toast.error(err.message || 'Failed to process order');
+        toast.error(err.error || 'Cart was updated — please try again');
+        await invalidateAll();
+        return;
       }
+
+      if (!response.ok) {
+        const err = await response.json();
+        toast.error(err.error || err.message || 'Failed to process order');
+        return;
+      }
+
+      pendingOrderDialogOpen = false;
+
+      if (action === 'merge') {
+        const result = await response.json();
+        // Update store directly from response — no syncFromServer() round-trip needed
+        if (result.cart && result.items) {
+          cartStore.applyMergeResponse(result);
+        }
+        toast.success('Order items added to your cart');
+      } else {
+        toast.success('Pending order cancelled');
+      }
+
+      // Re-run +page.server.ts load to clear existingPendingOrder from data
+      // invalidateAll() is SvelteKit-idiomatic and avoids a full page tear-down
+      await invalidateAll();
     } catch (err) {
       toast.error('Failed to process order');
     } finally {
