@@ -53,6 +53,19 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   try {
     const mergeReport = await cartService.mergeOrderIntoCart(orderId, cart.id)
 
+    // Proactively invalidate any active checkout sessions for this cart.
+    // mergeOrderIntoCart bumps the cart version (via trigger), so any
+    // in-flight checkout session is now stale. Invalidating eagerly here
+    // prevents the session from appearing valid until validateCheckoutSession is called.
+    await locals.supabase
+      .from('checkout_sessions')
+      .update({ status: 'invalidated' })
+      .eq('cart_id', cart.id)
+      .eq('status', 'active')
+
+    // Fetch cart state AFTER merge writes so the trigger-bumped version is reflected.
+    const updatedCart = await cartService.getCartWithItems(cart.id)
+
     // Build user-friendly response message
     const messages: string[] = []
 
@@ -73,7 +86,9 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     return json({
       success: true,
       message: messages.join('. ') || 'Order merged successfully',
-      report: mergeReport
+      report: mergeReport,
+      cart: { id: updatedCart.id, version: updatedCart.version },
+      items: updatedCart.items
     })
   } catch (err) {
     logger.error({ error: err, orderId: params.id }, 'Error merging order into cart')
