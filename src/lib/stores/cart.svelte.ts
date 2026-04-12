@@ -310,8 +310,6 @@ function createCartStore() {
     })
   }
 
-
-
   /**
    * Update item quantity (server-synced)
    */
@@ -328,9 +326,7 @@ function createCartStore() {
         items = items.filter((i) => i.id !== itemId)
       } else {
         // Create new array with updated item (new object reference for reactivity)
-        items = items.map((i, idx) => 
-          idx === itemIndex ? { ...i, quantity } : i
-        )
+        items = items.map((i, idx) => (idx === itemIndex ? { ...i, quantity } : i))
       }
       persistLocal()
     }

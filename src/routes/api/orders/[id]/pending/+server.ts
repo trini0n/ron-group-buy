@@ -57,7 +57,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   if (action === 'merge') {
     // 1. Get or create the user's cart (must include version for optimistic lock check)
-    let { data: cart } = await locals.supabase.from('carts').select('id, version').eq('user_id', locals.user.id).single()
+    let { data: cart } = await locals.supabase
+      .from('carts')
+      .select('id, version')
+      .eq('user_id', locals.user.id)
+      .single()
 
     if (!cart) {
       const { data: newCart, error: cartError } = await locals.supabase

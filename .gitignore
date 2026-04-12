@@ -7,8 +7,8 @@ build/
 .vercel/
 .github/agents/
 .github/instructions/
-.github/prompts
-/github/skills
+.github/prompts/
+/github/skills/
 FUNDING.yml
 pull_request_template.md
 .gsd
