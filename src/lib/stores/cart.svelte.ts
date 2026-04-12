@@ -89,6 +89,11 @@ function createCartStore() {
   let validation = $state<CartValidation | null>(null)
   let pendingMerge = $state<MergeStatus | null>(null)
 
+  // Track item IDs whose removal has been optimistically applied but not yet
+  // confirmed by the server. Prevents server responses from reinstating items
+  // the user has already removed (CART-02).
+  const pendingRemovals = new Set<string>()
+
   // Load local cache on init (for instant UX before server sync)
   if (browser) {
     const cached = localStorage.getItem(LOCAL_CART_KEY)
@@ -101,6 +106,29 @@ function createCartStore() {
         // Ignore invalid cache
       }
     }
+  }
+
+  /**
+   * Merge a server-returned item list into local state while preserving:
+   * (a) existing display order (CART-03) — retained items stay at their current positions
+   * (b) optimistic removals (CART-02) — items in pendingRemovals are filtered out even
+   *     if the server still shows them (their DELETE request is still in flight)
+   *
+   * New items from the server (not currently in local list) are appended at the end.
+   */
+  function applyServerItems(serverItems: CartItem[]): void {
+    const serverMap = new Map(serverItems.map((i) => [i.id, i]))
+
+    // Preserve display order: keep items that exist on server and are not pending removal
+    const retained = items
+      .filter((i) => serverMap.has(i.id) && !pendingRemovals.has(i.id))
+      .map((i) => serverMap.get(i.id)!)
+
+    // Append genuinely new items from server (not in current local list)
+    const existingIds = new Set(items.map((i) => i.id))
+    const appended = serverItems.filter((i) => !existingIds.has(i.id) && !pendingRemovals.has(i.id))
+
+    items = [...retained, ...appended]
   }
 
   // Persist to local storage for instant UI
@@ -150,7 +178,7 @@ function createCartStore() {
         version = 0
       }
 
-      items = data.items || []
+      applyServerItems(data.items || [])
       validation = data.validation || null
 
       persistLocal()
@@ -219,7 +247,7 @@ function createCartStore() {
           cartId = data.cart.id
           version = data.cart.version
         }
-        items = data.items || []
+        applyServerItems(data.items || [])
         persistLocal()
 
         return true
@@ -295,7 +323,7 @@ function createCartStore() {
           cartId = data.cart.id
           version = data.cart.version
         }
-        items = data.items || []
+        applyServerItems(data.items || [])
         persistLocal()
 
         return true
@@ -324,6 +352,7 @@ function createCartStore() {
       if (quantity <= 0) {
         // Remove item
         items = items.filter((i) => i.id !== itemId)
+        pendingRemovals.add(itemId) // Track until server confirms (CART-02)
       } else {
         // Create new array with updated item (new object reference for reactivity)
         items = items.map((i, idx) => (idx === itemIndex ? { ...i, quantity } : i))
@@ -345,6 +374,7 @@ function createCartStore() {
 
         if (response.status === 409) {
           // Version conflict - resync and retry
+          pendingRemovals.delete(itemId)
           await syncFromServer()
           // Retry is already queued, don't call recursively
           throw new Error('Version conflict - please try again')
@@ -359,11 +389,13 @@ function createCartStore() {
         if (data.cart) {
           version = data.cart.version
         }
-        items = data.items || []
+        pendingRemovals.delete(itemId)
+        applyServerItems(data.items || [])
         persistLocal()
 
         return true
       } catch (err) {
+        pendingRemovals.delete(itemId)
         items = previousItems
         persistLocal()
         console.error('Update quantity error:', err)
