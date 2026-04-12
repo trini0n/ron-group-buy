@@ -360,11 +360,16 @@
         onclick={() => handlePendingOrderAction('merge')}
         disabled={isPendingOrderAction}
       >
-        <Merge class="h-4 w-4 text-green-500" />
-        <div class="text-left">
-          <p class="font-medium">Add to cart</p>
-          <p class="text-xs text-muted-foreground">Merge these items into your current cart</p>
-        </div>
+        {#if isPendingOrderAction}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          <span class="font-medium">Adding...</span>
+        {:else}
+          <Merge class="h-4 w-4 text-green-500" />
+          <div class="text-left">
+            <p class="font-medium">Add to cart</p>
+            <p class="text-xs text-muted-foreground">Merge these items into your current cart</p>
+          </div>
+        {/if}
       </Button>
       
       <Button 
@@ -373,11 +378,16 @@
         onclick={() => handlePendingOrderAction('cancel')}
         disabled={isPendingOrderAction}
       >
-        <X class="h-4 w-4 text-red-500" />
-        <div class="text-left">
-          <p class="font-medium">Cancel order</p>
-          <p class="text-xs text-muted-foreground">Delete this pending order</p>
-        </div>
+        {#if isPendingOrderAction}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          <span class="font-medium">Processing...</span>
+        {:else}
+          <X class="h-4 w-4 text-red-500" />
+          <div class="text-left">
+            <p class="font-medium">Cancel order</p>
+            <p class="text-xs text-muted-foreground">Delete this pending order</p>
+          </div>
+        {/if}
       </Button>
     </div>
     
