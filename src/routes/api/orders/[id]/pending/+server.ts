@@ -136,12 +136,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     const updatedCart = await cartService.getCartWithItems(cart.id)
 
     // Delete order items then the order
-    const { error: deleteMergeItemsError } = await locals.supabase.from('order_items').delete().eq('order_id', order.id)
+    // Must use adminClient: the RLS delete policy requires status='pending', but
+    // we set status='processing' in the idempotency claim above — adminClient bypasses RLS.
+    const { error: deleteMergeItemsError } = await adminClient.from('order_items').delete().eq('order_id', order.id)
     if (deleteMergeItemsError) {
       logger.error({ error: deleteMergeItemsError, orderId }, 'Failed to delete order items')
       throw error(500, 'Failed to delete order items')
     }
-    const { error: deleteMergeOrderError } = await locals.supabase.from('orders').delete().eq('id', order.id)
+    const { error: deleteMergeOrderError } = await adminClient.from('orders').delete().eq('id', order.id)
     if (deleteMergeOrderError) {
       logger.error({ error: deleteMergeOrderError, orderId }, 'Failed to delete order')
       throw error(500, 'Failed to delete order')
