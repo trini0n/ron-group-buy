@@ -84,15 +84,26 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     // 3. Atomic idempotency claim — transition order status from 'pending' → 'processing'
     //    Only the first concurrent request sees claimData.length === 1 and proceeds.
     //    'processing' is a valid value in the order_status ENUM (initial_schema.sql).
-    const { data: claimData } = await locals.supabase
+    //    NOTE: the orders UPDATE RLS policy must have an explicit WITH CHECK that allows
+    //    status to change to 'processing' (see migration 20260413000000_fix_orders_update_rls.sql).
+    //    Without it, the default WITH CHECK mirrors USING (which requires status='pending'),
+    //    silently returning 0 rows and causing a false-success response to the client.
+    const { data: claimData, error: claimError } = await locals.supabase
       .from('orders')
       .update({ status: 'processing' })
       .eq('id', orderId)
       .eq('status', 'pending')
       .select('id')
 
+    if (claimError) {
+      // RLS violation or DB error — surface this as a real error rather than silently
+      // hitting the "already being processed" early return path
+      logger.error({ error: claimError, orderId }, 'Failed to claim order for merge (RLS or DB error)')
+      throw error(500, 'Failed to process order')
+    }
+
     if (!claimData || claimData.length === 0) {
-      // Another concurrent request already claimed this order — respond gracefully
+      // Genuine concurrent race — another request already claimed this order
       return json({
         success: true,
         action: 'merge',

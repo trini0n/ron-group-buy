@@ -72,20 +72,30 @@
 
       if (action === 'merge') {
         const result = await response.json();
-        // Update store directly from response — no syncFromServer() round-trip needed
+        // Update store directly from response — no syncFromServer() round-trip needed.
+        // result.cart + result.items are only present when the merge actually ran.
+        // If they're missing the server returned an early-return (e.g. concurrent claim),
+        // which means nothing was merged — show a retry message instead of false success.
         if (result.cart && result.items) {
           cartStore.applyMergeResponse(result);
-        }
-        const removed = result.report?.items_removed?.length ?? 0;
-        if (removed > 0) {
-          const merged =
-            (result.report?.items_added?.length ?? 0) +
-            (result.report?.items_combined?.length ?? 0);
-          toast.success(`${merged} item${merged !== 1 ? 's' : ''} added to cart`, {
-            description: `${removed} item${removed !== 1 ? 's' : ''} could not be merged (sold out or no longer available)`
-          });
+          const removed = result.report?.items_removed?.length ?? 0;
+          if (removed > 0) {
+            const merged =
+              (result.report?.items_added?.length ?? 0) +
+              (result.report?.items_combined?.length ?? 0);
+            toast.success(`${merged} item${merged !== 1 ? 's' : ''} added to cart`, {
+              description: `${removed} item${removed !== 1 ? 's' : ''} could not be merged (sold out or no longer available)`
+            });
+          } else {
+            toast.success('Order items added to your cart');
+          }
         } else {
-          toast.success('Order items added to your cart');
+          // Server returned success but without cart data — concurrent claim or transient issue.
+          // Close the dialog and let the user retry after the page reloads.
+          pendingOrderDialogOpen = false;
+          toast.info('Please try again in a moment');
+          await invalidateAll();
+          return;
         }
       } else {
         toast.success('Pending order cancelled');
