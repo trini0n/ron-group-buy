@@ -267,13 +267,41 @@ export async function findCardsByIdentity(
   const { data, error } = await query
 
   if (error) {
-    logger.error({ error }, 'Error finding cards by identity')
+    logger.error({ error, identity }, 'Error finding cards by identity')
     return []
   }
 
   if (!data || data.length === 0) {
+    logger.warn(
+      {
+        card_name: identity.card_name,
+        set_code: identity.set_code,
+        collector_number: identity.collector_number,
+        is_foil: identity.is_foil,
+        is_etched: identity.is_etched,
+        language: identity.language
+      },
+      '[findCardsByIdentity] 0 rows returned — no in-stock card matched this identity'
+    )
     return []
   }
+
+  logger.info(
+    {
+      card_name: identity.card_name,
+      matches: data.map((c) => ({
+        id: c.id,
+        serial: c.serial,
+        set_code: c.set_code,
+        collector_number: c.collector_number,
+        is_foil: c.is_foil,
+        is_etched: c.is_etched,
+        language: c.language,
+        is_in_stock: c.is_in_stock
+      }))
+    },
+    '[findCardsByIdentity] matches found'
+  )
 
   // Sort by serial number (highest first) using numeric comparison
   return data.sort((a, b) => compareSerials(b.serial, a.serial))

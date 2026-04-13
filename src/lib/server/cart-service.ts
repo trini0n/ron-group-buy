@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Card } from './types'
+import { logger } from './logger'
 import {
   type Cart,
   type CartItem,
@@ -882,6 +883,12 @@ export class CartService {
 
     // Pre-warm price cache and run all identity lookups in parallel (replaces sequential per-item queries)
     await this.getPrice('Normal')
+
+    logger.info(
+      { orderId, targetCartId, itemCount: order.order_items.length },
+      '[merge] starting identity lookups for order items'
+    )
+
     const identityResults = await Promise.all(
       order.order_items.map((orderItem) => {
         const identity: CardIdentity = {
@@ -892,6 +899,10 @@ export class CartService {
           is_etched: orderItem.is_etched || false,
           language: orderItem.language || 'en'
         }
+        logger.info(
+          { card_name: orderItem.card_name, identity },
+          '[merge] identity constructed for order item'
+        )
         return findCardsByIdentity(this.supabase, identity)
       })
     )
@@ -902,6 +913,17 @@ export class CartService {
 
       if (matchingCards.length === 0) {
         // No matching cards found in current inventory
+        logger.warn(
+          {
+            card_name: orderItem.card_name,
+            set_code: orderItem.set_code,
+            collector_number: orderItem.collector_number,
+            is_foil: orderItem.is_foil,
+            is_etched: orderItem.is_etched,
+            language: orderItem.language
+          },
+          '[merge] NO MATCH — item will be dropped (sold_out)'
+        )
         items_removed.push({
           card_name: orderItem.card_name,
           quantity: orderItem.quantity || 1,
@@ -913,6 +935,10 @@ export class CartService {
       // Use the best match (highest serial)
       const currentCard = matchingCards[0]
       if (!currentCard) {
+        logger.warn(
+          { card_name: orderItem.card_name },
+          '[merge] matchingCards[0] unexpectedly undefined — item will be dropped'
+        )
         items_removed.push({
           card_name: orderItem.card_name,
           quantity: orderItem.quantity || 1,
@@ -920,6 +946,17 @@ export class CartService {
         })
         continue
       }
+
+      logger.info(
+        {
+          card_name: orderItem.card_name,
+          matched_id: currentCard.id,
+          matched_serial: currentCard.serial,
+          is_in_stock: currentCard.is_in_stock,
+          total_matches: matchingCards.length
+        },
+        '[merge] match found'
+      )
 
       // Check if this card is already in cart
       const existingCartItem = cartItemsByCardId.get(currentCard.id)
@@ -978,6 +1015,18 @@ export class CartService {
       const { data: finalCart } = await this.supabase.from('carts').select('version').eq('id', targetCartId).single()
       new_cart_version = finalCart?.version || 0
     }
+
+    logger.info(
+      {
+        orderId,
+        targetCartId,
+        items_added: items_added.length,
+        items_combined: items_combined.length,
+        items_removed: items_removed.length,
+        removed_names: items_removed.map((i) => i.card_name)
+      },
+      '[merge] completed'
+    )
 
     return {
       success: true,
