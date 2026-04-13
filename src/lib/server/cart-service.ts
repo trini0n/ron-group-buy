@@ -22,7 +22,7 @@ import {
   generateCartHash,
   isCartFresh
 } from './cart-types'
-import { extractCardIdentity, findCardsByIdentity, type CardIdentity } from './card-identity'
+import { extractCardIdentity, findCardsByIdentity, type CardIdentity, type CardWithIdentity } from './card-identity'
 import { fetchPrices, type CardPrices } from './pricing'
 
 export class CartService {
@@ -47,7 +47,11 @@ export class CartService {
     }
 
     // Try to find existing cart
-    let query = this.supabase.from('carts').select('id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at')
+    let query = this.supabase
+      .from('carts')
+      .select(
+        'id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at'
+      )
 
     if (userId) {
       query = query.eq('user_id', userId)
@@ -79,7 +83,13 @@ export class CartService {
    * Get cart with items and full card data
    */
   async getCartWithItems(cartId: string): Promise<Cart & { items: (CartItem & { card: Card })[] }> {
-    const { data: cart, error: cartError } = await this.supabase.from('carts').select('id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at').eq('id', cartId).single()
+    const { data: cart, error: cartError } = await this.supabase
+      .from('carts')
+      .select(
+        'id, user_id, guest_id, version, last_activity_at, expires_at, merged_into_cart_id, previous_user_id, created_at, updated_at'
+      )
+      .eq('id', cartId)
+      .single()
 
     if (cartError) throw cartError
 
@@ -156,7 +166,11 @@ export class CartService {
     }
 
     // Get card data for snapshot
-    const { data: card, error: cardError } = await this.supabase.from('cards').select('id, card_name, card_type, is_in_stock').eq('id', cardId).single()
+    const { data: card, error: cardError } = await this.supabase
+      .from('cards')
+      .select('id, card_name, card_type, is_in_stock')
+      .eq('id', cardId)
+      .single()
 
     if (cardError || !card) {
       return { success: false, cart: null, error: 'Card not found' }
@@ -238,7 +252,10 @@ export class CartService {
 
     // Fetch all card data and validate
     const cardIds = items.map((item) => item.card_id)
-    const { data: cards, error: cardsError } = await this.supabase.from('cards').select('id, card_name, card_type, is_in_stock').in('id', cardIds)
+    const { data: cards, error: cardsError } = await this.supabase
+      .from('cards')
+      .select('id, card_name, card_type, is_in_stock')
+      .in('id', cardIds)
 
     if (cardsError) {
       return { success: false, cart: null, error: 'Failed to fetch card data' }
@@ -886,11 +903,32 @@ export class CartService {
 
     logger.info(
       { orderId, targetCartId, itemCount: order.order_items.length },
-      '[merge] starting identity lookups for order items'
+      '[merge] starting card lookups for order items'
     )
 
+    // Primary lookup: by card_serial (stable physical card ID, never changes on resync).
+    // Fallback: identity-based matching for order items that predate card_serial storage.
+    const serialsToFetch = order.order_items
+      .map((i) => i.card_serial)
+      .filter((s): s is string => !!s)
+
+    // Batch-fetch all cards by serial in one query
+    const serialCardMap = new Map<string, CardWithIdentity>()
+    if (serialsToFetch.length > 0) {
+      const { data: serialCards } = await this.supabase
+        .from('cards')
+        .select('id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock, card_type')
+        .in('serial', serialsToFetch)
+
+      for (const c of serialCards ?? []) {
+        serialCardMap.set(c.serial, c as CardWithIdentity)
+      }
+    }
+
+    // Identity-based fallback for items without card_serial
+    const itemsNeedingIdentityLookup = order.order_items.filter((i) => !i.card_serial)
     const identityResults = await Promise.all(
-      order.order_items.map((orderItem) => {
+      itemsNeedingIdentityLookup.map((orderItem) => {
         const identity: CardIdentity = {
           set_code: orderItem.set_code || null,
           collector_number: orderItem.collector_number || null,
@@ -899,64 +937,83 @@ export class CartService {
           is_etched: orderItem.is_etched || false,
           language: orderItem.language || 'en'
         }
-        logger.info(
-          { card_name: orderItem.card_name, identity },
-          '[merge] identity constructed for order item'
-        )
+        logger.info({ card_name: orderItem.card_name, identity }, '[merge] identity constructed for order item (no serial)')
         return findCardsByIdentity(this.supabase, identity)
       })
     )
+    const identityResultMap = new Map<string, CardWithIdentity[]>()
+    itemsNeedingIdentityLookup.forEach((item, idx) => {
+      identityResultMap.set(item.id, identityResults[idx] ?? [])
+    })
 
     for (let _i = 0; _i < order.order_items.length; _i++) {
       const orderItem = order.order_items[_i]!
-      const matchingCards = identityResults[_i]!
 
-      if (matchingCards.length === 0) {
-        // No matching cards found in current inventory
-        logger.warn(
+      // Resolve the current card: serial lookup first, identity fallback second
+      let currentCard: CardWithIdentity | undefined
+      if (orderItem.card_serial) {
+        const bySerial = serialCardMap.get(orderItem.card_serial)
+        if (bySerial) {
+          if (!bySerial.is_in_stock) {
+            logger.warn(
+              { card_name: orderItem.card_name, serial: orderItem.card_serial },
+              '[merge] card found by serial but is OOS — dropping'
+            )
+            items_removed.push({ card_name: orderItem.card_name, quantity: orderItem.quantity || 1, reason: 'sold_out' })
+            continue
+          }
+          currentCard = bySerial
+          logger.info(
+            { card_name: orderItem.card_name, serial: orderItem.card_serial, matched_id: bySerial.id },
+            '[merge] match found by serial'
+          )
+        } else {
+          logger.warn(
+            { card_name: orderItem.card_name, serial: orderItem.card_serial },
+            '[merge] serial not found in DB — card may have been removed from inventory'
+          )
+          items_removed.push({ card_name: orderItem.card_name, quantity: orderItem.quantity || 1, reason: 'sold_out' })
+          continue
+        }
+      } else {
+        // Legacy path: no card_serial stored, use identity matching
+        const matchingCards = identityResultMap.get(orderItem.id) ?? []
+
+        if (matchingCards.length === 0) {
+          logger.warn(
+            {
+              card_name: orderItem.card_name,
+              set_code: orderItem.set_code,
+              collector_number: orderItem.collector_number,
+              is_foil: orderItem.is_foil,
+              is_etched: orderItem.is_etched,
+              language: orderItem.language
+            },
+            '[merge] NO MATCH via identity — item will be dropped (sold_out)'
+          )
+          items_removed.push({
+            card_name: orderItem.card_name,
+            quantity: orderItem.quantity || 1,
+            reason: 'sold_out'
+          })
+          continue
+        }
+        currentCard = matchingCards[0]
+        if (!currentCard) {
+          items_removed.push({ card_name: orderItem.card_name, quantity: orderItem.quantity || 1, reason: 'sold_out' })
+          continue
+        }
+        logger.info(
           {
             card_name: orderItem.card_name,
-            set_code: orderItem.set_code,
-            collector_number: orderItem.collector_number,
-            is_foil: orderItem.is_foil,
-            is_etched: orderItem.is_etched,
-            language: orderItem.language
+            matched_id: currentCard.id,
+            matched_serial: currentCard.serial,
+            is_in_stock: currentCard.is_in_stock,
+            total_matches: matchingCards.length
           },
-          '[merge] NO MATCH — item will be dropped (sold_out)'
+          '[merge] match found via identity (legacy)'
         )
-        items_removed.push({
-          card_name: orderItem.card_name,
-          quantity: orderItem.quantity || 1,
-          reason: 'sold_out'
-        })
-        continue
       }
-
-      // Use the best match (highest serial)
-      const currentCard = matchingCards[0]
-      if (!currentCard) {
-        logger.warn(
-          { card_name: orderItem.card_name },
-          '[merge] matchingCards[0] unexpectedly undefined — item will be dropped'
-        )
-        items_removed.push({
-          card_name: orderItem.card_name,
-          quantity: orderItem.quantity || 1,
-          reason: 'sold_out'
-        })
-        continue
-      }
-
-      logger.info(
-        {
-          card_name: orderItem.card_name,
-          matched_id: currentCard.id,
-          matched_serial: currentCard.serial,
-          is_in_stock: currentCard.is_in_stock,
-          total_matches: matchingCards.length
-        },
-        '[merge] match found'
-      )
 
       // Check if this card is already in cart
       const existingCartItem = cartItemsByCardId.get(currentCard.id)
