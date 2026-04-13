@@ -272,17 +272,50 @@ export async function findCardsByIdentity(
   }
 
   if (!data || data.length === 0) {
-    logger.warn(
-      {
-        card_name: identity.card_name,
-        set_code: identity.set_code,
-        collector_number: identity.collector_number,
-        is_foil: identity.is_foil,
-        is_etched: identity.is_etched,
-        language: identity.language
-      },
-      '[findCardsByIdentity] 0 rows returned — no in-stock card matched this identity'
-    )
+    // Secondary lookup without is_in_stock filter to distinguish OOS vs not-in-DB
+    let secondaryQuery = supabase
+      .from('cards')
+      .select('id, serial, is_in_stock, set_code, collector_number')
+      .eq('card_name', identity.card_name)
+      .eq('is_foil', identity.is_foil)
+      .eq('is_etched', identity.is_etched)
+      .eq('language', identity.language)
+
+    if (identity.set_code) {
+      secondaryQuery = secondaryQuery.eq('set_code', identity.set_code)
+    }
+    if (identity.collector_number) {
+      secondaryQuery = secondaryQuery.eq('collector_number', identity.collector_number)
+    }
+
+    const { data: anyData } = await secondaryQuery
+
+    if (anyData && anyData.length > 0) {
+      logger.warn(
+        {
+          card_name: identity.card_name,
+          set_code: identity.set_code,
+          collector_number: identity.collector_number,
+          is_foil: identity.is_foil,
+          is_etched: identity.is_etched,
+          language: identity.language,
+          oos_serials: anyData.map((c) => c.serial)
+        },
+        '[findCardsByIdentity] card exists in DB but is marked OOS (is_in_stock=false) — check OOS column in spreadsheet'
+      )
+    } else {
+      logger.warn(
+        {
+          card_name: identity.card_name,
+          set_code: identity.set_code,
+          collector_number: identity.collector_number,
+          is_foil: identity.is_foil,
+          is_etched: identity.is_etched,
+          language: identity.language
+        },
+        '[findCardsByIdentity] card NOT in DB — set_code/collector_number not found in inventory at all'
+      )
+    }
     return []
   }
 
