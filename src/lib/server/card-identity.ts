@@ -259,10 +259,10 @@ export async function findCardsByIdentity(
 
   if (identity.collector_number) {
     query = query.eq('collector_number', identity.collector_number)
-  } else {
-    // Fallback: only match cards that also have null collector_number
-    query = query.is('collector_number', null)
   }
+  // When collector_number is absent, don't constrain it — set_code + card_name + foil
+  // fields are sufficient to match. Requiring IS NULL would block cards that acquired
+  // a collector_number after a Scryfall resync (the original order pre-dates the resync).
 
   const { data, error } = await query
 

@@ -76,7 +76,17 @@
         if (result.cart && result.items) {
           cartStore.applyMergeResponse(result);
         }
-        toast.success('Order items added to your cart');
+        const removed = result.report?.items_removed?.length ?? 0;
+        if (removed > 0) {
+          const merged =
+            (result.report?.items_added?.length ?? 0) +
+            (result.report?.items_combined?.length ?? 0);
+          toast.success(`${merged} item${merged !== 1 ? 's' : ''} added to cart`, {
+            description: `${removed} item${removed !== 1 ? 's' : ''} could not be merged (sold out or no longer available)`
+          });
+        } else {
+          toast.success('Order items added to your cart');
+        }
       } else {
         toast.success('Pending order cancelled');
       }
