@@ -304,17 +304,47 @@ export async function findCardsByIdentity(
         '[findCardsByIdentity] card exists in DB but is marked OOS (is_in_stock=false) — check OOS column in spreadsheet'
       )
     } else {
-      logger.warn(
-        {
-          card_name: identity.card_name,
-          set_code: identity.set_code,
-          collector_number: identity.collector_number,
-          is_foil: identity.is_foil,
-          is_etched: identity.is_etched,
-          language: identity.language
-        },
-        '[findCardsByIdentity] card NOT in DB — set_code/collector_number not found in inventory at all'
-      )
+      // Tertiary lookup: search only by card_name to find any DB record regardless of set/collector
+      const { data: nameOnlyData } = await supabase
+        .from('cards')
+        .select('id, serial, is_in_stock, set_code, collector_number, language')
+        .eq('card_name', identity.card_name)
+        .eq('is_foil', identity.is_foil)
+        .eq('is_etched', identity.is_etched)
+        .limit(5)
+
+      if (nameOnlyData && nameOnlyData.length > 0) {
+        logger.warn(
+          {
+            card_name: identity.card_name,
+            order_identity: {
+              set_code: identity.set_code,
+              collector_number: identity.collector_number,
+              language: identity.language
+            },
+            db_records: nameOnlyData.map((c) => ({
+              serial: c.serial,
+              set_code: c.set_code,
+              collector_number: c.collector_number,
+              language: c.language,
+              is_in_stock: c.is_in_stock
+            }))
+          },
+          '[findCardsByIdentity] card exists in DB but with DIFFERENT set_code/collector_number — order identity mismatch'
+        )
+      } else {
+        logger.warn(
+          {
+            card_name: identity.card_name,
+            set_code: identity.set_code,
+            collector_number: identity.collector_number,
+            is_foil: identity.is_foil,
+            is_etched: identity.is_etched,
+            language: identity.language
+          },
+          '[findCardsByIdentity] card NOT in DB at all (no record with this name+foil combination)'
+        )
+      }
     }
     return []
   }
