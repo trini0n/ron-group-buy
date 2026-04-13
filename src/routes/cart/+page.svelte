@@ -13,7 +13,7 @@
 
   let clearCartDialogOpen = $state(false);
   let pendingOrderDialogOpen = $state(false);
-  let isPendingOrderAction = $state(false);
+  let pendingOrderAction = $state<'merge' | 'cancel' | null>(null);
 
   let { data } = $props();
 
@@ -43,7 +43,7 @@
   async function handlePendingOrderAction(action: 'merge' | 'cancel') {
     if (!data.existingPendingOrder) return;
 
-    isPendingOrderAction = true;
+    pendingOrderAction = action;
     try {
       const response = await fetch(`/api/orders/${data.existingPendingOrder.id}/pending`, {
         method: 'POST',
@@ -97,7 +97,7 @@
     } catch (err) {
       toast.error('Failed to process order');
     } finally {
-      isPendingOrderAction = false;
+      pendingOrderAction = null;
     }
   }
 </script>
@@ -368,9 +368,9 @@
         class="w-full justify-start gap-3 h-auto py-4" 
         variant="outline"
         onclick={() => handlePendingOrderAction('merge')}
-        disabled={isPendingOrderAction}
+        disabled={pendingOrderAction !== null}
       >
-        {#if isPendingOrderAction}
+        {#if pendingOrderAction === 'merge'}
           <Loader2 class="h-4 w-4 animate-spin" />
           <span class="font-medium">Adding...</span>
         {:else}
@@ -386,9 +386,9 @@
         class="w-full justify-start gap-3 h-auto py-4" 
         variant="outline"
         onclick={() => handlePendingOrderAction('cancel')}
-        disabled={isPendingOrderAction}
+        disabled={pendingOrderAction !== null}
       >
-        {#if isPendingOrderAction}
+        {#if pendingOrderAction === 'cancel'}
           <Loader2 class="h-4 w-4 animate-spin" />
           <span class="font-medium">Processing...</span>
         {:else}
