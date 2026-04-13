@@ -680,7 +680,7 @@
                   {@const price = getCardPrice(item.card.card_type)}
                   <div class="flex justify-between text-sm">
                     <span class="truncate pr-2">
-                      {item.card.card_name} Ã— {item.quantity}
+                      {item.card.card_name} × {item.quantity}
                       <span class="text-muted-foreground"
                         >({item.card.card_type})</span
                       >
@@ -707,7 +707,7 @@
                     class="flex justify-between text-xs text-muted-foreground"
                   >
                     <span
-                      >{type} ({group.count} Ã— {formatPrice(group.price)})</span
+                      >{type} ({group.count} × {formatPrice(group.price)})</span
                     >
                     <span>{formatPrice(group.total)}</span>
                   </div>
