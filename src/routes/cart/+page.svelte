@@ -35,7 +35,13 @@
   });
 
   async function handlePendingOrderAction(action: 'merge' | 'cancel') {
-    if (!data.existingPendingOrder) return;
+    if (!data.existingPendingOrder) {
+      // Data was refreshed (e.g. auth token renewed) while dialog was open and the order
+      // is no longer accessible. Close the dialog and let the user try again.
+      pendingOrderDialogOpen = false;
+      toast.info('Order data refreshed — please try again');
+      return;
+    }
 
     pendingOrderAction = action;
     try {

@@ -409,6 +409,11 @@ async function mergeIntoExistingOrder(
     card_type: string
     quantity: number
     unit_price: number
+    set_code: string | null
+    collector_number: string | null
+    is_foil: boolean
+    is_etched: boolean
+    language: string
   }> = []
   const itemsToUpdate: Array<{ id: string; quantity: number }> = []
 
@@ -422,7 +427,7 @@ async function mergeIntoExistingOrder(
         quantity: (existing.quantity ?? 0) + newItem.quantity
       })
     } else {
-      // New card, insert it
+      // New card, insert it — include identity fields for stable merge matching
       itemsToInsert.push({
         order_id: existingOrder.id,
         card_id: newItem.cardId,
@@ -430,7 +435,12 @@ async function mergeIntoExistingOrder(
         card_name: newItem.name,
         card_type: newItem.cardType,
         quantity: newItem.quantity,
-        unit_price: getCardPrice(mergeCardTypeMap.get(newItem.cardId) ?? newItem.cardType, mergePrices)
+        unit_price: getCardPrice(mergeCardTypeMap.get(newItem.cardId) ?? newItem.cardType, mergePrices),
+        set_code: newItem.setCode ?? null,
+        collector_number: newItem.collectorNumber ?? null,
+        is_foil: newItem.isFoil ?? false,
+        is_etched: newItem.isEtched ?? false,
+        language: newItem.language ?? 'en'
       })
     }
   }
