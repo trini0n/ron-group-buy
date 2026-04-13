@@ -7,7 +7,6 @@
   import { cartStore } from '$lib/stores/cart.svelte';
   import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
   import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle, Info, Package, X, Merge } from 'lucide-svelte';
-  import { onMount } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
 
@@ -16,11 +15,6 @@
   let pendingOrderAction = $state<'merge' | 'cancel' | null>(null);
 
   let { data } = $props();
-
-  // Sync cart from server on mount
-  onMount(() => {
-    cartStore.syncFromServer();
-  });
 
   const isGroupBuyOpen = $derived.by(() => {
     if (!data.groupBuyConfig) return false;
@@ -134,7 +128,7 @@
     </div>
   {/if}
 
-  {#if cartStore.items.length === 0}
+  {#if cartStore.items.length === 0 && !cartStore.isSyncing}
     <div class="flex flex-col items-center justify-center py-16 text-center">
       <ShoppingCart class="mb-4 h-16 w-16 text-muted-foreground" />
       <h2 class="text-xl font-medium">Your cart is empty</h2>
@@ -144,6 +138,11 @@
       <Button href="/" class="mt-4">
         Browse Cards
       </Button>
+    </div>
+  {:else if cartStore.items.length === 0 && cartStore.isSyncing}
+    <div class="flex flex-col items-center justify-center py-16 text-center">
+      <Loader2 class="mb-4 h-10 w-10 animate-spin text-muted-foreground" />
+      <p class="text-muted-foreground">Loading cart...</p>
     </div>
   {:else}
     <!-- Loading/Syncing indicator -->

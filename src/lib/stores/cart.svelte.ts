@@ -88,6 +88,7 @@ function createCartStore() {
   let lastError = $state<string | null>(null)
   let validation = $state<CartValidation | null>(null)
   let pendingMerge = $state<MergeStatus | null>(null)
+  let lastSyncAt = $state(0) // unix ms, updated after every successful syncFromServer
 
   // Track item IDs whose removal has been optimistically applied but not yet
   // confirmed by the server. Prevents server responses from reinstating items
@@ -162,7 +163,7 @@ function createCartStore() {
     lastError = null
 
     try {
-      const response = await fetch('/api/cart')
+      const response = await fetch('/api/cart', { cache: 'no-store' })
 
       if (!response.ok) {
         throw new Error('Failed to fetch cart')
@@ -180,6 +181,7 @@ function createCartStore() {
 
       applyServerItems(data.items || [])
       validation = data.validation || null
+      lastSyncAt = Date.now()
 
       persistLocal()
     } catch (err) {
@@ -596,6 +598,9 @@ function createCartStore() {
     },
     get isSyncing() {
       return isSyncing
+    },
+    get lastSyncAt() {
+      return lastSyncAt
     },
     get lastError() {
       return lastError

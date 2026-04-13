@@ -14,10 +14,11 @@ const AddToCartSchema = z.object({
 
 // GET /api/cart - Get current cart with validation
 export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
-  // Short private cache for cart to reduce origin hits while keeping data fresh
-  // Private cache ensures user-specific data isn't shared
+  // Cart data is user-specific and mutates frequently (add/remove/merge).
+  // no-store prevents stale browser-cached responses from clearing the cart
+  // when syncFromServer() is called shortly after a mutation.
   setHeaders({
-    'Cache-Control': 'private, max-age=30'
+    'Cache-Control': 'no-store'
   })
 
   // Use admin client for guests to bypass RLS (guest carts don't have user_id)
