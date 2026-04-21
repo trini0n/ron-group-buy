@@ -75,6 +75,39 @@ function parseIsNew(value: string): boolean {
   return value?.includes('🆕') || value?.toUpperCase() === 'TRUE'
 }
 
+/**
+ * Determine the finish (card_type + foil_type) from the three authoritative sources
+ * in priority order:
+ *  1. 'Card Type' column (most explicit — admin-curated, e.g. "Raised Foil")
+ *  2. Serial suffix   (r = Raised Foil, z = Serialized)
+ *  3. Foil? column    (e.g. "Surge Foil") / serial prefix fallback (F- = Foil, H- = Holo)
+ *
+ * card_type is always stored as the base physical type ('Normal' | 'Holo' | 'Foil')
+ * because that's what the existing pricing and DB schema expect at the column level.
+ * foil_type carries the specific finish label used for display, filtering, and pricing.
+ */
+function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil'; foil_type: string | null } {
+  const sheetType = row['Card Type']?.trim()
+
+  // ── Priority 1: explicit 'Card Type' column value ──────────────────────────
+  if (sheetType === 'Raised Foil') return { card_type: 'Foil', foil_type: 'Raised Foil' }
+  if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
+  if (sheetType === 'Surge Foil')  return { card_type: 'Foil', foil_type: 'Surge Foil' }
+  if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
+  if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
+  if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
+
+  // ── Priority 2: serial suffix (e.g. F-3005r = Raised Foil, F-3006z = Serialized) ─
+  const serial = row.Serial || ''
+  if (/^[A-Z]-\d+r$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Raised Foil' }
+  if (/^[A-Z]-\d+z$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Serialized' }
+
+  // ── Priority 3: Foil? column + serial prefix (existing logic) ────────────────
+  const baseCardType = getCardTypeFromSerial(serial)
+  const foilType = row['Foil?'] && row['Foil?'] !== 'TRUE' ? row['Foil?'] : null
+  return { card_type: baseCardType, foil_type: foilType }
+}
+
 function parseSheetCsv(csvContent: string): CardRecord[] {
   const records: CsvRow[] = parse(csvContent, {
     columns: true,
@@ -92,14 +125,14 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
       set_name: row['Set Name'] || null,
       set_code: row.Set || null,
       collector_number: row['Collector #'] || null,
-      card_type: getCardTypeFromSerial(row.Serial),
+      ...parseFinishFromRow(row),
       is_retro: parseBoolean(row['Retro?']),
       is_extended: parseBoolean(row['Extended?']),
       is_showcase: parseBoolean(row['Showcase?']),
       is_borderless: parseBoolean(row['Borderless?']),
       is_etched: parseBoolean(row['Etched?']),
       is_foil: row['Foil?']?.length > 0,
-      foil_type: row['Foil?'] && row['Foil?'] !== 'TRUE' ? row['Foil?'] : null,
+      // foil_type is set by parseFinishFromRow above
       language: row.Language || 'en',
       flavor_name: row['Flavor Name'] || null,
       scryfall_link: row.Link || null,
