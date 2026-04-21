@@ -23,6 +23,8 @@
     colorIdentity: initialFilters.colorIdentity as string[],
     colorIdentityStrict: initialFilters.colorIdentityStrict,
     priceCategories: initialFilters.priceCategories as string[],
+    // Cast needed until SvelteKit regenerates PageData types after server load change
+    foilSubtypes: (initialFilters as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'],
     cardTypes: initialFilters.cardTypes as string[],
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
@@ -59,6 +61,7 @@
     colorIdentity: '',
     colorIdentityStrict: false,
     priceCategories: '',
+    foilSubtypes: '',
     cardTypes: '',
     frameTypes: '',
     inStockOnly: false,
@@ -78,13 +81,19 @@
     if (filters.setCodes.length > 0) params.set('sets', filters.setCodes.join(','));
     if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','));
     if (filters.colorIdentityStrict) params.set('strict', '1');
-    if (filters.priceCategories.length > 0 && 
-        !(filters.priceCategories.length === 4 && 
-          filters.priceCategories.includes('Non-Foil') && 
+    // Skip price param when all 3 top-level categories are selected (default state)
+    if (filters.priceCategories.length > 0 &&
+        !(filters.priceCategories.length === 3 &&
+          filters.priceCategories.includes('Non-Foil') &&
           filters.priceCategories.includes('Foil') &&
-          filters.priceCategories.includes('Raised Foil') &&
           filters.priceCategories.includes('Serialized'))) {
       params.set('price', filters.priceCategories.join(','));
+    }
+    // Write foilsubs only when Foil is selected and not all subtypes are active
+    const ALL_FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'];
+    if (filters.priceCategories.includes('Foil') &&
+        filters.foilSubtypes.length < ALL_FOIL_SUBTYPES.length) {
+      params.set('foilsubs', filters.foilSubtypes.join(','));
     }
     if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','));
     if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','));
@@ -136,6 +145,7 @@
       colorIdentity: filters.colorIdentity.join(','),
       colorIdentityStrict: filters.colorIdentityStrict,
       priceCategories: filters.priceCategories.join(','),
+      foilSubtypes: filters.foilSubtypes.join(','),
       cardTypes: filters.cardTypes.join(','),
       frameTypes: filters.frameTypes.join(','),
       inStockOnly: filters.inStockOnly,

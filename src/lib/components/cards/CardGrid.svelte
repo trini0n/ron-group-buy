@@ -5,13 +5,14 @@
   import { Button } from '$components/ui/button';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import { untrack } from 'svelte';
-  import { getFinishLabel } from '$lib/utils';
+  import { getFinishLabel, FOIL_SUBTYPES } from '$lib/utils';
 
   interface Filters {
     setCodes: string[];
     colorIdentity: string[];
     colorIdentityStrict: boolean;
     priceCategories: string[];
+    foilSubtypes: string[];
     cardTypes: string[];
     frameTypes: string[];
     inStockOnly: boolean;
@@ -48,12 +49,13 @@
   });
 
   const FINISH_ORDER: Record<string, number> = {
-    'Normal': 0,
-    'Holo': 1,
-    'Foil': 2,
-    'Surge Foil': 3,
-    'Raised Foil': 4,
-    'Serialized': 5
+    'Normal': 1,
+    'Holo': 2,
+    'Foil': 3,
+    'Galaxy Foil': 4,
+    'Surge Foil': 4,
+    'Raised Foil': 5,
+    'Serialized': 6
   };
 
   // Filter function - pure, no side effects
@@ -86,18 +88,22 @@
         }
       }
 
-      // Finish filter
-      // Use foil_type first (e.g. 'Raised Foil', 'Serialized') then fall back to card_type
-      // because Raised Foil/Serialized cards have card_type='Foil' and foil_type='Raised Foil'/'Serialized'
-      if (f.priceCategories.length < 4) {
-        const effectiveFinish = getFinishLabel(card); // foil_type || card_type
-        const allowedTypes: string[] = [];
-        if (f.priceCategories.includes('Non-Foil')) allowedTypes.push('Normal', 'Holo');
-        if (f.priceCategories.includes('Foil')) allowedTypes.push('Foil');
-        if (f.priceCategories.includes('Raised Foil')) allowedTypes.push('Raised Foil');
-        if (f.priceCategories.includes('Serialized')) allowedTypes.push('Serialized');
-        if (!allowedTypes.includes(effectiveFinish)) return false;
+      // Finish filter — hierarchical:
+      //  Top level: 'Non-Foil', 'Foil' (the whole family), 'Serialized'
+      //  Within Foil: narrow by foilSubtypes (default = all)
+      const effectiveFinish = getFinishLabel(card); // foil_type || card_type
+      const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES; // ['Foil','Galaxy Foil','Raised Foil','Surge Foil']
+      const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo';
+      const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish);
+      const isSerialized = effectiveFinish === 'Serialized';
+
+      if (isNonFoil && !f.priceCategories.includes('Non-Foil')) return false;
+      if (isFoilFamily) {
+        if (!f.priceCategories.includes('Foil')) return false;
+        // Apply subtype filter within the foil family
+        if (!f.foilSubtypes.includes(effectiveFinish)) return false;
       }
+      if (isSerialized && !f.priceCategories.includes('Serialized')) return false;
 
       // Card type filter
       if (f.cardTypes.length > 0) {
@@ -199,6 +205,7 @@
       colorIdentity: [...filters.colorIdentity],
       colorIdentityStrict: filters.colorIdentityStrict,
       priceCategories: [...filters.priceCategories],
+      foilSubtypes: [...filters.foilSubtypes],
       cardTypes: [...filters.cardTypes],
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,

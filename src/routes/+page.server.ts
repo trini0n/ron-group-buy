@@ -123,8 +123,14 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || [
       'Non-Foil',
       'Foil',
-      'Raised Foil',
       'Serialized'
+    ],
+    // Foil subtype filter (only relevant when 'Foil' is in priceCategories)
+    foilSubtypes: url.searchParams.get('foilsubs')?.split(',').filter(Boolean) || [
+      'Foil',
+      'Galaxy Foil',
+      'Raised Foil',
+      'Surge Foil'
     ],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],

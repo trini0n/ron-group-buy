@@ -93,14 +93,16 @@ function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil
   if (sheetType === 'Raised Foil') return { card_type: 'Foil', foil_type: 'Raised Foil' }
   if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
   if (sheetType === 'Surge Foil')  return { card_type: 'Foil', foil_type: 'Surge Foil' }
+  if (sheetType === 'Galaxy Foil') return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
   if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
   if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
   if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
 
-  // ── Priority 2: serial suffix (e.g. F-3005r = Raised Foil, F-3006z = Serialized) ─
+  // ── Priority 2: serial suffix (e.g. F-3005r = Raised Foil, F-3006z = Serialized, F-3007g = Galaxy Foil) ─
   const serial = row.Serial || ''
   if (/^[A-Z]-\d+r$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Raised Foil' }
   if (/^[A-Z]-\d+z$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Serialized' }
+  if (/^[A-Z]-\d+g$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
 
   // ── Priority 3: Foil? column + serial prefix (existing logic) ────────────────
   const baseCardType = getCardTypeFromSerial(serial)

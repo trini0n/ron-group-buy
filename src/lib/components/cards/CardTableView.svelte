@@ -8,7 +8,7 @@
   import { ChevronUp, ChevronDown, ShoppingCart, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-svelte';
   import { getRonImageUrl, getScryfallImageUrl } from '$lib/utils';
   import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
+  import { getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses, FOIL_SUBTYPES } from '$lib/utils';
   import { browser } from '$app/environment';
   import { untrack } from 'svelte';
 
@@ -17,6 +17,7 @@
     colorIdentity: string[];
     colorIdentityStrict: boolean;
     priceCategories: string[];
+    foilSubtypes: string[];
     cardTypes: string[];
     frameTypes: string[];
     inStockOnly: boolean;
@@ -140,27 +141,23 @@
         }
       }
 
-      // Finish filter (card_type column)
-      // Use foil_type first (e.g. 'Raised Foil', 'Serialized') then fall back to card_type
-      // because Raised Foil/Serialized cards have card_type='Foil' and foil_type='Raised Foil'/'Serialized'
-      if (f.priceCategories.length < 4) {
-        const effectiveFinish = getFinishLabel(card); // foil_type || card_type
-        const allowedTypes: string[] = [];
-        if (f.priceCategories.includes('Non-Foil')) {
-          allowedTypes.push('Normal', 'Holo');
+      // Finish filter — hierarchical (mirrors CardGrid logic)
+      // Use foil_type first (foil_type || card_type) then apply hierarchy:
+      //  Top level: 'Non-Foil', 'Foil' family, 'Serialized'
+      //  Within Foil: narrowed by foilSubtypes
+      {
+        const effectiveFinish = getFinishLabel(card);
+        const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES;
+        const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo';
+        const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish);
+        const isSerialized = effectiveFinish === 'Serialized';
+
+        if (isNonFoil && !f.priceCategories.includes('Non-Foil')) return false;
+        if (isFoilFamily) {
+          if (!f.priceCategories.includes('Foil')) return false;
+          if (!f.foilSubtypes.includes(effectiveFinish)) return false;
         }
-        if (f.priceCategories.includes('Foil')) {
-          allowedTypes.push('Foil');
-        }
-        if (f.priceCategories.includes('Raised Foil')) {
-          allowedTypes.push('Raised Foil');
-        }
-        if (f.priceCategories.includes('Serialized')) {
-          allowedTypes.push('Serialized');
-        }
-        if (!allowedTypes.includes(effectiveFinish)) {
-          return false;
-        }
+        if (isSerialized && !f.priceCategories.includes('Serialized')) return false;
       }
 
       // Card type filter (type line)
@@ -266,6 +263,7 @@
       colorIdentity: [...filters.colorIdentity],
       colorIdentityStrict: filters.colorIdentityStrict,
       priceCategories: [...filters.priceCategories],
+      foilSubtypes: [...filters.foilSubtypes],
       cardTypes: [...filters.cardTypes],
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,

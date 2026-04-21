@@ -13,9 +13,18 @@ export function formatPrice(price: number): string {
 }
 
 /**
+ * The canonical set of finish labels that belong to the "Foil" family.
+ * Used by filter logic to classify a card as a foil-type and to render
+ * the subtype checkboxes in the Finish filter panel.
+ * Keep in display order (cheapest/plainest first).
+ */
+export const FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const;
+export type FoilSubtype = (typeof FOIL_SUBTYPES)[number];
+
+/**
  * Calculate price based on card type.
  * Accepts an optional prices map (from the database); falls back to hardcoded defaults.
- * Normal & Holo: $1.25  |  Foil: $1.50  |  Raised Foil: $3.00  |  Serialized: $2.50
+ * Normal & Holo: $1.25  |  Foil / Galaxy Foil: $1.50  |  Raised Foil: $3.00  |  Serialized: $2.50
  */
 export function getCardPrice(cardType: string, prices?: Record<string, number>): number {
   if (prices && cardType in prices) return prices[cardType]!
@@ -24,6 +33,8 @@ export function getCardPrice(cardType: string, prices?: Record<string, number>):
     Normal: 1.25,
     Holo: 1.25,
     Foil: 1.5,
+    'Galaxy Foil': 1.5,
+    'Surge Foil': 1.5,
     'Raised Foil': 3.0,
     Serialized: 2.5
   }
@@ -216,6 +227,9 @@ export function getFinishBadgeClasses(finish: string): string {
     case 'Surge Foil':
       // Cyan/Electric blue - represents special/surge effect
       return 'bg-cyan-200 text-cyan-800 dark:bg-cyan-700 dark:text-cyan-100'
+    case 'Galaxy Foil':
+      // Emerald/Green - galaxy shimmer effect
+      return 'bg-emerald-200 text-emerald-800 dark:bg-emerald-700 dark:text-emerald-100'
     case 'Raised Foil':
       // Rose - premium tactile finish
       return 'bg-rose-200 text-rose-800 dark:bg-rose-700 dark:text-rose-100'
@@ -348,10 +362,10 @@ export function groupAndSortOrderItems<T extends SortableOrderItem>(items: T[]):
       'Normal': 1,
       'Holo': 2,
       'Foil': 3,
-      'Raised Foil': 4,
-      'Serialized': 5,
-      'Surge Foil': 6,
-      'Galaxy Foil': 6
+      'Galaxy Foil': 4,
+      'Surge Foil': 4,
+      'Raised Foil': 5,
+      'Serialized': 6,
     };
     
     const rankA = finishOrder[finishA] || 99;

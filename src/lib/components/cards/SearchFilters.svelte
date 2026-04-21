@@ -19,6 +19,7 @@
     colorIdentity: string[];
     colorIdentityStrict: boolean;
     priceCategories: string[];
+    foilSubtypes: string[];
     cardTypes: string[];
     frameTypes: string[];
     inStockOnly: boolean;
@@ -63,12 +64,25 @@
     { value: 'G', label: 'Green' }
   ];
 
+  // Top-level finish categories
   const priceCategories = [
     { value: 'Non-Foil', label: 'Non-Foil' },
     { value: 'Foil', label: 'Foil' },
-    { value: 'Raised Foil', label: 'Raised Foil' },
     { value: 'Serialized', label: 'Serialized' }
   ];
+
+  // Foil subtypes — only visible when 'Foil' is checked
+  const FOIL_SUBTYPES = [
+    { value: 'Foil', label: 'Regular Foil' },
+    { value: 'Galaxy Foil', label: 'Galaxy Foil' },
+    { value: 'Raised Foil', label: 'Raised Foil' },
+    { value: 'Surge Foil', label: 'Surge Foil' }
+  ];
+
+  // Whether the Foil subtype panel is relevant
+  const foilSelected = $derived(filters.priceCategories.includes('Foil'));
+  // Whether all subtypes are selected (used for the 'all' indicator)
+  const allFoilSubtypesSelected = $derived(filters.foilSubtypes.length === FOIL_SUBTYPES.length);
 
   const cardTypes = [
     'Land',
@@ -101,6 +115,18 @@
       filters.priceCategories = filters.priceCategories.filter((c) => c !== category);
     } else {
       filters.priceCategories = [...filters.priceCategories, category];
+      // When Foil is re-enabled, restore all subtypes so nothing is hidden
+      if (category === 'Foil') {
+        filters.foilSubtypes = FOIL_SUBTYPES.map(s => s.value);
+      }
+    }
+  }
+
+  function toggleFoilSubtype(subtype: string) {
+    if (filters.foilSubtypes.includes(subtype)) {
+      filters.foilSubtypes = filters.foilSubtypes.filter((s) => s !== subtype);
+    } else {
+      filters.foilSubtypes = [...filters.foilSubtypes, subtype];
     }
   }
 
@@ -124,7 +150,8 @@
     filters.setCodes = [];
     filters.colorIdentity = [];
     filters.colorIdentityStrict = false;
-    filters.priceCategories = ['Non-Foil', 'Foil', 'Raised Foil', 'Serialized'];
+    filters.priceCategories = ['Non-Foil', 'Foil', 'Serialized'];
+    filters.foilSubtypes = FOIL_SUBTYPES.map(s => s.value);
     filters.cardTypes = [];
     filters.frameTypes = [];
     filters.inStockOnly = false;
@@ -151,7 +178,8 @@
   const hasActiveFilters = $derived(
     filters.setCodes.length > 0 ||
       filters.colorIdentity.length > 0 ||
-      filters.priceCategories.length < 4 ||
+      filters.priceCategories.length < 3 ||
+      (foilSelected && !allFoilSubtypesSelected) ||
       filters.cardTypes.length > 0 ||
       filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
@@ -183,7 +211,7 @@
     let count = 0;
     if (filters.setCodes.length > 0) count++;
     if (filters.colorIdentity.length > 0) count++;
-    if (filters.priceCategories.length < 4) count++;
+    if (filters.priceCategories.length < 3 || (foilSelected && !allFoilSubtypesSelected)) count++;
     if (filters.cardTypes.length > 0) count++;
     if (filters.frameTypes.length > 0) count++;
     if (filters.inStockOnly) count++;
@@ -321,7 +349,7 @@
       </div>
     </div>
 
-    <!-- Finish (card_type column) - Multiselect, all checked by default -->
+    <!-- Finish (card_type column) - 3 top-level categories + foil subtypes -->
     <div class="space-y-2">
       <Label>Finish</Label>
       <div class="space-y-2">
@@ -333,6 +361,20 @@
             />
             <span class="text-sm">{category.label}</span>
           </label>
+          {#if category.value === 'Foil' && foilSelected}
+            <!-- Foil subtypes — indented under the Foil checkbox -->
+            <div class="ml-6 space-y-1.5 border-l border-border pl-3">
+              {#each FOIL_SUBTYPES as sub}
+                <label class="flex cursor-pointer items-center space-x-2">
+                  <Checkbox
+                    checked={filters.foilSubtypes.includes(sub.value)}
+                    onCheckedChange={() => toggleFoilSubtype(sub.value)}
+                  />
+                  <span class="text-xs text-muted-foreground">{sub.label}</span>
+                </label>
+              {/each}
+            </div>
+          {/if}
         {/each}
       </div>
     </div>

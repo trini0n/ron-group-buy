@@ -256,7 +256,7 @@
                     {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
                 >
                   <div>{getFinishLabel(variant)}</div>
-                  <div class="font-semibold">{formatPrice(getCardPrice(variant.card_type))}</div>
+                  <div class="font-semibold">{formatPrice(getCardPrice(getFinishLabel(variant)))}</div>
                 </button>
               {/each}
             </div>
