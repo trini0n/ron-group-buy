@@ -1,5 +1,10 @@
 # Dependencies
 node_modules/
+.agent/*
+.agents/*
+.gemini/*
+adapters/*
+docs/*
 
 # Build outputs
 .svelte-kit/

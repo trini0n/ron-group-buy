@@ -5,6 +5,7 @@
   import { Button } from '$components/ui/button';
   import { ChevronLeft, ChevronRight } from 'lucide-svelte';
   import { untrack } from 'svelte';
+  import { getFinishLabel } from '$lib/utils';
 
   interface Filters {
     setCodes: string[];
@@ -86,13 +87,16 @@
       }
 
       // Finish filter
+      // Use foil_type first (e.g. 'Raised Foil', 'Serialized') then fall back to card_type
+      // because Raised Foil/Serialized cards have card_type='Foil' and foil_type='Raised Foil'/'Serialized'
       if (f.priceCategories.length < 4) {
+        const effectiveFinish = getFinishLabel(card); // foil_type || card_type
         const allowedTypes: string[] = [];
         if (f.priceCategories.includes('Non-Foil')) allowedTypes.push('Normal', 'Holo');
         if (f.priceCategories.includes('Foil')) allowedTypes.push('Foil');
         if (f.priceCategories.includes('Raised Foil')) allowedTypes.push('Raised Foil');
         if (f.priceCategories.includes('Serialized')) allowedTypes.push('Serialized');
-        if (!allowedTypes.includes(card.card_type)) return false;
+        if (!allowedTypes.includes(effectiveFinish)) return false;
       }
 
       // Card type filter
@@ -142,7 +146,11 @@
       }
       
       const group = groups.get(groupKey)!;
-      const existingFinishIdx = group.finishVariants.findIndex(v => v.card_type === card.card_type);
+      // Use effective finish (foil_type || card_type) to deduplicate variants
+      // Without this, Raised Foil (card_type='Foil', foil_type='Raised Foil') and regular Foil
+      // (card_type='Foil', foil_type=null) would incorrectly merge into the same slot
+      const effectiveFinish = getFinishLabel(card);
+      const existingFinishIdx = group.finishVariants.findIndex(v => getFinishLabel(v) === effectiveFinish);
       if (existingFinishIdx === -1) {
         group.finishVariants.push(card);
       } else {
@@ -156,8 +164,9 @@
     // Sort finish variants and set primary
     for (const group of groups.values()) {
       group.finishVariants.sort((a, b) => {
-        const orderA = FINISH_ORDER[a.card_type] ?? 99;
-        const orderB = FINISH_ORDER[b.card_type] ?? 99;
+        // Sort by effective finish label (foil_type || card_type) so Raised Foil sorts correctly
+        const orderA = FINISH_ORDER[getFinishLabel(a)] ?? 99;
+        const orderB = FINISH_ORDER[getFinishLabel(b)] ?? 99;
         return orderA - orderB;
       });
       

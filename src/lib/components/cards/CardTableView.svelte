@@ -141,7 +141,10 @@
       }
 
       // Finish filter (card_type column)
+      // Use foil_type first (e.g. 'Raised Foil', 'Serialized') then fall back to card_type
+      // because Raised Foil/Serialized cards have card_type='Foil' and foil_type='Raised Foil'/'Serialized'
       if (f.priceCategories.length < 4) {
+        const effectiveFinish = getFinishLabel(card); // foil_type || card_type
         const allowedTypes: string[] = [];
         if (f.priceCategories.includes('Non-Foil')) {
           allowedTypes.push('Normal', 'Holo');
@@ -155,7 +158,7 @@
         if (f.priceCategories.includes('Serialized')) {
           allowedTypes.push('Serialized');
         }
-        if (!allowedTypes.includes(card.card_type)) {
+        if (!allowedTypes.includes(effectiveFinish)) {
           return false;
         }
       }
@@ -519,7 +522,7 @@
       <Table.Body>
         {#each paginatedCards as card (card.serial)}
           {@const isSelected = selectedSerials.has(card.serial)}
-          {@const price = getCardPrice(card.card_type)}
+          {@const price = getCardPrice(getFinishLabel(card))}
           {@const rowQty = getRowQuantity(card.serial)}
           <Table.Row class={isSelected ? 'bg-muted/50' : ''}>
             <Table.Cell>

@@ -46,7 +46,7 @@
   // Use Ron's image first (if available and not failed), otherwise Scryfall
   const currentImageUrl = $derived(ronImageUrl && !ronImageFailed ? ronImageUrl : scryfallImageUrl);
 
-  const price = $derived(getCardPrice(selectedCard.card_type));
+  const price = $derived(getCardPrice(getFinishLabel(selectedCard)));
 
   // Format card identifier: SET_CODE #COLLECTOR_NUMBER (LANG if not 'en')
   const cardIdentifier = $derived.by(() => {
