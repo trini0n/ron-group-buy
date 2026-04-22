@@ -198,7 +198,7 @@
       <div class="lg:col-span-2">
         <div class="space-y-4">
           {#each cartStore.items as item (item.id)}
-            {@const price = getCardPrice(item.card.card_type)}
+            {@const price = getCardPrice(getFinishLabel(item.card))}
             {@const imageUrl = getCardImageUrl(item.card.ron_image_url, item.card.scryfall_id, 'small')}
 
             <Card.Root>

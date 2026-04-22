@@ -41,7 +41,10 @@ const CreateOrderSchema = z.object({
   action: z.enum(['replace', 'merge']).optional(),
   paypalEmail: z.string().trim().min(1),
   phoneNumber: z.string().trim().min(1),
-  discordUsername: z.string().regex(/^[a-zA-Z0-9_.]{2,32}$/, 'Invalid Discord username format').optional(),
+  discordUsername: z
+    .string()
+    .regex(/^[a-zA-Z0-9_.]{2,32}$/, 'Invalid Discord username format')
+    .optional(),
   cartId: z.string().optional(),
   cartVersion: z.number().optional(),
   notes: z.string().optional(),
@@ -287,26 +290,36 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Resolve prices and card types server-side (security: never trust client-supplied unitPrice)
+  // Fetch foil_type alongside card_type so we can compute the effective finish for pricing
   const prices = await fetchPrices(locals.supabase)
   const cardIds = items.map((item: OrderItem) => item.cardId)
   const { data: cardRows, error: cardFetchErr } = await locals.supabase
     .from('cards')
-    .select('id, card_type')
+    .select('id, card_type, foil_type')
     .in('id', cardIds)
   if (cardFetchErr) {
     throw error(500, 'Failed to fetch card pricing data')
   }
+  // Map card_id -> base card_type (for the card_type column in order_items)
   const serverCardTypeMap = new Map(cardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
+  // Map card_id -> effective finish (foil_type ?? card_type) used for price resolution
+  const serverFinishMap = new Map(
+    cardRows?.map((r: { id: string; card_type: string; foil_type?: string | null }) => [
+      r.id,
+      r.foil_type ?? r.card_type
+    ]) ?? []
+  )
 
   // Build items payload for the RPC — no order_id, the DB function sets it
   const rpcItems = items.map((item: OrderItem) => ({
     card_id: item.cardId,
     card_serial: item.serial,
     card_name: item.name,
-    // Use server-verified card_type (same source as unit_price) to prevent client spoofing
+    // Use server-verified card_type (base type stored in DB) to prevent client spoofing
     card_type: serverCardTypeMap.get(item.cardId) ?? item.cardType,
     quantity: item.quantity,
-    unit_price: getCardPrice(serverCardTypeMap.get(item.cardId) ?? item.cardType, prices),
+    // Use effective finish (foil_type ?? card_type) for pricing — Raised Foil = $3.00, etc.
+    unit_price: getCardPrice(serverFinishMap.get(item.cardId) ?? item.cardType, prices),
     set_code: item.setCode || null,
     collector_number: item.collectorNumber || null,
     is_foil: item.isFoil ?? false,
@@ -380,11 +393,22 @@ async function mergeIntoExistingOrder(
   locals: App.Locals
 ) {
   // Resolve prices server-side for new items (security: never trust client-supplied unitPrice)
+  // Fetch foil_type so we can compute the effective finish for pricing
   const mergePrices = await fetchPrices(locals.supabase)
   const newCardIds = newItems.map((i) => i.cardId)
-  const { data: mergeCardRows } = await locals.supabase.from('cards').select('id, card_type').in('id', newCardIds)
+  const { data: mergeCardRows } = await locals.supabase
+    .from('cards')
+    .select('id, card_type, foil_type')
+    .in('id', newCardIds)
   const mergeCardTypeMap = new Map(
     mergeCardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? []
+  )
+  // Effective finish map for pricing (foil_type ?? card_type)
+  const mergeFinishMap = new Map(
+    mergeCardRows?.map((r: { id: string; card_type: string; foil_type?: string | null }) => [
+      r.id,
+      r.foil_type ?? r.card_type
+    ]) ?? []
   )
 
   // Get existing order items
@@ -435,7 +459,7 @@ async function mergeIntoExistingOrder(
         card_name: newItem.name,
         card_type: newItem.cardType,
         quantity: newItem.quantity,
-        unit_price: getCardPrice(mergeCardTypeMap.get(newItem.cardId) ?? newItem.cardType, mergePrices),
+        unit_price: getCardPrice(mergeFinishMap.get(newItem.cardId) ?? newItem.cardType, mergePrices),
         set_code: newItem.setCode ?? null,
         collector_number: newItem.collectorNumber ?? null,
         is_foil: newItem.isFoil ?? false,

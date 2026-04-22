@@ -25,7 +25,7 @@
   const price = $derived.by(() => {
     const cardData = data.card;
     if (!cardData) return 0;
-    return getCardPrice(cardData.card_type);
+    return getCardPrice(getFinishLabel(cardData));
   });
 
   // Reset image index when card changes or if index is out of bounds

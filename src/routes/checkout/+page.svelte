@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import {
     Card,
@@ -18,7 +18,7 @@
 
   import { Separator } from "$components/ui/separator";
   import { cartStore } from "$lib/stores/cart.svelte";
-  import { formatPrice, getCardPrice } from "$lib/utils";
+  import { formatPrice, getCardPrice, getFinishLabel } from "$lib/utils";
   import { createSupabaseClient } from "$lib/supabase";
   import { browser } from "$app/environment";
   import {
@@ -150,7 +150,7 @@
   // Collapsible items state
   let showItems = $state(false);
 
-  // Group cart items by card_type for a dynamic breakdown
+  // Group cart items by effective finish (foil_type ?? card_type) for a dynamic price breakdown
   // data.cardPrices is injected by the root layout server and merged into data at runtime
   let priceBreakdown = $derived.by(() => {
     const prices: Record<string, number> = (data as any).cardPrices ?? {};
@@ -159,10 +159,11 @@
       { count: number; total: number; price: number }
     >();
     for (const item of cartStore.items) {
-      const type = item.card.card_type;
-      const price = getCardPrice(type, prices);
-      const existing = groups.get(type) ?? { count: 0, total: 0, price };
-      groups.set(type, {
+      // Use effective finish (foil_type ?? card_type) for correct grouping and pricing
+      const finish = getFinishLabel(item.card);
+      const price = getCardPrice(finish, prices);
+      const existing = groups.get(finish) ?? { count: 0, total: 0, price };
+      groups.set(finish, {
         count: existing.count + item.quantity,
         total: existing.total + price * item.quantity,
         price,
@@ -270,7 +271,7 @@
             name: item.card.card_name,
             cardType: item.card.card_type,
             quantity: item.quantity,
-            unitPrice: getCardPrice(item.card.card_type),
+            unitPrice: getCardPrice(getFinishLabel(item.card)),
             // Identity fields for stable matching across inventory resyncs
             setCode: item.card.set_code,
             collectorNumber: item.card.collector_number,
@@ -677,7 +678,7 @@
                 class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3"
               >
                 {#each cartStore.items as item (item.id)}
-                  {@const price = getCardPrice(item.card.card_type)}
+                  {@const price = getCardPrice(getFinishLabel(item.card))}
                   <div class="flex justify-between text-sm">
                     <span class="truncate pr-2">
                       {item.card.card_name} × {item.quantity}

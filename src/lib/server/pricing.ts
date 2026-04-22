@@ -15,6 +15,8 @@ export const FALLBACK_PRICES: CardPrices = {
   Normal: 1.25,
   Holo: 1.25,
   Foil: 1.5,
+  'Galaxy Foil': 1.5,
+  'Surge Foil': 1.5,
   'Raised Foil': 3.0,
   Serialized: 2.5
 }

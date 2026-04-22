@@ -31,11 +31,21 @@ export class CartService {
   constructor(private supabase: SupabaseClient) {}
 
   /** Lazily fetches card type prices (cached per service instance) */
-  private async getPrice(cardType: string): Promise<number> {
+  private async getPrice(effectiveFinish: string): Promise<number> {
     if (!this._prices) {
       this._prices = await fetchPrices(this.supabase)
     }
-    return getCardPrice(cardType, this._prices)
+    return getCardPrice(effectiveFinish, this._prices)
+  }
+
+  /**
+   * Resolve the effective finish label for a card fetched from the DB.
+   * Mirrors getFinishLabel() from $lib/utils but works on plain objects
+   * without importing the client-side util into server code.
+   * foil_type takes priority over card_type (e.g. 'Raised Foil' > 'Foil').
+   */
+  private effectiveFinish(card: { card_type: string; foil_type?: string | null }): string {
+    return card.foil_type ?? card.card_type
   }
 
   /**
@@ -165,10 +175,10 @@ export class CartService {
       }
     }
 
-    // Get card data for snapshot
+    // Get card data for snapshot — include foil_type so pricing uses effective finish
     const { data: card, error: cardError } = await this.supabase
       .from('cards')
-      .select('id, card_name, card_type, is_in_stock')
+      .select('id, card_name, card_type, foil_type, is_in_stock')
       .eq('id', cardId)
       .single()
 
@@ -180,7 +190,7 @@ export class CartService {
       return { success: false, cart: null, error: 'Card is out of stock' }
     }
 
-    const price = await this.getPrice(card.card_type)
+    const price = await this.getPrice(this.effectiveFinish(card))
 
     // Check if item already exists
     const { data: existingItem } = await this.supabase
@@ -250,11 +260,11 @@ export class CartService {
       }
     }
 
-    // Fetch all card data and validate
+    // Fetch all card data and validate — include foil_type for correct pricing
     const cardIds = items.map((item) => item.card_id)
     const { data: cards, error: cardsError } = await this.supabase
       .from('cards')
-      .select('id, card_name, card_type, is_in_stock')
+      .select('id, card_name, card_type, foil_type, is_in_stock')
       .in('id', cardIds)
 
     if (cardsError) {
@@ -317,7 +327,7 @@ export class CartService {
 
     for (const item of items) {
       const card = cardMap.get(item.card_id)!
-      const price = getCardPrice(card.card_type, this._prices)
+      const price = getCardPrice(this.effectiveFinish(card), this._prices)
       const existing = existingMap.get(item.card_id)
 
       if (existing) {
@@ -486,7 +496,7 @@ export class CartService {
         continue
       }
 
-      const currentPrice = await this.getPrice(card.card_type)
+      const currentPrice = await this.getPrice(this.effectiveFinish(card))
 
       // Check for price changes
       if (item.price_at_add && item.price_at_add !== currentPrice) {
@@ -610,7 +620,7 @@ export class CartService {
         continue
       }
 
-      const currentPrice = getCardPrice(card.card_type, this._prices)
+      const currentPrice = getCardPrice(this.effectiveFinish(card), this._prices)
       const existingUserItem = userItemsByCard.get(guestItem.card_id)
 
       if (existingUserItem) {
@@ -908,16 +918,16 @@ export class CartService {
 
     // Primary lookup: by card_serial (stable physical card ID, never changes on resync).
     // Fallback: identity-based matching for order items that predate card_serial storage.
-    const serialsToFetch = order.order_items
-      .map((i) => i.card_serial)
-      .filter((s): s is string => !!s)
+    const serialsToFetch = order.order_items.map((i) => i.card_serial).filter((s): s is string => !!s)
 
     // Batch-fetch all cards by serial in one query
     const serialCardMap = new Map<string, CardWithIdentity>()
     if (serialsToFetch.length > 0) {
       const { data: serialCards } = await this.supabase
         .from('cards')
-        .select('id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock, card_type')
+        .select(
+          'id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock, card_type'
+        )
         .in('serial', serialsToFetch)
 
       for (const c of serialCards ?? []) {
@@ -937,7 +947,10 @@ export class CartService {
           is_etched: orderItem.is_etched || false,
           language: orderItem.language || 'en'
         }
-        logger.info({ card_name: orderItem.card_name, identity }, '[merge] identity constructed for order item (no serial)')
+        logger.info(
+          { card_name: orderItem.card_name, identity },
+          '[merge] identity constructed for order item (no serial)'
+        )
         return findCardsByIdentity(this.supabase, identity)
       })
     )
@@ -959,7 +972,11 @@ export class CartService {
               { card_name: orderItem.card_name, serial: orderItem.card_serial },
               '[merge] card found by serial but is OOS — dropping'
             )
-            items_removed.push({ card_name: orderItem.card_name, quantity: orderItem.quantity || 1, reason: 'sold_out' })
+            items_removed.push({
+              card_name: orderItem.card_name,
+              quantity: orderItem.quantity || 1,
+              reason: 'sold_out'
+            })
             continue
           }
           currentCard = bySerial
