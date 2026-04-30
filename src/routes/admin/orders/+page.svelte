@@ -21,7 +21,8 @@
     Folder,
     FolderOpen,
     X,
-    Download
+    Download,
+    Upload
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -37,6 +38,72 @@
   
   // Accordion state for status sections
   let expandedSections = $state<string[]>(['pending', 'invoiced']);
+
+  // Bulk tracking upload state
+  let trackingDialogOpen = $state(false);
+  let trackingInput = $state('');
+  let isUploadingTracking = $state(false);
+  let trackingResults = $state<{ order_number: string; success: boolean; skipped?: boolean; error?: string }[] | null>(null);
+
+  interface TrackingEntry {
+    order_number: string;
+    regular_tracking: string | null;
+    express_tracking: string | null;
+  }
+
+  function parseTrackingInput(raw: string): TrackingEntry[] {
+    const entries: TrackingEntry[] = [];
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // Support tab-separated or comma-separated: order_number, regular, express
+      const parts = trimmed.includes('\t')
+        ? trimmed.split('\t').map((p) => p.trim())
+        : trimmed.split(',').map((p) => p.trim());
+      if (parts.length < 2) continue;
+      entries.push({
+        order_number: parts[0] ?? '',
+        regular_tracking: parts[1] || null,
+        express_tracking: parts[2] || null
+      });
+    }
+    return entries;
+  }
+
+  async function uploadTracking() {
+    const entries = parseTrackingInput(trackingInput);
+    if (entries.length === 0) return;
+
+    isUploadingTracking = true;
+    trackingResults = null;
+    try {
+      const response = await fetch('/api/admin/orders/bulk-tracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        trackingResults = result.results;
+        const msg = `Updated ${result.updated} orders` +
+          (result.skipped > 0 ? `, ${result.skipped} skipped` : '') +
+          (result.failed > 0 ? `, ${result.failed} failed` : '');
+        if (result.failed > 0) {
+          toast.warning(msg);
+        } else {
+          toast.success(msg);
+        }
+        invalidateAll();
+      } else {
+        toast.error(result.error || 'Failed to upload tracking numbers');
+      }
+    } catch (err) {
+      toast.error('Failed to upload tracking numbers');
+    } finally {
+      isUploadingTracking = false;
+    }
+  }
   
   // Get all visible orders across all statuses for selection logic
   const allVisibleOrders = $derived(() => {
@@ -336,6 +403,16 @@
             {isExporting ? 'Exporting...' : 'Export Group Buy'}
           </Button>
         {/if}
+
+        <!-- Upload Tracking Numbers -->
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => { trackingDialogOpen = true; trackingResults = null; trackingInput = ''; }}
+        >
+          <Upload class="mr-2 h-4 w-4" />
+          Upload Tracking
+        </Button>
       </div>
 
       <!-- Orders by Status Accordion -->
@@ -520,6 +597,72 @@
       </Button>
       <Button onclick={bulkUpdateStatus} disabled={!bulkNewStatus || isBulkUpdating}>
         {isBulkUpdating ? 'Updating...' : `Update ${selectedOrders.size} Orders`}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Bulk Tracking Upload Dialog -->
+<Dialog.Root bind:open={trackingDialogOpen}>
+  <Dialog.Content class="max-w-2xl">
+    <Dialog.Header>
+      <Dialog.Title>Upload Tracking Numbers</Dialog.Title>
+      <Dialog.Description>
+        Paste a list of order numbers with tracking numbers. Each line should contain:
+        <code class="bg-muted px-1 py-0.5 rounded text-xs font-mono">ORDER_NUMBER, REGULAR_TRACKING, EXPRESS_TRACKING</code>
+        (tab- or comma-separated). Express orders will use the express tracking with carrier FedEx; regular orders will use the regular tracking.
+        Leave a tracking field blank if not applicable.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="py-4 space-y-4">
+      <textarea
+        class="w-full h-48 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        placeholder={"ORD-MO8W6INV-IQSR, 9400111899223397285268, 777333388880\nORD-ABC123-XYZ, 9400111899223397285269,\nORD-DEF456-UVW, , 777333388881"}
+        bind:value={trackingInput}
+        disabled={isUploadingTracking}
+      ></textarea>
+
+      {#if trackingResults}
+        <div class="rounded-md border max-h-48 overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-muted/50 sticky top-0">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium">Order #</th>
+                <th class="text-left px-3 py-2 font-medium">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each trackingResults as r}
+                <tr class="border-t">
+                  <td class="px-3 py-1.5 font-mono text-xs">{r.order_number}</td>
+                  <td class="px-3 py-1.5">
+                    {#if !r.success}
+                      <span class="text-destructive">✗ {r.error}</span>
+                    {:else if r.skipped}
+                      <span class="text-muted-foreground">— skipped</span>
+                    {:else}
+                      <span class="text-green-600 dark:text-green-400">✓ updated</span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </div>
+
+    <Dialog.Footer>
+      <Button variant="outline" onclick={() => trackingDialogOpen = false}>
+        Close
+      </Button>
+      <Button
+        onclick={uploadTracking}
+        disabled={isUploadingTracking || !trackingInput.trim()}
+      >
+        <Upload class="mr-2 h-4 w-4" />
+        {isUploadingTracking ? 'Uploading...' : 'Upload Tracking'}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
