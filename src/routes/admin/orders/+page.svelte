@@ -390,29 +390,32 @@
             </Button>
           </div>
         {/if}
-        
-        <!-- Bulk Export Button (only show when group buy is selected) -->
-        {#if data.groupBuyFilter && data.groupBuyFilter !== 'unassigned'}
-          <Button 
-            variant="outline" 
-            size="sm"
-            onclick={exportGroupBuy}
-            disabled={isExporting}
-          >
-            <Download class="mr-2 h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export Group Buy'}
-          </Button>
-        {/if}
 
-        <!-- Upload Tracking Numbers -->
-        <Button
-          variant="outline"
-          size="sm"
-          onclick={() => { trackingDialogOpen = true; trackingResults = null; trackingInput = ''; }}
-        >
-          <Upload class="mr-2 h-4 w-4" />
-          Upload Tracking
-        </Button>
+        <!-- Right-side action buttons -->
+        <div class="flex items-center gap-2">
+          <!-- Bulk Export Button (only show when group buy is selected) -->
+          {#if data.groupBuyFilter && data.groupBuyFilter !== 'unassigned'}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onclick={exportGroupBuy}
+              disabled={isExporting}
+            >
+              <Download class="mr-2 h-4 w-4" />
+              {isExporting ? 'Exporting...' : 'Export Group Buy'}
+            </Button>
+          {/if}
+
+          <!-- Upload Tracking Numbers -->
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={() => { trackingDialogOpen = true; trackingResults = null; trackingInput = ''; }}
+          >
+            <Upload class="mr-2 h-4 w-4" />
+            Upload Tracking
+          </Button>
+        </div>
       </div>
 
       <!-- Orders by Status Accordion -->
