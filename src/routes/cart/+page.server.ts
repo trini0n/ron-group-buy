@@ -14,7 +14,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 
     let orderQuery = locals.supabase
       .from('orders')
-      .select(`
+      .select(
+        `
         id,
         order_number,
         order_items (
@@ -22,7 +23,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
           quantity,
           unit_price
         )
-      `)
+      `
+      )
       .eq('user_id', locals.user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -37,13 +39,17 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
     const { data: pendingOrder } = await orderQuery.maybeSingle()
 
     if (pendingOrder) {
-      const itemCount = pendingOrder.order_items?.reduce(
-        (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1), 0
-      ) ?? 0
-      const total = pendingOrder.order_items?.reduce(
-        (sum: number, item: { quantity: number | null; unit_price: number | string }) => 
-          sum + (item.quantity ?? 1) * Number(item.unit_price), 0
-      ) ?? 0
+      const itemCount =
+        pendingOrder.order_items?.reduce(
+          (sum: number, item: { quantity: number | null }) => sum + (item.quantity ?? 1),
+          0
+        ) ?? 0
+      const total =
+        pendingOrder.order_items?.reduce(
+          (sum: number, item: { quantity: number | null; unit_price: number | string }) =>
+            sum + (item.quantity ?? 1) * Number(item.unit_price),
+          0
+        ) ?? 0
 
       existingPendingOrder = {
         id: pendingOrder.id,

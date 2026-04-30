@@ -5,6 +5,7 @@ node_modules/
 .gemini/*
 adapters/*
 docs/*
+scripts/*
 
 # Build outputs
 .svelte-kit/
@@ -16,7 +17,7 @@ build/
 /github/skills/
 FUNDING.yml
 pull_request_template.md
-.gsd
+.gsd/*
 
 # Environment files
 .env

@@ -1,0 +1,62 @@
+
+> group-buy@0.1.0 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+Loading svelte-check in workspace: d:\Desktop\Files\Card Search\group-buy
+Getting Svelte diagnostics...
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:437:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(workbook.worksheets).toHaveLength(1)
+    expect([35mworkbook.worksheets[0][36m.name).toBe('ORD-001')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:441:12
+[31mError[39m: 'ws' is possibly 'undefined'. 
+[36m    const ws = workbook.worksheets[0]
+    expect([35mws[36m.getRow(1).getCell(1).value).toBe('Order Number:')
+    expect(ws.getRow(1).getCell(2).value).toBe('ORD-001')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:442:12
+[31mError[39m: 'ws' is possibly 'undefined'. 
+[36m    expect(ws.getRow(1).getCell(1).value).toBe('Order Number:')
+    expect([35mws[36m.getRow(1).getCell(2).value).toBe('ORD-001')
+    expect(ws.getRow(2).getCell(1).value).toBe('Order Date:')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:443:12
+[31mError[39m: 'ws' is possibly 'undefined'. 
+[36m    expect(ws.getRow(1).getCell(2).value).toBe('ORD-001')
+    expect([35mws[36m.getRow(2).getCell(1).value).toBe('Order Date:')
+    expect(ws.getRow(3).getCell(1).value).toBe('Order Status:')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:444:12
+[31mError[39m: 'ws' is possibly 'undefined'. 
+[36m    expect(ws.getRow(2).getCell(1).value).toBe('Order Date:')
+    expect([35mws[36m.getRow(3).getCell(1).value).toBe('Order Status:')[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:448:5
+[31mError[39m: 'ws' is possibly 'undefined'. 
+[36m    let tableHeaderCells: (string | number | null)[] = []
+    [35mws[36m.eachRow((row) => {
+      if (row.getCell(1).value === 'Card Serial') {[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:507:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    // sortOrdersByShippingAndDate: express first, then regular sorted by created_at ascending
+    expect([35mworkbook.worksheets[0][36m.name).toBe('ORD-002') // express
+    expect(workbook.worksheets[1].name).toBe('ORD-001') // regular, earliest[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:508:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(workbook.worksheets[0].name).toBe('ORD-002') // express
+    expect([35mworkbook.worksheets[1][36m.name).toBe('ORD-001') // regular, earliest
+    expect(workbook.worksheets[2].name).toBe('ORD-003') // regular, latest[39m
+
+d:\Desktop\Files\Card Search\group-buy\[32msrc\routes\api\admin\exports\__tests__\exports.test.ts[39m:509:12
+[31mError[39m: Object is possibly 'undefined'. 
+[36m    expect(workbook.worksheets[1].name).toBe('ORD-001') // regular, earliest
+    expect([35mworkbook.worksheets[2][36m.name).toBe('ORD-003') // regular, latest
+  })[39m
+
+====================================
+[31msvelte-check found 9 errors and 0 warnings in 1 file
+[39m
