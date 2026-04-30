@@ -119,31 +119,54 @@ export class NotificationService {
   }
 
   /**
-   * Gets the active group buy name for notifications
+   * Formats a raw group buy config name to include "Ron's" prefix
    */
-  private async getActiveGroupBuyName(): Promise<string> {
-    const { data, error } = await this.supabase.from('group_buy_config').select('name').eq('is_active', true).single()
+  private formatGroupBuyName(name: string | null | undefined): string | null {
+    if (!name) return null
+    if (name.startsWith("Ron's")) return name
+    return `Ron's ${name}`
+  }
+
+  /**
+   * Gets the group buy name assigned to a specific order.
+   * Falls back to the currently active group buy if the order has no assigned group buy.
+   */
+  private async getOrderGroupBuyName(orderId: string): Promise<string> {
+    // First, try to get the group buy assigned to this order
+    const { data: order } = await this.supabase.from('orders').select('group_buy_id').eq('id', orderId).single()
+
+    if (order?.group_buy_id) {
+      const { data: groupBuy } = await this.supabase
+        .from('group_buy_config')
+        .select('name')
+        .eq('id', order.group_buy_id)
+        .single()
+
+      const formatted = this.formatGroupBuyName(groupBuy?.name)
+      if (formatted) return formatted
+    }
+
+    // Fall back to the currently active group buy
+    const { data: active, error } = await this.supabase
+      .from('group_buy_config')
+      .select('name')
+      .eq('is_active', true)
+      .single()
 
     if (error) {
       logger.error({ error }, 'Failed to fetch active group buy name, using fallback')
     }
 
-    if (!data?.name) {
-      // Fallback using current month/year
-      const now = new Date()
-      const month = now.toLocaleString('en-US', { month: 'long' })
-      const year = now.getFullYear()
-      const fallbackName = `Ron's ${month} ${year} Group Buy`
-      logger.warn({ error, data }, `No active group buy found, using fallback: ${fallbackName}`)
-      return fallbackName
-    }
+    const formatted = this.formatGroupBuyName(active?.name)
+    if (formatted) return formatted
 
-    // Transform config name like "January 2026 Group Buy" to "Ron's January 2026 Group Buy"
-    const name = data.name
-    if (name.startsWith("Ron's")) {
-      return name
-    }
-    return `Ron's ${name}`
+    // Last-resort fallback using current month/year
+    const now = new Date()
+    const month = now.toLocaleString('en-US', { month: 'long' })
+    const year = now.getFullYear()
+    const fallbackName = `Ron's ${month} ${year} Group Buy`
+    logger.warn({ error, active }, `No group buy found for order ${orderId}, using fallback: ${fallbackName}`)
+    return fallbackName
   }
 
   /**
@@ -174,8 +197,8 @@ export class NotificationService {
       return { success: false, error: 'User has no Discord account linked' }
     }
 
-    // Get active group buy name and inject into variables
-    const groupBuyName = await this.getActiveGroupBuyName()
+    // Get group buy name from the order's assigned group buy (falls back to active)
+    const groupBuyName = await this.getOrderGroupBuyName(payload.orderId)
     const enrichedVariables = {
       ...variables,
       group_buy_name: variables.group_buy_name || groupBuyName
