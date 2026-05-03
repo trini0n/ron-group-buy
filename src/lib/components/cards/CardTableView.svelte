@@ -18,6 +18,7 @@
     colorIdentityStrict: boolean;
     priceCategories: string[];
     foilSubtypes: string[];
+    nonFoilSubtypes: string[];
     cardTypes: string[];
     frameTypes: string[];
     inStockOnly: boolean;
@@ -152,7 +153,11 @@
         const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish);
         const isSerialized = effectiveFinish === 'Serialized';
 
-        if (isNonFoil && !f.priceCategories.includes('Non-Foil')) return false;
+        if (isNonFoil) {
+          if (!f.priceCategories.includes('Non-Foil')) return false;
+          // Apply non-foil subtype filter (Normal = No Holostamp, Holo = Holostamped)
+          if (!f.nonFoilSubtypes.includes(effectiveFinish)) return false;
+        }
         if (isFoilFamily) {
           if (!f.priceCategories.includes('Foil')) return false;
           if (!f.foilSubtypes.includes(effectiveFinish)) return false;
@@ -264,6 +269,7 @@
       colorIdentityStrict: filters.colorIdentityStrict,
       priceCategories: [...filters.priceCategories],
       foilSubtypes: [...filters.foilSubtypes],
+      nonFoilSubtypes: [...filters.nonFoilSubtypes],
       cardTypes: [...filters.cardTypes],
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,

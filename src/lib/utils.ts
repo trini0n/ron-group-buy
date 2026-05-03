@@ -22,6 +22,13 @@ export const FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'
 export type FoilSubtype = (typeof FOIL_SUBTYPES)[number];
 
 /**
+ * The canonical set of finish labels that belong to the "Non-Foil" family.
+ * 'Normal' = No Holostamp, 'Holo' = Holostamped.
+ */
+export const NON_FOIL_SUBTYPES = ['Normal', 'Holo'] as const;
+export type NonFoilSubtype = (typeof NON_FOIL_SUBTYPES)[number];
+
+/**
  * Calculate price based on card type.
  * Accepts an optional prices map (from the database); falls back to hardcoded defaults.
  * Normal & Holo: $1.25  |  Foil / Galaxy Foil: $1.50  |  Raised Foil: $3.00  |  Serialized: $2.50

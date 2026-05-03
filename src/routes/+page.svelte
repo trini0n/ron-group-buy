@@ -25,6 +25,7 @@
     priceCategories: initialFilters.priceCategories as string[],
     // Cast needed until SvelteKit regenerates PageData types after server load change
     foilSubtypes: (initialFilters as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'],
+    nonFoilSubtypes: (initialFilters as Record<string, unknown>).nonFoilSubtypes as string[] ?? ['Normal', 'Holo'],
     cardTypes: initialFilters.cardTypes as string[],
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
@@ -62,6 +63,7 @@
     colorIdentityStrict: false,
     priceCategories: '',
     foilSubtypes: '',
+    nonFoilSubtypes: '',
     cardTypes: '',
     frameTypes: '',
     inStockOnly: false,
@@ -94,6 +96,12 @@
     if (filters.priceCategories.includes('Foil') &&
         filters.foilSubtypes.length < ALL_FOIL_SUBTYPES.length) {
       params.set('foilsubs', filters.foilSubtypes.join(','));
+    }
+    // Write nfsubs only when Non-Foil is selected and not all non-foil subtypes are active
+    const ALL_NON_FOIL_SUBTYPES = ['Normal', 'Holo'];
+    if (filters.priceCategories.includes('Non-Foil') &&
+        filters.nonFoilSubtypes.length < ALL_NON_FOIL_SUBTYPES.length) {
+      params.set('nfsubs', filters.nonFoilSubtypes.join(','));
     }
     if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','));
     if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','));
@@ -146,6 +154,7 @@
       colorIdentityStrict: filters.colorIdentityStrict,
       priceCategories: filters.priceCategories.join(','),
       foilSubtypes: filters.foilSubtypes.join(','),
+      nonFoilSubtypes: filters.nonFoilSubtypes.join(','),
       cardTypes: filters.cardTypes.join(','),
       frameTypes: filters.frameTypes.join(','),
       inStockOnly: filters.inStockOnly,

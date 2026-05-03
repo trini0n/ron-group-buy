@@ -132,6 +132,11 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
       'Raised Foil',
       'Surge Foil'
     ],
+    // Non-Foil subtype filter (only relevant when 'Non-Foil' is in priceCategories)
+    nonFoilSubtypes: url.searchParams.get('nfsubs')?.split(',').filter(Boolean) || [
+      'Normal',
+      'Holo'
+    ],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],
     inStockOnly: url.searchParams.get('stock') === '1',

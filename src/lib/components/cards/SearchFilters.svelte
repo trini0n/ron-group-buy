@@ -20,6 +20,7 @@
     colorIdentityStrict: boolean;
     priceCategories: string[];
     foilSubtypes: string[];
+    nonFoilSubtypes: string[];
     cardTypes: string[];
     frameTypes: string[];
     inStockOnly: boolean;
@@ -79,10 +80,21 @@
     { value: 'Surge Foil', label: 'Surge Foil' }
   ];
 
+  // Non-Foil subtypes — only visible when 'Non-Foil' is checked
+  const NON_FOIL_SUBTYPES = [
+    { value: 'Normal', label: 'No Holostamp' },
+    { value: 'Holo', label: 'Holostamped' }
+  ];
+
   // Whether the Foil subtype panel is relevant
   const foilSelected = $derived(filters.priceCategories.includes('Foil'));
   // Whether all subtypes are selected (used for the 'all' indicator)
   const allFoilSubtypesSelected = $derived(filters.foilSubtypes.length === FOIL_SUBTYPES.length);
+
+  // Whether the Non-Foil subtype panel is relevant
+  const nonFoilSelected = $derived(filters.priceCategories.includes('Non-Foil'));
+  // Whether all non-foil subtypes are selected
+  const allNonFoilSubtypesSelected = $derived(filters.nonFoilSubtypes.length === NON_FOIL_SUBTYPES.length);
 
   const cardTypes = [
     'Land',
@@ -119,6 +131,10 @@
       if (category === 'Foil') {
         filters.foilSubtypes = FOIL_SUBTYPES.map(s => s.value);
       }
+      // When Non-Foil is re-enabled, restore all non-foil subtypes
+      if (category === 'Non-Foil') {
+        filters.nonFoilSubtypes = NON_FOIL_SUBTYPES.map(s => s.value);
+      }
     }
   }
 
@@ -127,6 +143,14 @@
       filters.foilSubtypes = filters.foilSubtypes.filter((s) => s !== subtype);
     } else {
       filters.foilSubtypes = [...filters.foilSubtypes, subtype];
+    }
+  }
+
+  function toggleNonFoilSubtype(subtype: string) {
+    if (filters.nonFoilSubtypes.includes(subtype)) {
+      filters.nonFoilSubtypes = filters.nonFoilSubtypes.filter((s) => s !== subtype);
+    } else {
+      filters.nonFoilSubtypes = [...filters.nonFoilSubtypes, subtype];
     }
   }
 
@@ -152,6 +176,7 @@
     filters.colorIdentityStrict = false;
     filters.priceCategories = ['Non-Foil', 'Foil', 'Serialized'];
     filters.foilSubtypes = FOIL_SUBTYPES.map(s => s.value);
+    filters.nonFoilSubtypes = NON_FOIL_SUBTYPES.map(s => s.value);
     filters.cardTypes = [];
     filters.frameTypes = [];
     filters.inStockOnly = false;
@@ -180,6 +205,7 @@
       filters.colorIdentity.length > 0 ||
       filters.priceCategories.length < 3 ||
       (foilSelected && !allFoilSubtypesSelected) ||
+      (nonFoilSelected && !allNonFoilSubtypesSelected) ||
       filters.cardTypes.length > 0 ||
       filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
@@ -211,7 +237,7 @@
     let count = 0;
     if (filters.setCodes.length > 0) count++;
     if (filters.colorIdentity.length > 0) count++;
-    if (filters.priceCategories.length < 3 || (foilSelected && !allFoilSubtypesSelected)) count++;
+    if (filters.priceCategories.length < 3 || (foilSelected && !allFoilSubtypesSelected) || (nonFoilSelected && !allNonFoilSubtypesSelected)) count++;
     if (filters.cardTypes.length > 0) count++;
     if (filters.frameTypes.length > 0) count++;
     if (filters.inStockOnly) count++;
@@ -361,6 +387,20 @@
             />
             <span class="text-sm">{category.label}</span>
           </label>
+          {#if category.value === 'Non-Foil' && nonFoilSelected}
+            <!-- Non-Foil subtypes — indented under the Non-Foil checkbox -->
+            <div class="ml-6 space-y-1.5 border-l border-border pl-3">
+              {#each NON_FOIL_SUBTYPES as sub}
+                <label class="flex cursor-pointer items-center space-x-2">
+                  <Checkbox
+                    checked={filters.nonFoilSubtypes.includes(sub.value)}
+                    onCheckedChange={() => toggleNonFoilSubtype(sub.value)}
+                  />
+                  <span class="text-xs text-muted-foreground">{sub.label}</span>
+                </label>
+              {/each}
+            </div>
+          {/if}
           {#if category.value === 'Foil' && foilSelected}
             <!-- Foil subtypes — indented under the Foil checkbox -->
             <div class="ml-6 space-y-1.5 border-l border-border pl-3">
