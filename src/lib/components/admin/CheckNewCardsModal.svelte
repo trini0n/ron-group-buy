@@ -1,139 +1,168 @@
 <script lang="ts">
-  import * as Dialog from '$components/ui/dialog';
-  import { Button } from '$components/ui/button';
-  import { Label } from '$components/ui/label';
-  import { RadioGroup, RadioGroupItem } from '$components/ui/radio-group';
-  import { Textarea } from '$components/ui/textarea';
-  import { toast } from 'svelte-sonner';
-  import { ClipboardCopy, Search, Loader2, CheckCircle2 } from 'lucide-svelte';
+  import * as Dialog from '$components/ui/dialog'
+  import { Button } from '$components/ui/button'
+  import { Label } from '$components/ui/label'
+  import { RadioGroup, RadioGroupItem } from '$components/ui/radio-group'
+  import { Textarea } from '$components/ui/textarea'
+  import { toast } from 'svelte-sonner'
+  import { ClipboardCopy, Search, Loader2, CheckCircle2 } from 'lucide-svelte'
 
   interface NewCard {
-    card_name: string;
-    set_code: string;
-    collector_number: string;
+    card_name: string
+    set_code: string
+    collector_number: string
   }
 
   interface Props {
-    open: boolean;
+    open: boolean
   }
 
-  let { open = $bindable() }: Props = $props();
+  let { open = $bindable() }: Props = $props()
 
-  let inputText = $state('');
-  let cardType = $state<'Normal' | 'Holo' | 'Foil'>('Normal');
-  let isChecking = $state(false);
+  let inputText = $state('')
+  let cardType = $state<'Normal' | 'Holo' | 'Foil'>('Normal')
+  let isChecking = $state(false)
 
   interface CheckResult {
-    new_cards: NewCard[];
-    new_count: number;
-    existing_count: number;
-    total_count: number;
+    new_cards: NewCard[]
+    new_count: number
+    existing_count: number
+    total_count: number
   }
 
-  let result = $state<CheckResult | null>(null);
-  let parseError = $state('');
+  let result = $state<CheckResult | null>(null)
+  let parseError = $state('')
 
   // Format the output list as "Card Name | SetCode | Collector#"
   const outputText = $derived(
-    result
-      ? result.new_cards.map((c) => `${c.card_name} | ${c.set_code} | ${c.collector_number}`).join('\n')
-      : ''
-  );
+    result ? result.new_cards.map((c) => `${c.card_name} | ${c.set_code} | ${c.collector_number}`).join('\n') : ''
+  )
+
+  /**
+   * Split a line by delimiter, respecting CSV-style double-quoted fields.
+   * Handles cases like: "Mikaeus, the Unhallowed",CMM,675
+   */
+  function splitLine(line: string, delimiter: string): string[] {
+    if (delimiter !== ',') {
+      // Pipe and tab: simple split, no quoting needed
+      return line.split(delimiter).map((p) => p.trim())
+    }
+    // CSV-aware split: track whether we're inside a quoted field
+    const parts: string[] = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        // Toggle quoted mode; strip the quote character itself
+        inQuotes = !inQuotes
+      } else if (ch === ',' && !inQuotes) {
+        parts.push(current.trim())
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+    parts.push(current.trim())
+    return parts
+  }
 
   /**
    * Parse a pasted list or CSV into card objects.
-   * Supports pipe-delimited and comma-delimited formats.
+   * Supports pipe-delimited, tab-delimited, and comma-delimited formats.
    * Skips blank lines and header lines (if first token looks like a header).
    */
   function parseInput(raw: string): NewCard[] | null {
     const lines = raw
       .split('\n')
       .map((l) => l.trim())
-      .filter(Boolean);
+      .filter(Boolean)
 
-    if (lines.length === 0) return null;
+    if (lines.length === 0) return null
 
-    const cards: NewCard[] = [];
+    const cards: NewCard[] = []
     for (const line of lines) {
       // Determine delimiter: pipe → tab → comma
-      const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ',';
-      const parts = line.split(delimiter).map((p) => p.trim());
+      const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ','
+      const parts = splitLine(line, delimiter)
 
       if (parts.length < 3) {
         // Not enough columns — skip (could be a header or blank)
-        continue;
+        continue
       }
 
-      const [card_name, set_code, collector_number] = parts as [string, string, string, ...string[]];
+      const [card_name, set_code, collector_number] = parts as [string, string, string, ...string[]]
 
       // Skip if looks like a header row
-      if (
-        card_name.toLowerCase() === 'card name' ||
-        card_name.toLowerCase() === 'name'
-      ) {
-        continue;
+      if (card_name.toLowerCase() === 'card name' || card_name.toLowerCase() === 'name') {
+        continue
       }
 
-      if (!card_name || !set_code || !collector_number) continue;
+      if (!card_name || !set_code || !collector_number) continue
 
-      cards.push({ card_name, set_code, collector_number });
+      cards.push({ card_name, set_code, collector_number })
     }
 
-    return cards.length > 0 ? cards : null;
+    return cards.length > 0 ? cards : null
   }
 
   async function handleCheck() {
-    parseError = '';
-    result = null;
+    parseError = ''
+    result = null
 
-    const cards = parseInput(inputText);
+    const cards = parseInput(inputText)
     if (!cards) {
-      parseError = 'No valid cards found. Use format: Card Name | SetCode | Collector#';
-      return;
+      parseError = 'No valid cards found. Use format: Card Name | SetCode | Collector#'
+      return
     }
 
-    isChecking = true;
+    isChecking = true
     try {
       const res = await fetch('/api/admin/inventory/check-new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cards, card_type: cardType })
-      });
+      })
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Unknown error' }));
-        toast.error(err.message || `Error ${res.status}`);
-        return;
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }))
+        toast.error(err.message || `Error ${res.status}`)
+        return
       }
 
-      result = await res.json();
+      result = await res.json()
     } catch (e) {
-      toast.error('Failed to reach server');
+      toast.error('Failed to reach server')
     } finally {
-      isChecking = false;
+      isChecking = false
     }
   }
 
   async function handleCopy() {
-    if (!outputText) return;
+    if (!outputText) return
     try {
-      await navigator.clipboard.writeText(outputText);
-      toast.success('Copied to clipboard');
+      await navigator.clipboard.writeText(outputText)
+      toast.success('Copied to clipboard')
     } catch {
-      toast.error('Failed to copy — please select and copy manually');
+      toast.error('Failed to copy — please select and copy manually')
     }
   }
 
   function handleClose() {
-    open = false;
-    inputText = '';
-    cardType = 'Normal';
-    result = null;
-    parseError = '';
+    open = false
+    inputText = ''
+    cardType = 'Normal'
+    result = null
+    parseError = ''
   }
 </script>
 
-<Dialog.Root bind:open onOpenChange={(v) => { if (!v) handleClose(); }}>
+<Dialog.Root
+  bind:open
+  onOpenChange={(v) => {
+    if (!v) handleClose()
+  }}
+>
   <Dialog.Content class="max-w-2xl">
     <Dialog.Header>
       <Dialog.Title class="flex items-center gap-2">
@@ -167,7 +196,7 @@
         <Textarea
           id="card-input"
           bind:value={inputText}
-          placeholder={"Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt | M11 | 149\n...\n\nSupports pipe, tab, or comma delimited"}
+          placeholder={'Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt | M11 | 149\n...\n\nSupports pipe, tab, or comma delimited'}
           class="h-36 font-mono text-sm"
         />
         {#if parseError}
@@ -204,17 +233,13 @@
                 <Label class="text-xs uppercase tracking-wide text-muted-foreground">
                   New cards ({result.new_count})
                 </Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onclick={handleCopy}
-                  class="h-7 gap-1.5 text-xs"
-                >
+                <Button variant="outline" size="sm" onclick={handleCopy} class="h-7 gap-1.5 text-xs">
                   <ClipboardCopy class="h-3.5 w-3.5" />
                   Copy List
                 </Button>
               </div>
-              <pre class="max-h-48 overflow-y-auto rounded border bg-background p-3 text-xs leading-relaxed">{outputText}</pre>
+              <pre
+                class="max-h-48 overflow-y-auto rounded border bg-background p-3 text-xs leading-relaxed">{outputText}</pre>
             </div>
           {/if}
         </div>
