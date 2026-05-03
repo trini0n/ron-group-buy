@@ -85,7 +85,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     card_type === 'Foil' ? [...FOIL_SUBTYPES] : [card_type]
 
   // Collect unique (set_code, collector_number) pairs from input
-  const uniqueSetCodes = [...new Set(cards.map((c) => c.set_code.trim().toLowerCase()))]
+  // Uppercase set codes to match DB storage (e.g. "2X2", "MH2"); keep lowercase for key comparison below
+  const uniqueSetCodes = [...new Set(cards.map((c) => c.set_code.trim().toUpperCase()))]
   const uniqueCollectorNums = [...new Set(cards.map((c) => c.collector_number.trim()))]
 
   // Query DB: find all cards in this type family that match any of the input set_code values
