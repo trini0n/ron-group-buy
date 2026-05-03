@@ -55,8 +55,8 @@
 
     const cards: NewCard[] = [];
     for (const line of lines) {
-      // Determine delimiter: pipe takes priority
-      const delimiter = line.includes('|') ? '|' : ',';
+      // Determine delimiter: pipe → tab → comma
+      const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ',';
       const parts = line.split(delimiter).map((p) => p.trim());
 
       if (parts.length < 3) {
@@ -167,7 +167,7 @@
         <Textarea
           id="card-input"
           bind:value={inputText}
-          placeholder={"Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt | M11 | 149\n...\n\nAlso supports comma-separated: Card Name, SetCode, Collector#"}
+          placeholder={"Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt | M11 | 149\n...\n\nSupports pipe, tab, or comma delimited"}
           class="h-36 font-mono text-sm"
         />
         {#if parseError}
