@@ -10,6 +10,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
   import { getRonImageUrl, getScryfallImageUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
+  import CheckNewCardsModal from '$components/admin/CheckNewCardsModal.svelte';
   import { 
     Search, 
     ChevronLeft, 
@@ -72,6 +73,7 @@
   let isUpdating = $state(false);
   let isSyncing = $state(false);
   let isResyncingImages = $state(false);
+  let checkNewCardsOpen = $state(false);
   let resyncingCardId = $state<string | null>(null);
 
   const totalPages = $derived(Math.ceil(data.totalCount / data.perPage));
@@ -293,20 +295,30 @@
       <h1 class="text-3xl font-bold">Inventory</h1>
       <p class="text-muted-foreground">Manage card stock status</p>
     </div>
-    <Button 
-      variant="outline" 
-      onclick={syncWithGoogleSheets}
-      disabled={isSyncing}
-      class="gap-2"
-    >
-      {#if isSyncing}
-        <Loader2 class="h-4 w-4 animate-spin" />
-        Syncing...
-      {:else}
-        <CloudDownload class="h-4 w-4" />
-        Sync with Google Sheets
-      {/if}
-    </Button>
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        onclick={() => (checkNewCardsOpen = true)}
+        class="gap-2"
+      >
+        <Search class="h-4 w-4" />
+        Check New Cards
+      </Button>
+      <Button 
+        variant="outline" 
+        onclick={syncWithGoogleSheets}
+        disabled={isSyncing}
+        class="gap-2"
+      >
+        {#if isSyncing}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          Syncing...
+        {:else}
+          <CloudDownload class="h-4 w-4" />
+          Sync with Google Sheets
+        {/if}
+      </Button>
+    </div>
   </div>
 
   <!-- Filters -->
@@ -629,3 +641,5 @@
     />
   </div>
 {/if}
+
+<CheckNewCardsModal bind:open={checkNewCardsOpen} />
