@@ -16,7 +16,7 @@
     getFinishBadgeClasses,
     FOIL_SUBTYPES
   } from '$lib/utils'
-  import { matchesOracleTag } from '$lib/data/oracle-tags'
+  import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
   import { browser } from '$app/environment'
   import { untrack } from 'svelte'
 
@@ -124,13 +124,15 @@
   // Filter cards (pure function)
   function filterCards(allCards: Card[], query: string, f: Filters): Card[] {
     // Parse is:TAG tokens from the query (case-insensitive). Strip them to get text-only part.
-    const isTokens = [...query.matchAll(/\bis:(\S+)/gi)].map((m) => m[1].toLowerCase())
+    const isTokens = [...query.matchAll(/\bis:(\S+)/gi)].map((m) => m[1]?.toLowerCase() ?? '')
+    // Only apply known tags — unknown/partial tokens (is:sh) are treated as no-ops.
+    const knownIsTokens = isTokens.filter((t) => t in ORACLE_TAGS)
     const textQuery = query.replace(/\bis:\S+/gi, '').trim()
 
     return allCards.filter((card) => {
-      // Oracle tag filter: card must match at least one is:TAG token (OR across tokens).
-      if (isTokens.length > 0) {
-        if (!isTokens.some((tag) => matchesOracleTag(card.card_name, tag))) return false
+      // Oracle tag filter: card must match at least one known is:TAG token (OR across tokens).
+      if (knownIsTokens.length > 0) {
+        if (!knownIsTokens.some((tag) => matchesOracleTag(card.card_name, tag))) return false
       }
       // Text search with is:TAG tokens stripped out (AND with oracle tag filter above).
       if (textQuery) {
