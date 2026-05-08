@@ -1,209 +1,220 @@
 <script lang="ts">
-  import type { Card } from '$lib/server/types';
-  import CardItem from './CardItem.svelte';
-  import * as Pagination from '$components/ui/pagination';
-  import { Button } from '$components/ui/button';
-  import { ChevronLeft, ChevronRight } from 'lucide-svelte';
-  import { untrack } from 'svelte';
-  import { getFinishLabel, FOIL_SUBTYPES } from '$lib/utils';
+  import type { Card } from '$lib/server/types'
+  import CardItem from './CardItem.svelte'
+  import * as Pagination from '$components/ui/pagination'
+  import { Button } from '$components/ui/button'
+  import { ChevronLeft, ChevronRight } from 'lucide-svelte'
+  import { untrack } from 'svelte'
+  import { getFinishLabel, FOIL_SUBTYPES } from '$lib/utils'
+  import { matchesOracleTag } from '$lib/data/oracle-tags'
 
   interface Filters {
-    setCodes: string[];
-    colorIdentity: string[];
-    colorIdentityStrict: boolean;
-    priceCategories: string[];
-    foilSubtypes: string[];
-    nonFoilSubtypes: string[];
-    cardTypes: string[];
-    frameTypes: string[];
-    inStockOnly: boolean;
-    isNew: boolean;
+    setCodes: string[]
+    colorIdentity: string[]
+    colorIdentityStrict: boolean
+    priceCategories: string[]
+    foilSubtypes: string[]
+    nonFoilSubtypes: string[]
+    cardTypes: string[]
+    frameTypes: string[]
+    inStockOnly: boolean
+    isNew: boolean
   }
 
   // Supertypes to ignore when matching card types
-  const SUPERTYPES = ['basic', 'legendary', 'snow', 'world', 'ongoing', 'host'];
+  const SUPERTYPES = ['basic', 'legendary', 'snow', 'world', 'ongoing', 'host']
 
   interface Props {
-    cards: Card[];
-    searchQuery: string;
-    filters: Filters;
-    currentPage?: number;
-    onPageChange?: (page: number) => void;
+    cards: Card[]
+    searchQuery: string
+    filters: Filters
+    currentPage?: number
+    onPageChange?: (page: number) => void
   }
 
-  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange }: Props = $props();
+  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange }: Props = $props()
 
-  const CARDS_PER_PAGE = 25;
-  let internalPage = $state(1);
-  
+  const CARDS_PER_PAGE = 25
+  let internalPage = $state(1)
+
   // Card groups stored as state for deferred updates
   interface CardGroup {
-    primary: Card;
-    finishVariants: Card[];
+    primary: Card
+    finishVariants: Card[]
   }
-  
-  let groupedCards = $state<CardGroup[]>([]);
-  
+
+  let groupedCards = $state<CardGroup[]>([])
+
   // Sync internal page with prop when it changes
   $effect(() => {
-    internalPage = propPage;
-  });
+    internalPage = propPage
+  })
 
   const FINISH_ORDER: Record<string, number> = {
-    'Normal': 1,
-    'Holo': 2,
-    'Foil': 3,
+    Normal: 1,
+    Holo: 2,
+    Foil: 3,
     'Galaxy Foil': 4,
     'Surge Foil': 4,
     'Raised Foil': 5,
-    'Serialized': 6
-  };
+    Serialized: 6
+  }
 
   // Filter function - pure, no side effects
   function filterAndGroupCards(allCards: Card[], query: string, f: Filters): CardGroup[] {
+    // Parse is:TAG tokens from the query (case-insensitive). Strip them to get text-only part.
+    const isTokens = [...query.matchAll(/\bis:(\S+)/gi)].map((m) => m[1].toLowerCase())
+    const textQuery = query.replace(/\bis:\S+/gi, '').trim()
+
     // Filter cards
     const filtered = allCards.filter((card) => {
-      // Search query filter - matches card name and flavor name only
-      if (query) {
-        const q = query.toLowerCase();
-        const nameMatch = card.card_name.toLowerCase().includes(q);
-        const flavorMatch = card.flavor_name?.toLowerCase().includes(q);
-        if (!nameMatch && !flavorMatch) return false;
+      // Oracle tag filter: card must match at least one is:TAG token (OR across tokens).
+      if (isTokens.length > 0) {
+        if (!isTokens.some((tag) => matchesOracleTag(card.card_name, tag))) return false
+      }
+      // Text search with is:TAG tokens stripped out (AND with oracle tag filter above).
+      if (textQuery) {
+        const q = textQuery.toLowerCase()
+        const nameMatch = card.card_name.toLowerCase().includes(q)
+        const flavorMatch = card.flavor_name?.toLowerCase().includes(q)
+        if (!nameMatch && !flavorMatch) return false
       }
 
       // Set filter
       if (f.setCodes.length > 0) {
-        const cardSetCode = card.set_code?.toLowerCase() || '';
-        if (!f.setCodes.includes(cardSetCode)) return false;
+        const cardSetCode = card.set_code?.toLowerCase() || ''
+        if (!f.setCodes.includes(cardSetCode)) return false
       }
 
       // Color identity filter
       if (f.colorIdentity.length > 0) {
-        const cardColors = (card.color_identity?.split(', ') || []).filter((c: string) => c);
+        const cardColors = (card.color_identity?.split(', ') || []).filter((c: string) => c)
         if (f.colorIdentityStrict) {
-          const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c));
-          if (hasDisallowedColor) return false;
+          const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c))
+          if (hasDisallowedColor) return false
         } else {
-          const hasMatchingColor = f.colorIdentity.some((c: string) => cardColors.includes(c));
-          if (!hasMatchingColor) return false;
+          const hasMatchingColor = f.colorIdentity.some((c: string) => cardColors.includes(c))
+          if (!hasMatchingColor) return false
         }
       }
 
       // Finish filter — hierarchical:
       //  Top level: 'Non-Foil', 'Foil' (the whole family), 'Serialized'
       //  Within Foil: narrow by foilSubtypes (default = all)
-      const effectiveFinish = getFinishLabel(card); // foil_type || card_type
-      const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES; // ['Foil','Galaxy Foil','Raised Foil','Surge Foil']
-      const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo';
-      const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish);
-      const isSerialized = effectiveFinish === 'Serialized';
+      const effectiveFinish = getFinishLabel(card) // foil_type || card_type
+      const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES // ['Foil','Galaxy Foil','Raised Foil','Surge Foil']
+      const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo'
+      const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish)
+      const isSerialized = effectiveFinish === 'Serialized'
 
       if (isNonFoil) {
-        if (!f.priceCategories.includes('Non-Foil')) return false;
+        if (!f.priceCategories.includes('Non-Foil')) return false
         // Apply non-foil subtype filter (Normal = No Holostamp, Holo = Holostamped)
-        if (!f.nonFoilSubtypes.includes(effectiveFinish)) return false;
+        if (!f.nonFoilSubtypes.includes(effectiveFinish)) return false
       }
       if (isFoilFamily) {
-        if (!f.priceCategories.includes('Foil')) return false;
+        if (!f.priceCategories.includes('Foil')) return false
         // Apply subtype filter within the foil family
-        if (!f.foilSubtypes.includes(effectiveFinish)) return false;
+        if (!f.foilSubtypes.includes(effectiveFinish)) return false
       }
-      if (isSerialized && !f.priceCategories.includes('Serialized')) return false;
+      if (isSerialized && !f.priceCategories.includes('Serialized')) return false
 
       // Card type filter
       if (f.cardTypes.length > 0) {
-        if (!card.type_line) return false;
-        const typeLine = card.type_line.toLowerCase();
+        if (!card.type_line) return false
+        const typeLine = card.type_line.toLowerCase()
         const parts = typeLine.split('—')
         const mainTypes = parts[0]?.trim() || ''
-        const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t));
-        const hasMatchingType = f.cardTypes.some((selectedType) =>
-          cardTypeWords.includes(selectedType.toLowerCase())
-        );
-        if (!hasMatchingType) return false;
+        const cardTypeWords = mainTypes.split(/\s+/).filter((t: string) => !SUPERTYPES.includes(t))
+        const hasMatchingType = f.cardTypes.some((selectedType) => cardTypeWords.includes(selectedType.toLowerCase()))
+        if (!hasMatchingType) return false
       }
 
       // Frame type filter
       if (f.frameTypes.length > 0) {
         const matchesFrameType = f.frameTypes.some((frameType) => {
           switch (frameType) {
-            case 'retro': return card.is_retro === true;
-            case 'extended': return card.is_extended === true;
-            case 'borderless': return card.is_borderless === true;
-            case 'showcase': return card.is_showcase === true;
-            default: return false;
+            case 'retro':
+              return card.is_retro === true
+            case 'extended':
+              return card.is_extended === true
+            case 'borderless':
+              return card.is_borderless === true
+            case 'showcase':
+              return card.is_showcase === true
+            default:
+              return false
           }
-        });
-        if (!matchesFrameType) return false;
+        })
+        if (!matchesFrameType) return false
       }
 
       // In stock filter
-      if (f.inStockOnly && !card.is_in_stock) return false;
+      if (f.inStockOnly && !card.is_in_stock) return false
 
       // New cards filter
-      if (f.isNew && !card.is_new) return false;
+      if (f.isNew && !card.is_new) return false
 
-      return true;
-    });
+      return true
+    })
 
     // Group by set_code + collector_number + language
-    const groups = new Map<string, CardGroup>();
-    
+    const groups = new Map<string, CardGroup>()
+
     for (const card of filtered) {
-      const groupKey = `${card.set_code?.toLowerCase() || ''}|${card.collector_number || ''}|${card.language?.toLowerCase() || 'en'}`;
-      
+      const groupKey = `${card.set_code?.toLowerCase() || ''}|${card.collector_number || ''}|${card.language?.toLowerCase() || 'en'}`
+
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, { primary: card, finishVariants: [] });
+        groups.set(groupKey, { primary: card, finishVariants: [] })
       }
-      
-      const group = groups.get(groupKey)!;
+
+      const group = groups.get(groupKey)!
       // Use effective finish (foil_type || card_type) to deduplicate variants
       // Without this, Raised Foil (card_type='Foil', foil_type='Raised Foil') and regular Foil
       // (card_type='Foil', foil_type=null) would incorrectly merge into the same slot
-      const effectiveFinish = getFinishLabel(card);
-      const existingFinishIdx = group.finishVariants.findIndex(v => getFinishLabel(v) === effectiveFinish);
+      const effectiveFinish = getFinishLabel(card)
+      const existingFinishIdx = group.finishVariants.findIndex((v) => getFinishLabel(v) === effectiveFinish)
       if (existingFinishIdx === -1) {
-        group.finishVariants.push(card);
+        group.finishVariants.push(card)
       } else {
         const existing = group.finishVariants[existingFinishIdx]
         if (existing && card.is_in_stock && !existing.is_in_stock) {
-          group.finishVariants[existingFinishIdx] = card;
+          group.finishVariants[existingFinishIdx] = card
         }
       }
     }
-    
+
     // Sort finish variants and set primary
     for (const group of groups.values()) {
       group.finishVariants.sort((a, b) => {
         // Sort by effective finish label (foil_type || card_type) so Raised Foil sorts correctly
-        const orderA = FINISH_ORDER[getFinishLabel(a)] ?? 99;
-        const orderB = FINISH_ORDER[getFinishLabel(b)] ?? 99;
-        return orderA - orderB;
-      });
-      
-      const inStock = group.finishVariants.find(v => v.is_in_stock);
-      group.primary = inStock || group.finishVariants[0]!;
+        const orderA = FINISH_ORDER[getFinishLabel(a)] ?? 99
+        const orderB = FINISH_ORDER[getFinishLabel(b)] ?? 99
+        return orderA - orderB
+      })
+
+      const inStock = group.finishVariants.find((v) => v.is_in_stock)
+      group.primary = inStock || group.finishVariants[0]!
     }
-    
+
     // Sort: new cards first, then alphabetically
     return Array.from(groups.values()).sort((a, b) => {
-      const aIsNew = a.primary.is_new ? 1 : 0;
-      const bIsNew = b.primary.is_new ? 1 : 0;
-      if (bIsNew !== aIsNew) return bIsNew - aIsNew;
-      return a.primary.card_name.localeCompare(b.primary.card_name);
-    });
+      const aIsNew = a.primary.is_new ? 1 : 0
+      const bIsNew = b.primary.is_new ? 1 : 0
+      if (bIsNew !== aIsNew) return bIsNew - aIsNew
+      return a.primary.card_name.localeCompare(b.primary.card_name)
+    })
   }
-
 
   // Deferred filter update - uses requestAnimationFrame to let UI paint first
   // Store the frame ID so we can cancel pending updates
-  let pendingFrameId: number | null = null;
-  let initialLoadDone = false;
-  
+  let pendingFrameId: number | null = null
+  let initialLoadDone = false
+
   $effect(() => {
     // Read dependencies to establish tracking
-    const currentCards = cards;
-    const currentQuery = searchQuery;
+    const currentCards = cards
+    const currentQuery = searchQuery
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
       setCodes: [...filters.setCodes],
@@ -216,48 +227,48 @@
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew
-    };
-    
+    }
+
     // Cancel any pending frame to prevent stacking updates
     if (pendingFrameId !== null) {
-      cancelAnimationFrame(pendingFrameId);
+      cancelAnimationFrame(pendingFrameId)
     }
-    
+
     // For initial load with cards, do it synchronously to avoid flash
     if (!initialLoadDone && currentCards.length > 0) {
-      initialLoadDone = true;
+      initialLoadDone = true
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters);
-      });
-      return;
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters)
+      })
+      return
     }
-    
+
     // Use requestAnimationFrame to defer filtering after browser paint
     pendingFrameId = requestAnimationFrame(() => {
-      pendingFrameId = null;
+      pendingFrameId = null
       // Use untrack to avoid reading state during update
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters);
-      });
-    });
-  });
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters)
+      })
+    })
+  })
 
-  const totalPages = $derived(Math.ceil(groupedCards.length / CARDS_PER_PAGE));
+  const totalPages = $derived(Math.ceil(groupedCards.length / CARDS_PER_PAGE))
 
   // Use internal page bounded by total pages
-  const currentPage = $derived(Math.min(internalPage, Math.max(1, totalPages)));
+  const currentPage = $derived(Math.min(internalPage, Math.max(1, totalPages)))
 
   const paginatedGroups = $derived.by(() => {
-    const start = (currentPage - 1) * CARDS_PER_PAGE;
-    const end = start + CARDS_PER_PAGE;
-    return groupedCards.slice(start, end);
-  });
+    const start = (currentPage - 1) * CARDS_PER_PAGE
+    const end = start + CARDS_PER_PAGE
+    return groupedCards.slice(start, end)
+  })
 
   function goToPage(page: number) {
-    const newPage = Math.max(1, Math.min(page, totalPages));
-    internalPage = newPage;
-    onPageChange?.(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const newPage = Math.max(1, Math.min(page, totalPages))
+    internalPage = newPage
+    onPageChange?.(newPage)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 </script>
 
@@ -270,7 +281,8 @@
   <!-- Results count and page info -->
   <div class="mb-4 flex items-center justify-between text-sm text-muted-foreground">
     <span>
-      Showing {(currentPage - 1) * CARDS_PER_PAGE + 1}–{Math.min(currentPage * CARDS_PER_PAGE, groupedCards.length)} of {groupedCards.length} cards
+      Showing {(currentPage - 1) * CARDS_PER_PAGE + 1}–{Math.min(currentPage * CARDS_PER_PAGE, groupedCards.length)} of {groupedCards.length}
+      cards
     </span>
     {#if totalPages > 1}
       <span>Page {currentPage} of {totalPages}</span>
@@ -286,35 +298,20 @@
   <!-- Pagination -->
   {#if totalPages > 1}
     <div class="mt-8 flex items-center justify-center gap-2">
-      <Button
-        variant="outline"
-        size="icon"
-        disabled={currentPage === 1}
-        onclick={() => goToPage(currentPage - 1)}
-      >
+      <Button variant="outline" size="icon" disabled={currentPage === 1} onclick={() => goToPage(currentPage - 1)}>
         <ChevronLeft class="h-4 w-4" />
       </Button>
 
       <div class="flex items-center gap-1">
         {#if totalPages <= 7}
           {#each Array(totalPages) as _, i}
-            <Button
-              variant={currentPage === i + 1 ? 'default' : 'outline'}
-              size="icon"
-              onclick={() => goToPage(i + 1)}
-            >
+            <Button variant={currentPage === i + 1 ? 'default' : 'outline'} size="icon" onclick={() => goToPage(i + 1)}>
               {i + 1}
             </Button>
           {/each}
         {:else}
           <!-- First page -->
-          <Button
-            variant={currentPage === 1 ? 'default' : 'outline'}
-            size="icon"
-            onclick={() => goToPage(1)}
-          >
-            1
-          </Button>
+          <Button variant={currentPage === 1 ? 'default' : 'outline'} size="icon" onclick={() => goToPage(1)}>1</Button>
 
           {#if currentPage > 3}
             <span class="px-2 text-muted-foreground">...</span>
@@ -324,11 +321,7 @@
           {#each Array(5) as _, i}
             {@const page = currentPage - 2 + i}
             {#if page > 1 && page < totalPages}
-              <Button
-                variant={currentPage === page ? 'default' : 'outline'}
-                size="icon"
-                onclick={() => goToPage(page)}
-              >
+              <Button variant={currentPage === page ? 'default' : 'outline'} size="icon" onclick={() => goToPage(page)}>
                 {page}
               </Button>
             {/if}
