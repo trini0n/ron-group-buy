@@ -18,15 +18,15 @@ export function formatPrice(price: number): string {
  * the subtype checkboxes in the Finish filter panel.
  * Keep in display order (cheapest/plainest first).
  */
-export const FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const;
-export type FoilSubtype = (typeof FOIL_SUBTYPES)[number];
+export const FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const
+export type FoilSubtype = (typeof FOIL_SUBTYPES)[number]
 
 /**
  * The canonical set of finish labels that belong to the "Non-Foil" family.
  * 'Normal' = No Holostamp, 'Holo' = Holostamped.
  */
-export const NON_FOIL_SUBTYPES = ['Normal', 'Holo'] as const;
-export type NonFoilSubtype = (typeof NON_FOIL_SUBTYPES)[number];
+export const NON_FOIL_SUBTYPES = ['Normal', 'Holo'] as const
+export type NonFoilSubtype = (typeof NON_FOIL_SUBTYPES)[number]
 
 /**
  * Calculate price based on card type.
@@ -97,7 +97,7 @@ export function getRonImageUrl(ronImageUrl: string | null): string | null {
   if (!isValidRonImageUrl(ronImageUrl) || !ronImageUrl) {
     return null
   }
-  
+
   // For lh3.googleusercontent.com URLs, ensure high resolution
   if (ronImageUrl.includes('lh3.googleusercontent.com')) {
     // Remove existing size suffix (=w123, =s200, =w200-h300, etc.)
@@ -107,7 +107,7 @@ export function getRonImageUrl(ronImageUrl: string | null): string | null {
     // Append high resolution suffix (w1200 is a good balance of quality and load time)
     return cleanUrl + '=w1200'
   }
-  
+
   return ronImageUrl
 }
 
@@ -199,13 +199,13 @@ export function getCardUrl(card: {
   const setCode = (card.set_code || 'unknown').toLowerCase()
   const collectorNum = card.collector_number || '0'
   const slug = slugify(card.card_name)
-  
+
   // Only include language segment for non-default languages
   if (!isDefaultLanguage(card.language)) {
     const lang = card.language!.toLowerCase()
     return `/card/${setCode}/${collectorNum}/${lang}/${slug}/`
   }
-  
+
   return `/card/${setCode}/${collectorNum}/${slug}/`
 }
 
@@ -254,15 +254,17 @@ export function getFinishBadgeClasses(finish: string): string {
  * Returns null if no special frame effect
  * Note: Showcase supersedes Borderless (if both are true, only show Showcase)
  */
-export function getFrameEffectLabel(card: {
-  is_retro?: boolean | null
-  is_extended?: boolean | null
-  is_showcase?: boolean | null
-  is_borderless?: boolean | null
-  is_etched?: boolean | null
-} | null): string | null {
+export function getFrameEffectLabel(
+  card: {
+    is_retro?: boolean | null
+    is_extended?: boolean | null
+    is_showcase?: boolean | null
+    is_borderless?: boolean | null
+    is_etched?: boolean | null
+  } | null
+): string | null {
   if (!card) return null
-  
+
   const effects: string[] = []
   if (card.is_retro) effects.push('Retro')
   if (card.is_extended) effects.push('Extended Art')
@@ -270,7 +272,7 @@ export function getFrameEffectLabel(card: {
   // Only show Borderless if Showcase is NOT present (Showcase supersedes Borderless)
   if (card.is_borderless && !card.is_showcase) effects.push('Borderless')
   if (card.is_etched) effects.push('Etched')
-  
+
   return effects.length > 0 ? effects.join(', ') : null
 }
 
@@ -282,12 +284,12 @@ export function getFrameEffectLabel(card: {
 export function parseCardSerial(serial: string): { prefix: string; number: number; suffix: string } {
   // Match pattern: PREFIX-NUMBER[SUFFIX]
   const match = serial.match(/^([A-Z])-(\d+)([a-z]*)$/)
-  
+
   if (!match) {
     // Fallback for non-standard format
     return { prefix: '', number: 0, suffix: serial }
   }
-  
+
   // Non-null assertions safe here because we checked match exists
   return {
     prefix: match[1]!,
@@ -303,37 +305,37 @@ export function parseCardSerial(serial: string): { prefix: string; number: numbe
 export function compareSerials(a: string, b: string): number {
   const parsedA = parseCardSerial(a)
   const parsedB = parseCardSerial(b)
-  
+
   // Define prefix order: Normal < Holo < Foil
-  const prefixOrder: Record<string, number> = { 'N': 1, 'H': 2, 'F': 3 }
+  const prefixOrder: Record<string, number> = { N: 1, H: 2, F: 3 }
   const orderA = prefixOrder[parsedA.prefix] || 0
   const orderB = prefixOrder[parsedB.prefix] || 0
-  
+
   if (orderA !== orderB) {
     return orderA - orderB
   }
-  
+
   // Same prefix, compare numbers
   if (parsedA.number !== parsedB.number) {
     return parsedA.number - parsedB.number
   }
-  
+
   // Same number, compare suffix (a < b < c)
   return parsedA.suffix.localeCompare(parsedB.suffix)
 }
 
 export interface SortableOrderItem {
-  card_name: string;
-  card_type?: string;
-  card_serial?: string;
+  card_name: string
+  card_type?: string
+  card_serial?: string
   card?: {
-    set_code?: string | null;
-    collector_number?: string | null;
-    foil_type?: string | null;
-    card_type?: string | null;
-  } | null;
-  set_code?: string | null;
-  collector_number?: string | null;
+    set_code?: string | null
+    collector_number?: string | null
+    foil_type?: string | null
+    card_type?: string | null
+  } | null
+  set_code?: string | null
+  collector_number?: string | null
 }
 
 /**
@@ -343,43 +345,43 @@ export interface SortableOrderItem {
 export function groupAndSortOrderItems<T extends SortableOrderItem>(items: T[]): T[] {
   return [...items].sort((a, b) => {
     // 1. Card Name (alphabetical)
-    const nameA = a.card_name || '';
-    const nameB = b.card_name || '';
-    const nameCompare = nameA.localeCompare(nameB);
-    if (nameCompare !== 0) return nameCompare;
-    
+    const nameA = a.card_name || ''
+    const nameB = b.card_name || ''
+    const nameCompare = nameA.localeCompare(nameB)
+    if (nameCompare !== 0) return nameCompare
+
     // 2. Set Code (alphabetical)
-    const setA = (a.card?.set_code || a.set_code || '').toLowerCase();
-    const setB = (b.card?.set_code || b.set_code || '').toLowerCase();
-    const setCompare = setA.localeCompare(setB);
-    if (setCompare !== 0) return setCompare;
-    
+    const setA = (a.card?.set_code || a.set_code || '').toLowerCase()
+    const setB = (b.card?.set_code || b.set_code || '').toLowerCase()
+    const setCompare = setA.localeCompare(setB)
+    if (setCompare !== 0) return setCompare
+
     // 3. Collector's Number (natural sort)
-    const colA = a.card?.collector_number || a.collector_number || '';
-    const colB = b.card?.collector_number || b.collector_number || '';
+    const colA = a.card?.collector_number || a.collector_number || ''
+    const colB = b.card?.collector_number || b.collector_number || ''
     // Use natural comparison for collector numbers like "123" vs "123a" vs "45"
-    const colCompare = colA.localeCompare(colB, undefined, { numeric: true, sensitivity: 'base' });
-    if (colCompare !== 0) return colCompare;
-    
+    const colCompare = colA.localeCompare(colB, undefined, { numeric: true, sensitivity: 'base' })
+    if (colCompare !== 0) return colCompare
+
     // 4. Variant (Normal > Holo > Foil > Raised Foil > Serialized > Surge Foil/Galaxy Foil)
-    const finishA = a.card?.foil_type || a.card?.card_type || a.card_type || '';
-    const finishB = b.card?.foil_type || b.card?.card_type || b.card_type || '';
-    
+    const finishA = a.card?.foil_type || a.card?.card_type || a.card_type || ''
+    const finishB = b.card?.foil_type || b.card?.card_type || b.card_type || ''
+
     const finishOrder: Record<string, number> = {
-      'Normal': 1,
-      'Holo': 2,
-      'Foil': 3,
+      Normal: 1,
+      Holo: 2,
+      Foil: 3,
       'Galaxy Foil': 4,
       'Surge Foil': 4,
       'Raised Foil': 5,
-      'Serialized': 6,
-    };
-    
-    const rankA = finishOrder[finishA] || 99;
-    const rankB = finishOrder[finishB] || 99;
-    
-    return rankA - rankB;
-  });
+      Serialized: 6
+    }
+
+    const rankA = finishOrder[finishA] || 99
+    const rankB = finishOrder[finishB] || 99
+
+    return rankA - rankB
+  })
 }
 
 /**
@@ -392,7 +394,7 @@ export function sortOrdersByShippingAndDate<T extends { shipping_type: string | 
   return [...orders].sort((a, b) => {
     const shippingA = a.shipping_type || 'regular'
     const shippingB = b.shipping_type || 'regular'
-    
+
     // Express shipping comes first
     if (shippingA === 'express' && shippingB !== 'express') {
       return -1
@@ -400,7 +402,7 @@ export function sortOrdersByShippingAndDate<T extends { shipping_type: string | 
     if (shippingA !== 'express' && shippingB === 'express') {
       return 1
     }
-    
+
     // Within same shipping type, sort by created_at ascending
     const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0

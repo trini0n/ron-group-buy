@@ -1,148 +1,157 @@
 <script lang="ts">
-  import CardGrid from '$components/cards/CardGrid.svelte';
-  import CardTableView from '$components/cards/CardTableView.svelte';
-  import SearchFilters from '$components/cards/SearchFilters.svelte';
-  import { Input } from '$components/ui/input';
-  import { Button } from '$components/ui/button';
-  import * as Tooltip from '$components/ui/tooltip';
-  import { Skeleton } from '$components/ui/skeleton';
-  import { Search, LayoutGrid, List } from 'lucide-svelte';
-  import { untrack } from 'svelte';
-  import type { Card } from '$lib/server/types';
+  import CardGrid from '$components/cards/CardGrid.svelte'
+  import CardTableView from '$components/cards/CardTableView.svelte'
+  import SearchFilters from '$components/cards/SearchFilters.svelte'
+  import { Input } from '$components/ui/input'
+  import { Button } from '$components/ui/button'
+  import * as Tooltip from '$components/ui/tooltip'
+  import { Skeleton } from '$components/ui/skeleton'
+  import { Search, LayoutGrid, List } from 'lucide-svelte'
+  import { untrack } from 'svelte'
+  import type { Card } from '$lib/server/types'
 
-  let { data } = $props();
+  let { data } = $props()
 
   // Initialize from URL params via server - use untrack since we only want initial values
-  const initialFilters = untrack(() => data.initialFilters);
-  
-  let searchQuery = $state(initialFilters.search);
-  let viewMode = $state<'grid' | 'table'>(initialFilters.view);
-  let currentPage = $state(initialFilters.page);
+  const initialFilters = untrack(() => data.initialFilters)
+
+  let searchQuery = $state(initialFilters.search)
+  let viewMode = $state<'grid' | 'table'>(initialFilters.view)
+  let currentPage = $state(initialFilters.page)
   let filters = $state({
     setCodes: initialFilters.setCodes,
     colorIdentity: initialFilters.colorIdentity as string[],
     colorIdentityStrict: initialFilters.colorIdentityStrict,
     priceCategories: initialFilters.priceCategories as string[],
     // Cast needed until SvelteKit regenerates PageData types after server load change
-    foilSubtypes: (initialFilters as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'],
-    nonFoilSubtypes: (initialFilters as Record<string, unknown>).nonFoilSubtypes as string[] ?? ['Normal', 'Holo'],
+    foilSubtypes: ((initialFilters as Record<string, unknown>).foilSubtypes as string[]) ?? [
+      'Foil',
+      'Galaxy Foil',
+      'Raised Foil',
+      'Surge Foil'
+    ],
+    nonFoilSubtypes: ((initialFilters as Record<string, unknown>).nonFoilSubtypes as string[]) ?? ['Normal', 'Holo'],
     cardTypes: initialFilters.cardTypes as string[],
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
     isNew: initialFilters.isNew
-  });
+  })
 
   // Cache loaded data so skeleton only shows on initial load
-  let loadedCards = $state<Card[] | null>(null);
-  let loadedSets = $state<{ code: string; name: string }[] | null>(null);
-  let loadError = $state<string | null>(null);
-  let isLoading = $state(true);
+  let loadedCards = $state<Card[] | null>(null)
+  let loadedSets = $state<{ code: string; name: string }[] | null>(null)
+  let loadError = $state<string | null>(null)
+  let isLoading = $state(true)
 
   // Load data once and cache it
   $effect(() => {
     data.streamed.cardsData
       .then((cardsData) => {
-        loadedCards = cardsData.cards;
-        loadedSets = cardsData.sets;
-        isLoading = false;
+        loadedCards = cardsData.cards
+        loadedSets = cardsData.sets
+        isLoading = false
       })
       .catch((error) => {
-        loadError = error.message || 'Failed to load cards';
-        isLoading = false;
-      });
-  });
+        loadError = error.message || 'Failed to load cards'
+        isLoading = false
+      })
+  })
 
   // Track whether this is the initial render (skip first URL update)
-  let isInitialized = $state(false);
-  
+  let isInitialized = $state(false)
+
   // Track previous filter state to detect actual filter changes (not page changes)
   // Use a simple object that will be updated in the effect
-  let prevFilters = $state(untrack(() => ({
-    setCodes: '',
-    colorIdentity: '',
-    colorIdentityStrict: false,
-    priceCategories: '',
-    foilSubtypes: '',
-    nonFoilSubtypes: '',
-    cardTypes: '',
-    frameTypes: '',
-    inStockOnly: false,
-    isNew: false,
-    viewMode: 'grid' as 'grid' | 'table'
-  })));
+  let prevFilters = $state(
+    untrack(() => ({
+      setCodes: '',
+      colorIdentity: '',
+      colorIdentityStrict: false,
+      priceCategories: '',
+      foilSubtypes: '',
+      nonFoilSubtypes: '',
+      cardTypes: '',
+      frameTypes: '',
+      inStockOnly: false,
+      isNew: false,
+      viewMode: 'grid' as 'grid' | 'table'
+    }))
+  )
 
   // Debounce timer for search input
-  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  const SEARCH_DEBOUNCE_MS = 400;
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  const SEARCH_DEBOUNCE_MS = 400
 
   // Build URL from current filter state
   function buildFilterUrl(): string {
-    const params = new URLSearchParams();
-    
-    if (searchQuery) params.set('q', searchQuery);
-    if (filters.setCodes.length > 0) params.set('sets', filters.setCodes.join(','));
-    if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','));
-    if (filters.colorIdentityStrict) params.set('strict', '1');
+    const params = new URLSearchParams()
+
+    if (searchQuery) params.set('q', searchQuery)
+    if (filters.setCodes.length > 0) params.set('sets', filters.setCodes.join(','))
+    if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','))
+    if (filters.colorIdentityStrict) params.set('strict', '1')
     // Skip price param when all 3 top-level categories are selected (default state)
-    if (filters.priceCategories.length > 0 &&
-        !(filters.priceCategories.length === 3 &&
-          filters.priceCategories.includes('Non-Foil') &&
-          filters.priceCategories.includes('Foil') &&
-          filters.priceCategories.includes('Serialized'))) {
-      params.set('price', filters.priceCategories.join(','));
+    if (
+      filters.priceCategories.length > 0 &&
+      !(
+        filters.priceCategories.length === 3 &&
+        filters.priceCategories.includes('Non-Foil') &&
+        filters.priceCategories.includes('Foil') &&
+        filters.priceCategories.includes('Serialized')
+      )
+    ) {
+      params.set('price', filters.priceCategories.join(','))
     }
     // Write foilsubs only when Foil is selected and not all subtypes are active
-    const ALL_FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'];
-    if (filters.priceCategories.includes('Foil') &&
-        filters.foilSubtypes.length < ALL_FOIL_SUBTYPES.length) {
-      params.set('foilsubs', filters.foilSubtypes.join(','));
+    const ALL_FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil']
+    if (filters.priceCategories.includes('Foil') && filters.foilSubtypes.length < ALL_FOIL_SUBTYPES.length) {
+      params.set('foilsubs', filters.foilSubtypes.join(','))
     }
     // Write nfsubs only when Non-Foil is selected and not all non-foil subtypes are active
-    const ALL_NON_FOIL_SUBTYPES = ['Normal', 'Holo'];
-    if (filters.priceCategories.includes('Non-Foil') &&
-        filters.nonFoilSubtypes.length < ALL_NON_FOIL_SUBTYPES.length) {
-      params.set('nfsubs', filters.nonFoilSubtypes.join(','));
+    const ALL_NON_FOIL_SUBTYPES = ['Normal', 'Holo']
+    if (filters.priceCategories.includes('Non-Foil') && filters.nonFoilSubtypes.length < ALL_NON_FOIL_SUBTYPES.length) {
+      params.set('nfsubs', filters.nonFoilSubtypes.join(','))
     }
-    if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','));
-    if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','));
-    if (filters.inStockOnly) params.set('stock', '1');
-    if (filters.isNew) params.set('new', '1');
-    if (viewMode !== 'grid') params.set('view', viewMode);
-    if (currentPage > 1) params.set('page', String(currentPage));
-    
-    const queryString = params.toString();
-    return queryString ? `?${queryString}` : '/';
+    if (filters.cardTypes.length > 0) params.set('types', filters.cardTypes.join(','))
+    if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','))
+    if (filters.inStockOnly) params.set('stock', '1')
+    if (filters.isNew) params.set('new', '1')
+    if (viewMode !== 'grid') params.set('view', viewMode)
+    if (currentPage > 1) params.set('page', String(currentPage))
+
+    const queryString = params.toString()
+    return queryString ? `?${queryString}` : '/'
   }
 
   // Update URL without navigation - use native history.replaceState
   function updateUrl() {
-    const newUrl = buildFilterUrl();
+    const newUrl = buildFilterUrl()
     // Use history.replaceState to ONLY update URL without triggering navigation
     // This prevents full page loads and origin transfer on every filter change
-    history.replaceState(history.state, '', newUrl);
+    history.replaceState(history.state, '', newUrl)
   }
 
   // Handle page change from CardGrid
   function handlePageChange(page: number) {
-    currentPage = page;
-    updateUrl();
+    currentPage = page
+    updateUrl()
   }
 
   // Debounced search update
   function handleSearchInput(event: Event) {
-    const target = event.target as HTMLInputElement;
-    searchQuery = target.value;
-    
+    const target = event.target as HTMLInputElement
+    searchQuery = target.value
+
     // Clear existing timer
     if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer);
+      clearTimeout(searchDebounceTimer)
     }
-    
+
     // Set new debounce timer
     searchDebounceTimer = setTimeout(() => {
-      currentPage = 1; // Reset to page 1 on search
-      updateUrl();
-    }, SEARCH_DEBOUNCE_MS);
+      currentPage = 1 // Reset to page 1 on search
+      updateUrl()
+    }, SEARCH_DEBOUNCE_MS)
   }
 
   // Watch for filter changes (non-search) and update URL immediately
@@ -160,57 +169,53 @@
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew,
       viewMode: viewMode
-    };
-    
+    }
+
     // Skip the initial render to avoid unnecessary URL update
     if (!isInitialized) {
-      isInitialized = true;
-      prevFilters = current;
-      return;
+      isInitialized = true
+      prevFilters = current
+      return
     }
-    
+
     // Check if any actual filter changed (not just page number)
     const filtersChanged = Object.keys(current).some(
-      key => current[key as keyof typeof current] !== prevFilters[key as keyof typeof prevFilters]
-    );
-    
+      (key) => current[key as keyof typeof current] !== prevFilters[key as keyof typeof prevFilters]
+    )
+
     // Only reset to page 1 when filters actually change
     if (filtersChanged) {
-      currentPage = 1;
-      prevFilters = current;
+      currentPage = 1
+      prevFilters = current
     }
-    
+
     // Update URL synchronously
-    updateUrl();
-  });
+    updateUrl()
+  })
 
   // Cleanup debounce timer on unmount
   $effect(() => {
     return () => {
       if (searchDebounceTimer) {
-        clearTimeout(searchDebounceTimer);
+        clearTimeout(searchDebounceTimer)
       }
-    };
-  });
+    }
+  })
 
   // Search input element reference for keyboard shortcut
-  let searchInputEl: HTMLInputElement | null = $state(null);
+  let searchInputEl: HTMLInputElement | null = $state(null)
 
   // Handle "/" keyboard shortcut to focus search
   function handleKeydown(event: KeyboardEvent) {
     // Ignore if typing in an input, textarea, or contenteditable
-    const target = event.target as HTMLElement;
-    if (
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.isContentEditable
-    ) {
-      return;
+    const target = event.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return
     }
 
     if (event.key === '/') {
-      event.preventDefault();
-      searchInputEl?.focus();
+      event.preventDefault()
+      searchInputEl?.focus()
     }
   }
 </script>
@@ -220,14 +225,14 @@
 <svelte:head>
   <title>Ron's Group Buy</title>
   <meta name="description" content="Browse and order cards for Ron's monthly group buy" />
-  
+
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Ron's Group Buy" />
   <meta property="og:description" content="Browse and order cards for Ron's monthly group buy" />
   <meta property="og:image" content="/ron-gb.png" />
   <meta property="og:site_name" content="Ron GB" />
-  
+
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Ron's Group Buy" />
@@ -239,9 +244,7 @@
   <!-- Hero Section -->
   <div class="mb-8 text-center">
     <h1 class="text-4xl font-bold tracking-tight">Card Catalog</h1>
-    <p class="mt-2 text-muted-foreground">
-      Browse Ron's library of Magic: The Gathering cards
-    </p>
+    <p class="mt-2 text-muted-foreground">Browse Ron's library of Magic: The Gathering cards</p>
   </div>
 
   <!-- Search Bar & View Toggle -->
@@ -294,10 +297,13 @@
   <div class="flex flex-col gap-6 lg:flex-row">
     <!-- Filters Sidebar - always visible, sets load async -->
     <aside class="w-full shrink-0 lg:w-64">
-      <SearchFilters 
-        bind:filters 
-        sets={loadedSets || []} 
-        onClearAll={() => { searchQuery = ''; currentPage = 1; }}
+      <SearchFilters
+        bind:filters
+        sets={loadedSets || []}
+        onClearAll={() => {
+          searchQuery = ''
+          currentPage = 1
+        }}
       />
     </aside>
 
@@ -328,21 +334,9 @@
         </div>
       {:else if loadedCards}
         {#if viewMode === 'grid'}
-          <CardGrid 
-            cards={loadedCards} 
-            {searchQuery} 
-            {filters}
-            {currentPage}
-            onPageChange={handlePageChange}
-          />
+          <CardGrid cards={loadedCards} {searchQuery} {filters} {currentPage} onPageChange={handlePageChange} />
         {:else}
-          <CardTableView
-            cards={loadedCards}
-            {searchQuery}
-            {filters}
-            {currentPage}
-            onPageChange={handlePageChange}
-          />
+          <CardTableView cards={loadedCards} {searchQuery} {filters} {currentPage} onPageChange={handlePageChange} />
         {/if}
       {/if}
     </div>

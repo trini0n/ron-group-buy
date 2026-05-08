@@ -12,11 +12,7 @@ async function verifyAdmin(locals: App.Locals) {
   }
 
   const adminClient = createAdminClient()
-  const { data: userData } = await adminClient
-    .from('users')
-    .select('discord_id')
-    .eq('id', user.id)
-    .single()
+  const { data: userData } = await adminClient.from('users').select('discord_id').eq('id', user.id).single()
 
   if (!(await isAdmin(userData?.discord_id))) {
     throw error(403, 'Not authorized')
@@ -81,8 +77,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Determine which card_type values to match in the DB
-  const cardTypeValues: string[] =
-    card_type === 'Foil' ? [...FOIL_SUBTYPES] : [card_type]
+  const cardTypeValues: string[] = card_type === 'Foil' ? [...FOIL_SUBTYPES] : [card_type]
 
   // Collect unique (set_code, collector_number) pairs from input
   // Uppercase set codes to match DB storage (e.g. "2X2", "MH2"); keep lowercase for key comparison below
@@ -107,9 +102,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   // Build a lookup set of "set_code|collector_number" keys that exist in the DB
   const existingKeys = new Set(
-    (existingCards ?? []).map(
-      (c) => `${(c.set_code ?? '').toLowerCase()}|${c.collector_number ?? ''}`
-    )
+    (existingCards ?? []).map((c) => `${(c.set_code ?? '').toLowerCase()}|${c.collector_number ?? ''}`)
   )
 
   // Determine which input cards are NOT in the library

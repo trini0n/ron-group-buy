@@ -32,7 +32,9 @@ async function fetchCards(): Promise<Card[]> {
   while (hasMore) {
     const { data: batch, error } = await adminClient
       .from('cards')
-      .select('id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id')
+      .select(
+        'id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id'
+      )
       .range(offset, offset + batchSize - 1)
 
     if (error) {
@@ -120,11 +122,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
         .map((s) => s.toLowerCase()) || [],
     colorIdentity: url.searchParams.get('colors')?.split(',').filter(Boolean) || [],
     colorIdentityStrict: url.searchParams.get('strict') === '1',
-    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || [
-      'Non-Foil',
-      'Foil',
-      'Serialized'
-    ],
+    priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil', 'Serialized'],
     // Foil subtype filter (only relevant when 'Foil' is in priceCategories)
     foilSubtypes: url.searchParams.get('foilsubs')?.split(',').filter(Boolean) || [
       'Foil',
@@ -133,10 +131,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
       'Surge Foil'
     ],
     // Non-Foil subtype filter (only relevant when 'Non-Foil' is in priceCategories)
-    nonFoilSubtypes: url.searchParams.get('nfsubs')?.split(',').filter(Boolean) || [
-      'Normal',
-      'Holo'
-    ],
+    nonFoilSubtypes: url.searchParams.get('nfsubs')?.split(',').filter(Boolean) || ['Normal', 'Holo'],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],
     inStockOnly: url.searchParams.get('stock') === '1',
