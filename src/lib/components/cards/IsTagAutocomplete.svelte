@@ -26,14 +26,10 @@
   )
 
   // Filter to tags whose key starts with the typed partial text
-  const filteredTags = $derived(
-    partialText !== null ? availableTags.filter((t) => t.startsWith(partialText)) : []
-  )
+  const filteredTags = $derived(partialText !== null ? availableTags.filter((t) => t.startsWith(partialText)) : [])
 
   // Visible when: partial token present, matching tags exist, and user hasn't dismissed this exact query
-  const visible = $derived(
-    partialText !== null && filteredTags.length > 0 && query !== dismissedAtQuery
-  )
+  const visible = $derived(partialText !== null && filteredTags.length > 0 && query !== dismissedAtQuery)
 
   function handleSelect(tag: string) {
     // Replace the trailing is:partial token with is:tag + space.
@@ -42,15 +38,31 @@
     onselect(query.replace(/is:\S*$/i, 'is:' + tag + ' '))
   }
 
-  // Dismiss on click outside the dropdown
+  // Dismiss on click outside the dropdown; Tab selects first option when visible
   $effect(() => {
     function handleMousedown(e: MouseEvent) {
       if (dropdownEl && !dropdownEl.contains(e.target as Node)) {
         dismissedAtQuery = query
       }
     }
+
+    function handleKeydown(e: KeyboardEvent) {
+      if (!visible) return
+      if (e.key === 'Tab') {
+        const first = filteredTags[0]
+        if (first) {
+          e.preventDefault()
+          handleSelect(first)
+        }
+      }
+    }
+
     document.addEventListener('mousedown', handleMousedown)
-    return () => document.removeEventListener('mousedown', handleMousedown)
+    document.addEventListener('keydown', handleKeydown)
+    return () => {
+      document.removeEventListener('mousedown', handleMousedown)
+      document.removeEventListener('keydown', handleKeydown)
+    }
   })
 </script>
 
