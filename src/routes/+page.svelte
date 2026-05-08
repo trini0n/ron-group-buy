@@ -2,6 +2,7 @@
   import CardGrid from '$components/cards/CardGrid.svelte'
   import CardTableView from '$components/cards/CardTableView.svelte'
   import SearchFilters from '$components/cards/SearchFilters.svelte'
+  import IsTagAutocomplete from '$lib/components/cards/IsTagAutocomplete.svelte'
   import { Input } from '$components/ui/input'
   import { Button } from '$components/ui/button'
   import * as Tooltip from '$components/ui/tooltip'
@@ -154,6 +155,14 @@
     }, SEARCH_DEBOUNCE_MS)
   }
 
+  // Autocomplete selection: update query immediately and push URL
+  function handleAutocompleteSelect(newQuery: string) {
+    searchQuery = newQuery
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+    currentPage = 1
+    updateUrl()
+  }
+
   // Watch for filter changes (non-search) and update URL immediately
   $effect(() => {
     // Create snapshot of current filter state
@@ -259,6 +268,7 @@
         value={searchQuery}
         oninput={handleSearchInput}
       />
+      <IsTagAutocomplete query={searchQuery} onselect={handleAutocompleteSelect} />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
       <Tooltip.Root>
