@@ -268,7 +268,7 @@
         value={searchQuery}
         oninput={handleSearchInput}
       />
-      <IsTagAutocomplete query={searchQuery} onselect={handleAutocompleteSelect} />
+      <IsTagAutocomplete query={searchQuery} onselect={handleAutocompleteSelect} cards={loadedCards} />
     </div>
     <div class="flex items-center rounded-lg border bg-muted p-1">
       <Tooltip.Root>

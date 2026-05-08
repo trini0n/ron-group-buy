@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { ORACLE_TAGS, ORACLE_TAG_LABELS } from '$lib/data/oracle-tags'
+  import { ORACLE_TAGS, ORACLE_TAG_LABELS, matchesOracleTag } from '$lib/data/oracle-tags'
+  import type { Card } from '$lib/server/types'
 
   let {
     query,
-    onselect
-  }: { query: string; onselect: (newQuery: string) => void } = $props()
+    onselect,
+    cards = null
+  }: { query: string; onselect: (newQuery: string) => void; cards?: Card[] | null } = $props()
 
   let dropdownEl: HTMLDivElement | null = $state(null)
   let dismissedAtQuery = $state('')
@@ -13,12 +15,19 @@
   // Returns null when query does not end with an is: token.
   const partialText = $derived((/is:(\S*)$/i.exec(query) ?? [])[1]?.toLowerCase() ?? null)
 
-  // All known tag keys in alphabetical order
-  const allTags = Object.keys(ORACLE_TAGS).sort()
+  // Tags that have at least one card in the library — computed once when cards load.
+  // Falls back to all tags when cards haven't loaded yet (null).
+  const availableTags = $derived(
+    cards !== null
+      ? Object.keys(ORACLE_TAGS)
+          .filter((tag) => cards.some((c) => matchesOracleTag(c.card_name, tag)))
+          .sort()
+      : Object.keys(ORACLE_TAGS).sort()
+  )
 
   // Filter to tags whose key starts with the typed partial text
   const filteredTags = $derived(
-    partialText !== null ? allTags.filter((t) => t.startsWith(partialText)) : []
+    partialText !== null ? availableTags.filter((t) => t.startsWith(partialText)) : []
   )
 
   // Visible when: partial token present, matching tags exist, and user hasn't dismissed this exact query
