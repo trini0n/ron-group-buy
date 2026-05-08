@@ -10,6 +10,7 @@
 
   let dropdownEl: HTMLDivElement | null = $state(null)
   let dismissedAtQuery = $state('')
+  let activeIndex = $state(-1)
 
   // Extract partial tag text when query ends with an is: token (e.g. "is:sh" → "sh", "is:" → "")
   // Returns null when query does not end with an is: token.
@@ -31,6 +32,20 @@
   // Visible when: partial token present, matching tags exist, and user hasn't dismissed this exact query
   const visible = $derived(partialText !== null && filteredTags.length > 0 && query !== dismissedAtQuery)
 
+  // Reset keyboard highlight when the list changes (user typed more chars)
+  $effect(() => {
+    filteredTags
+    activeIndex = -1
+  })
+
+  // Scroll the highlighted item into view when activeIndex changes
+  $effect(() => {
+    if (activeIndex >= 0 && dropdownEl) {
+      const buttons = dropdownEl.querySelectorAll('button')
+      buttons[activeIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  })
+
   function handleSelect(tag: string) {
     // Replace the trailing is:partial token with is:tag + space.
     // Appending a space means the query no longer ends with an is: token,
@@ -38,7 +53,6 @@
     onselect(query.replace(/is:\S*$/i, 'is:' + tag + ' '))
   }
 
-  // Dismiss on click outside the dropdown; Tab selects first option when visible
   $effect(() => {
     function handleMousedown(e: MouseEvent) {
       if (dropdownEl && !dropdownEl.contains(e.target as Node)) {
@@ -48,12 +62,31 @@
 
     function handleKeydown(e: KeyboardEvent) {
       if (!visible) return
+
       if (e.key === 'Tab') {
-        const first = filteredTags[0]
-        if (first) {
+        if (filteredTags.length === 1) {
+          // Only one option — autocomplete immediately
           e.preventDefault()
-          handleSelect(first)
+          const tag = filteredTags[0]
+          if (tag !== undefined) handleSelect(tag)
+        } else {
+          // Cycle through options: Shift+Tab goes backward
+          e.preventDefault()
+          const dir = e.shiftKey ? -1 : 1
+          activeIndex = (activeIndex + dir + filteredTags.length) % filteredTags.length
         }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        activeIndex = (activeIndex + 1) % filteredTags.length
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        activeIndex = (activeIndex - 1 + filteredTags.length) % filteredTags.length
+      } else if (e.key === 'Enter' && activeIndex >= 0) {
+        e.preventDefault()
+        const tag = filteredTags[activeIndex]
+        if (tag !== undefined) handleSelect(tag)
+      } else if (e.key === 'Escape') {
+        dismissedAtQuery = query
       }
     }
 
@@ -71,15 +104,18 @@
     bind:this={dropdownEl}
     class="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md"
   >
-    {#each filteredTags as tag (tag)}
+    {#each filteredTags as tag, i (tag)}
       <button
         type="button"
-        class="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+        class="flex w-full items-center justify-between px-3 py-2 text-sm {i === activeIndex
+          ? 'bg-accent text-accent-foreground'
+          : 'hover:bg-accent hover:text-accent-foreground'}"
         onmousedown={(e) => {
           // Use mousedown (fires before blur) so the selection registers before input loses focus
           e.preventDefault()
           handleSelect(tag)
         }}
+        onmouseenter={() => (activeIndex = i)}
       >
         <span>{ORACLE_TAG_LABELS[tag] ?? tag}</span>
         <span class="ml-4 text-xs text-muted-foreground">is:{tag}</span>
