@@ -61,22 +61,22 @@
   let isInitialized = $state(false)
 
   // Track previous filter state to detect actual filter changes (not page changes)
-  // Use a simple object that will be updated in the effect
-  let prevFilters = $state(
-    untrack(() => ({
-      setCodes: '',
-      colorIdentity: '',
-      colorIdentityStrict: false,
-      priceCategories: '',
-      foilSubtypes: '',
-      nonFoilSubtypes: '',
-      cardTypes: '',
-      frameTypes: '',
-      inStockOnly: false,
-      isNew: false,
-      viewMode: 'grid' as 'grid' | 'table'
-    }))
-  )
+  // Plain let (not $state) — must not be reactive; if it were $state, reading it inside
+  // the filter-change $effect and then writing it would create a circular dependency that
+  // causes the effect to run twice on every filter change.
+  let prevFilters = {
+    setCodes: '',
+    colorIdentity: '',
+    colorIdentityStrict: false,
+    priceCategories: '',
+    foilSubtypes: '',
+    nonFoilSubtypes: '',
+    cardTypes: '',
+    frameTypes: '',
+    inStockOnly: false,
+    isNew: false,
+    viewMode: 'grid' as 'grid' | 'table'
+  }
 
   // Debounce timer for search input
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null

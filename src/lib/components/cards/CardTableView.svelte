@@ -150,7 +150,7 @@
 
       // Color identity filter
       if (f.colorIdentity.length > 0) {
-        const cardColors = (card.color_identity?.split(', ') || []).filter((c: string) => c)
+        const cardColors = (card.color_identity?.split(',').map((c: string) => c.trim()) || []).filter((c: string) => c)
         if (f.colorIdentityStrict) {
           const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c))
           if (hasDisallowedColor) return false
