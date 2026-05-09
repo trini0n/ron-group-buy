@@ -286,6 +286,13 @@ export const ORACLE_TAGS: Record<string, readonly string[]> = {
     'Tundra',
     'Underground Sea',
     'Volcanic Island'
+  ],
+  channelland: [
+    'Boseiju, Who Endures',
+    'Eiganjo, Seat of the Empire',
+    'Otawara, Soaring City',
+    'Sokenzan, Crucible of Defiance',
+    'Takenuma, Abandoned Mire'
   ]
 }
 
@@ -316,6 +323,7 @@ export const ORACLE_TAG_LABELS: Record<string, string> = {
   odysseyfilterland: 'Odyssey Filter Land',
   futureshiftland: 'Future Shifted Land',
   dual: 'Original Dual',
+  channelland: 'Channel Land',
   basicland: 'Basic Land'
 }
 
