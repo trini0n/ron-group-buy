@@ -26,6 +26,7 @@ export interface CheckNewCardsRequest {
     card_name: string
     set_code: string
     collector_number: string
+    language?: string
   }>
   card_type: 'Normal' | 'Holo' | 'Foil'
 }
@@ -35,6 +36,7 @@ export interface CheckNewCardsResponse {
     card_name: string
     set_code: string
     collector_number: string
+    language?: string
   }>
   new_count: number
   existing_count: number
@@ -74,6 +76,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     ) {
       throw error(400, 'Each card must have card_name, set_code, and collector_number strings')
     }
+    if (card.language !== undefined && typeof card.language !== 'string') {
+      throw error(400, 'card language must be a string when provided')
+    }
   }
 
   // Determine which card_type values to match in the DB
@@ -85,29 +90,33 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const uniqueCollectorNums = [...new Set(cards.map((c) => c.collector_number.trim()))]
 
   // Query DB: find all cards in this type family that match any of the input set_code values
-  // We filter client-side by (set_code, collector_number) pair to avoid overly complex SQL
-  let query = adminClient
+  // We filter client-side by (set_code, collector_number, language) to avoid overly complex SQL
+  const { data: existingCards, error: dbError } = await adminClient
     .from('cards')
-    .select('set_code, collector_number, card_type')
+    .select('set_code, collector_number, language')
     .in('card_type', cardTypeValues)
     .in('set_code', uniqueSetCodes)
     .in('collector_number', uniqueCollectorNums)
-
-  const { data: existingCards, error: dbError } = await query
 
   if (dbError) {
     logger.error({ error: dbError }, 'Error checking new cards')
     throw error(500, 'Database error while checking cards')
   }
 
-  // Build a lookup set of "set_code|collector_number" keys that exist in the DB
+  // Build a lookup set of "set_code|collector_number|language" keys that exist in the DB
+  // Language defaults to 'en' for both DB rows and input cards when not specified
   const existingKeys = new Set(
-    (existingCards ?? []).map((c) => `${(c.set_code ?? '').toLowerCase()}|${c.collector_number ?? ''}`)
+    (existingCards ?? []).map(
+      (c) => `${(c.set_code ?? '').toLowerCase()}|${c.collector_number ?? ''}|${(c.language ?? 'en').toLowerCase()}`
+    )
   )
 
   // Determine which input cards are NOT in the library
   const newCards = cards.filter(
-    (c) => !existingKeys.has(`${c.set_code.trim().toLowerCase()}|${c.collector_number.trim()}`)
+    (c) =>
+      !existingKeys.has(
+        `${c.set_code.trim().toLowerCase()}|${c.collector_number.trim()}|${(c.language ?? 'en').toLowerCase()}`
+      )
   )
 
   const response: CheckNewCardsResponse = {

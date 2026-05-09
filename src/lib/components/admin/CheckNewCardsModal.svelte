@@ -11,6 +11,7 @@
     card_name: string
     set_code: string
     collector_number: string
+    language?: string
   }
 
   interface Props {
@@ -33,10 +34,37 @@
   let result = $state<CheckResult | null>(null)
   let parseError = $state('')
 
-  // Format the output list as "Card Name | SetCode | Collector#"
+  // Format the output list as "Card Name | SetCode | Collector#" (+ language when non-English)
   const outputText = $derived(
-    result ? result.new_cards.map((c) => `${c.card_name} | ${c.set_code} | ${c.collector_number}`).join('\n') : ''
+    result
+      ? result.new_cards
+          .map((c) => {
+            const lang = c.language && c.language.toLowerCase() !== 'en' ? ` ${c.language.toUpperCase()}` : ''
+            return `${c.card_name} | ${c.set_code} | ${c.collector_number}${lang}`
+          })
+          .join('\n')
+      : ''
   )
+
+  /**
+   * Try to parse a line in Scryfall export format:
+   *   {card_name} [{card_frame}] [{setCode}] #{cn} {language}
+   * card_frame and language are optional.
+   * Returns a NewCard or null if the line doesn't match.
+   */
+  function parseScryfallLine(line: string): NewCard | null {
+    // Must contain at least one [bracket] group and a #collector pattern
+    // Regex: card_name (lazy) + optional [frame] groups + [setCode] + #cn + optional language
+    const match = line.match(/^(.+?)\s+(?:\[[^\]]+\]\s+)*\[([^\]]+)\]\s+#(\S+)(?:\s+([a-zA-Z]{2,3}))?$/)
+    if (!match) return null
+    const [, card_name, set_code, collector_number, language] = match
+    return {
+      card_name: card_name.trim(),
+      set_code: set_code.trim(),
+      collector_number: collector_number.trim(),
+      language: language ? language.toLowerCase() : undefined
+    }
+  }
 
   /**
    * Split a line by delimiter, respecting CSV-style double-quoted fields.
@@ -82,7 +110,14 @@
 
     const cards: NewCard[] = []
     for (const line of lines) {
-      // Determine delimiter: pipe → tab → comma
+      // Try Scryfall format first: Card Name [Frame] [SET] #cn lang
+      const scryfallCard = parseScryfallLine(line)
+      if (scryfallCard) {
+        cards.push(scryfallCard)
+        continue
+      }
+
+      // Fall back to delimited format: pipe → tab → comma
       const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ','
       const parts = splitLine(line, delimiter)
 
@@ -112,7 +147,7 @@
 
     const cards = parseInput(inputText)
     if (!cards) {
-      parseError = 'No valid cards found. Use format: Card Name | SetCode | Collector#'
+      parseError = 'No valid cards found. Expected: Card Name | SetCode | Collector#  or  Card Name [SET] #cn'
       return
     }
 
@@ -196,7 +231,7 @@
         <Textarea
           id="card-input"
           bind:value={inputText}
-          placeholder={'Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt | M11 | 149\n...\n\nSupports pipe, tab, or comma delimited'}
+          placeholder={'Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt [Extended Art] [M11] #149 JP\n...\n\nSupports: pipe, tab, comma, or Scryfall format\nCard Name [Frame] [SET] #cn lang'}
           class="h-36 font-mono text-sm"
         />
         {#if parseError}
