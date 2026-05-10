@@ -10,8 +10,10 @@ interface CacheEntry<T> {
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const SCRYFALL_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours — set release dates rarely change
 let cardsCache: CacheEntry<Card[]> | null = null
 let setsCache: CacheEntry<{ code: string; name: string }[]> | null = null
+let scryfallSetsCache: CacheEntry<Record<string, string>> | null = null
 
 function isCacheValid<T>(cache: CacheEntry<T> | null): cache is CacheEntry<T> {
   return cache !== null && Date.now() - cache.timestamp < CACHE_TTL_MS
@@ -104,6 +106,35 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
   return sets
 }
 
+// Returns a map of lowercase set_code -> released_at (YYYY-MM-DD) from Scryfall
+async function fetchScryfallSetDates(): Promise<Record<string, string>> {
+  if (scryfallSetsCache !== null && Date.now() - scryfallSetsCache.timestamp < SCRYFALL_CACHE_TTL_MS) {
+    return scryfallSetsCache.data
+  }
+
+  try {
+    const res = await fetch('https://api.scryfall.com/sets', {
+      headers: { 'User-Agent': 'RonGroupBuy/1.0' }
+    })
+    if (!res.ok) {
+      logger.warn({ status: res.status }, 'Scryfall /sets returned non-OK status')
+      return scryfallSetsCache?.data ?? {}
+    }
+    const json = (await res.json()) as { data: { code: string; released_at: string }[] }
+    const dates: Record<string, string> = {}
+    for (const s of json.data) {
+      if (s.code && s.released_at) {
+        dates[s.code.toLowerCase()] = s.released_at
+      }
+    }
+    scryfallSetsCache = { data: dates, timestamp: Date.now() }
+    return dates
+  } catch (err) {
+    logger.error({ err }, 'Failed to fetch Scryfall set dates')
+    return scryfallSetsCache?.data ?? {}
+  }
+}
+
 export const load: PageServerLoad = async ({ url, setHeaders }) => {
   // Cache homepage for 5 minutes on CDN, allow 30 minutes of stale content with background revalidation
   // This dramatically improves UX by serving cached content instantly while updating in background
@@ -144,10 +175,9 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
   return {
     initialFilters,
     streamed: {
-      cardsData: Promise.all([fetchCards(), fetchSets()]).then(([cards, sets]) => ({
-        cards,
-        sets
-      }))
+      cardsData: Promise.all([fetchCards(), fetchSets(), fetchScryfallSetDates()]).then(
+        ([cards, sets, setReleaseDates]) => ({ cards, sets, setReleaseDates })
+      )
     }
   }
 }

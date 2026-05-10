@@ -41,6 +41,7 @@
   // Cache loaded data so skeleton only shows on initial load
   let loadedCards = $state<Card[] | null>(null)
   let loadedSets = $state<{ code: string; name: string }[] | null>(null)
+  let loadedSetReleaseDates = $state<Record<string, string> | null>(null)
   let loadError = $state<string | null>(null)
   let isLoading = $state(true)
 
@@ -50,6 +51,7 @@
       .then((cardsData) => {
         loadedCards = cardsData.cards
         loadedSets = cardsData.sets
+        loadedSetReleaseDates = cardsData.setReleaseDates
         isLoading = false
       })
       .catch((error) => {
@@ -344,9 +346,23 @@
         </div>
       {:else if loadedCards}
         {#if viewMode === 'grid'}
-          <CardGrid cards={loadedCards} {searchQuery} {filters} {currentPage} onPageChange={handlePageChange} />
+          <CardGrid
+            cards={loadedCards}
+            {searchQuery}
+            {filters}
+            {currentPage}
+            onPageChange={handlePageChange}
+            setReleaseDates={loadedSetReleaseDates ?? {}}
+          />
         {:else}
-          <CardTableView cards={loadedCards} {searchQuery} {filters} {currentPage} onPageChange={handlePageChange} />
+          <CardTableView
+            cards={loadedCards}
+            {searchQuery}
+            {filters}
+            {currentPage}
+            onPageChange={handlePageChange}
+            setReleaseDates={loadedSetReleaseDates ?? {}}
+          />
         {/if}
       {/if}
     </div>

@@ -42,9 +42,10 @@
     filters: Filters
     currentPage?: number
     onPageChange?: (page: number) => void
+    setReleaseDates?: Record<string, string>
   }
 
-  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange }: Props = $props()
+  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
 
   // Sorting state with session storage persistence and default
   type SortKey = 'set_code' | 'collector_number' | 'card_name' | 'mana_cost' | 'type_line' | 'language' | 'card_type'
@@ -226,7 +227,12 @@
   }
 
   // Sort cards (pure function)
-  function sortCards(cardsToSort: Card[], key: SortKey, direction: 'asc' | 'desc'): Card[] {
+  function sortCards(
+    cardsToSort: Card[],
+    key: SortKey,
+    direction: 'asc' | 'desc',
+    releaseDates: Record<string, string>
+  ): Card[] {
     return [...cardsToSort].sort((a, b) => {
       let aVal: string | number | null = null
       let bVal: string | number | null = null
@@ -268,7 +274,22 @@
       }
 
       const comparison = String(aVal).localeCompare(String(bVal))
-      return direction === 'asc' ? comparison : -comparison
+      if (comparison !== 0) return direction === 'asc' ? comparison : -comparison
+
+      // Secondary sort for card_name: newest set first, then collector number asc
+      if (key === 'card_name') {
+        const aSetCode = a.set_code?.toLowerCase() || ''
+        const bSetCode = b.set_code?.toLowerCase() || ''
+        const aReleased = releaseDates[aSetCode] || ''
+        const bReleased = releaseDates[bSetCode] || ''
+        if (aReleased !== bReleased) return bReleased.localeCompare(aReleased) // desc
+
+        const aNum = parseInt(a.collector_number || '0') || 0
+        const bNum = parseInt(b.collector_number || '0') || 0
+        return aNum - bNum
+      }
+
+      return 0
     })
   }
 
@@ -285,6 +306,7 @@
     const currentQuery = searchQuery
     const currentKey = sortKey
     const currentDir = sortDirection
+    const currentReleaseDates = setReleaseDates
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
       setCodes: [...filters.setCodes],
@@ -309,7 +331,7 @@
       initialLoadDone = true
       untrack(() => {
         const filtered = filterCards(currentCards, currentQuery, currentFilters)
-        sortedCards = sortCards(filtered, currentKey, currentDir)
+        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates)
       })
       return
     }
@@ -320,7 +342,7 @@
       // Use untrack to avoid reading state during update
       untrack(() => {
         const filtered = filterCards(currentCards, currentQuery, currentFilters)
-        sortedCards = sortCards(filtered, currentKey, currentDir)
+        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates)
       })
     })
   })

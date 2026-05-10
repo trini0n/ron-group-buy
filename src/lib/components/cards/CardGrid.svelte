@@ -30,9 +30,10 @@
     filters: Filters
     currentPage?: number
     onPageChange?: (page: number) => void
+    setReleaseDates?: Record<string, string>
   }
 
-  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange }: Props = $props()
+  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
 
   const CARDS_PER_PAGE = 25
   let internalPage = $state(1)
@@ -61,7 +62,12 @@
   }
 
   // Filter function - pure, no side effects
-  function filterAndGroupCards(allCards: Card[], query: string, f: Filters): CardGroup[] {
+  function filterAndGroupCards(
+    allCards: Card[],
+    query: string,
+    f: Filters,
+    releaseDates: Record<string, string>
+  ): CardGroup[] {
     // Parse is:TAG tokens from the query (case-insensitive). Strip them to get text-only part.
     const isTokens = [...query.matchAll(/\bis:(\S+)/gi)].map((m) => m[1]?.toLowerCase() ?? '')
     // Only apply known tags — unknown/partial tokens (is:sh) are treated as no-ops.
@@ -199,12 +205,28 @@
       group.primary = inStock || group.finishVariants[0]!
     }
 
-    // Sort: new cards first, then alphabetically
+    // Sort: new cards first, then alphabetically by name, then newest set first, then collector number asc
     return Array.from(groups.values()).sort((a, b) => {
+      // 1. New cards first
       const aIsNew = a.primary.is_new ? 1 : 0
       const bIsNew = b.primary.is_new ? 1 : 0
       if (bIsNew !== aIsNew) return bIsNew - aIsNew
-      return a.primary.card_name.localeCompare(b.primary.card_name)
+
+      // 2. Card name ascending
+      const nameComp = a.primary.card_name.localeCompare(b.primary.card_name)
+      if (nameComp !== 0) return nameComp
+
+      // 3. Set release date descending (newest set first)
+      const aSetCode = a.primary.set_code?.toLowerCase() || ''
+      const bSetCode = b.primary.set_code?.toLowerCase() || ''
+      const aReleased = releaseDates[aSetCode] || ''
+      const bReleased = releaseDates[bSetCode] || ''
+      if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
+
+      // 4. Collector number ascending (numeric)
+      const aNum = parseInt(a.primary.collector_number || '0') || 0
+      const bNum = parseInt(b.primary.collector_number || '0') || 0
+      return aNum - bNum
     })
   }
 
@@ -217,6 +239,7 @@
     // Read dependencies to establish tracking
     const currentCards = cards
     const currentQuery = searchQuery
+    const currentReleaseDates = setReleaseDates
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
       setCodes: [...filters.setCodes],
@@ -240,7 +263,7 @@
     if (!initialLoadDone && currentCards.length > 0) {
       initialLoadDone = true
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates)
       })
       return
     }
@@ -250,7 +273,7 @@
       pendingFrameId = null
       // Use untrack to avoid reading state during update
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates)
       })
     })
   })
