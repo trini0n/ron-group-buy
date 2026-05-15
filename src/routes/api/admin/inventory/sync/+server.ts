@@ -228,13 +228,40 @@ export const POST: RequestHandler = async ({ locals }) => {
 
     console.log(`📷 Found ${existingConvertedUrls.size} cards with converted URLs to preserve`)
 
-    // Preserve converted URLs
+    // Fetch existing OOS serials so DB OOS=TRUE is preserved even when sheet says OOS=FALSE
+    // (OOS TRUE takes priority: sheetOOS OR dbOOS → result is OOS)
+    const existingOosSerials = new Set<string>()
+    let oosOffset = 0
+    let oosHasMore = true
+
+    while (oosHasMore) {
+      const { data: oosCards } = await adminClient
+        .from('cards')
+        .select('serial')
+        .eq('is_in_stock', false)
+        .range(oosOffset, oosOffset + fetchBatchSize - 1)
+
+      if (oosCards && oosCards.length > 0) {
+        oosCards.forEach((card) => existingOosSerials.add(card.serial))
+        oosOffset += fetchBatchSize
+        oosHasMore = oosCards.length === fetchBatchSize
+      } else {
+        oosHasMore = false
+      }
+    }
+
+    console.log(`📦 Found ${existingOosSerials.size} existing OOS cards whose status will be preserved`)
+
+    // Preserve converted URLs and apply OOS priority (TRUE wins)
     const cardsToUpsert = uniqueCards.map((card) => {
       const existingUrl = existingConvertedUrls.get(card.serial)
+      // OOS priority: if DB already marks this serial OOS, keep it OOS even if sheet says in-stock.
+      // Sheet OOS=TRUE always wins too (card.is_in_stock will already be false in that case).
+      const is_in_stock = existingOosSerials.has(card.serial) ? false : card.is_in_stock
       if (existingUrl) {
-        return { ...card, ron_image_url: existingUrl }
+        return { ...card, ron_image_url: existingUrl, is_in_stock }
       }
-      return card
+      return { ...card, is_in_stock }
     })
 
     // Detect duplicate card identities before upserting
