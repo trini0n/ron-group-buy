@@ -14,6 +14,9 @@
     language?: string
   }
 
+  // Map of "setcode|cn|lang" → original raw input line, built during parse
+  let rawLineMap = $state(new Map<string, string>())
+
   interface Props {
     open: boolean
   }
@@ -34,13 +37,13 @@
   let result = $state<CheckResult | null>(null)
   let parseError = $state('')
 
-  // Format the output list as "Card Name | SetCode | Collector#" (+ language when non-English)
+  // Build output using the original raw input lines so format is preserved for pasting into sheets
   const outputText = $derived(
     result
       ? result.new_cards
           .map((c) => {
-            const lang = c.language && c.language.toLowerCase() !== 'en' ? ` ${c.language.toUpperCase()}` : ''
-            return `${c.card_name} | ${c.set_code} | ${c.collector_number}${lang}`
+            const key = `${c.set_code.toLowerCase()}|${c.collector_number}|${(c.language ?? 'en').toLowerCase()}`
+            return rawLineMap.get(key) ?? `${c.card_name} | ${c.set_code} | ${c.collector_number}`
           })
           .join('\n')
       : ''
@@ -142,36 +145,37 @@
 
     if (lines.length === 0) return null
 
+    const newMap = new Map<string, string>()
     const cards: NewCard[] = []
     for (const line of lines) {
-      // Try Scryfall format first: Card Name [Frame] [SET] #cn lang
-      const scryfallCard = parseScryfallLine(line)
-      if (scryfallCard) {
-        cards.push(scryfallCard)
-        continue
+      let card: NewCard | null = null
+
+      // Try Scryfall bracket format first: Card Name [lang?] [frame?] [SET] #CN
+      card = parseScryfallLine(line)
+
+      if (!card) {
+        // Fall back to delimited format: pipe → tab → comma
+        const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ','
+        const parts = splitLine(line, delimiter)
+
+        if (parts.length < 3) continue
+
+        const [card_name, set_code, collector_number] = parts as [string, string, string, ...string[]]
+
+        // Skip header rows
+        if (card_name.toLowerCase() === 'card name' || card_name.toLowerCase() === 'name') continue
+        if (!card_name || !set_code || !collector_number) continue
+
+        card = { card_name, set_code, collector_number }
       }
 
-      // Fall back to delimited format: pipe → tab → comma
-      const delimiter = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ','
-      const parts = splitLine(line, delimiter)
-
-      if (parts.length < 3) {
-        // Not enough columns — skip (could be a header or blank)
-        continue
-      }
-
-      const [card_name, set_code, collector_number] = parts as [string, string, string, ...string[]]
-
-      // Skip if looks like a header row
-      if (card_name.toLowerCase() === 'card name' || card_name.toLowerCase() === 'name') {
-        continue
-      }
-
-      if (!card_name || !set_code || !collector_number) continue
-
-      cards.push({ card_name, set_code, collector_number })
+      // Store the raw line keyed by set_code|cn|lang for output reconstruction
+      const key = `${card.set_code.toLowerCase()}|${card.collector_number}|${(card.language ?? 'en').toLowerCase()}`
+      newMap.set(key, line)
+      cards.push(card)
     }
 
+    rawLineMap = newMap
     return cards.length > 0 ? cards : null
   }
 
@@ -223,6 +227,7 @@
     cardType = 'Normal'
     result = null
     parseError = ''
+    rawLineMap = new Map()
   }
 </script>
 
