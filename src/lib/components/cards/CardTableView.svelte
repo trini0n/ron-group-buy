@@ -157,8 +157,12 @@
         if (f.colorIdentityStrict) {
           const hasDisallowedColor = cardColors.some((c: string) => !f.colorIdentity.includes(c))
           if (hasDisallowedColor) return false
+          // In strict mode, colorless cards only match if 'C' is explicitly selected
+          if (cardColors.length === 0 && !f.colorIdentity.includes('C')) return false
         } else {
-          const hasMatchingColor = f.colorIdentity.some((c) => cardColors.includes(c))
+          const hasMatchingColor = f.colorIdentity.some((c) =>
+            c === 'C' ? cardColors.length === 0 : cardColors.includes(c)
+          )
           if (!hasMatchingColor) return false
         }
       }

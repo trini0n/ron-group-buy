@@ -57,12 +57,13 @@
     return () => window.removeEventListener('resize', checkMobile)
   })
 
-  const colors: Array<{ value: 'W' | 'U' | 'B' | 'R' | 'G'; label: string }> = [
+  const colors: Array<{ value: 'W' | 'U' | 'B' | 'R' | 'G' | 'C'; label: string }> = [
     { value: 'W', label: 'White' },
     { value: 'U', label: 'Blue' },
     { value: 'B', label: 'Black' },
     { value: 'R', label: 'Red' },
-    { value: 'G', label: 'Green' }
+    { value: 'G', label: 'Green' },
+    { value: 'C', label: 'Colorless' }
   ]
 
   // Top-level finish categories
