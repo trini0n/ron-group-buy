@@ -47,23 +47,57 @@
   )
 
   /**
-   * Try to parse a line in Scryfall export format:
-   *   {card_name} [{card_frame}] [{setCode}] #{cn} {language}
-   * card_frame and language are optional.
-   * Returns a NewCard or null if the line doesn't match.
+   * Known multi-word frame values that contain spaces (to distinguish from lang codes).
+   * Single-word frames (Borderless, Showcase, Retro, etc.) are ignored automatically
+   * because they're longer than 3 chars and don't match the lang pattern.
+   */
+  const LANG_PATTERN = /^[a-zA-Z]{2,3}$/
+
+  /**
+   * Try to parse a line in bracket format:
+   *   Card Name [lang?] [frame?] [set] #CN
+   *
+   * Rules:
+   * - Must contain at least one [bracket] group followed by #CN
+   * - Last bracket group before #CN is always the set code
+   * - Earlier bracket groups are optional: [lang] (2-3 letter code) or [frame] (ignored)
+   * - Language defaults to 'en' when absent
+   *
+   * Examples:
+   *   Ragavan, Nimble Pilferer [MH2] #138
+   *   Ragavan, Nimble Pilferer [JA] [MH2] #138
+   *   Mikaeus, the Unhallowed [Borderless] [CMM] #675
+   *   Mikaeus, the Unhallowed [JA] [Borderless] [CMM] #675
    */
   function parseScryfallLine(line: string): NewCard | null {
-    // Must contain at least one [bracket] group and a #collector pattern
-    // Regex: card_name (lazy) + optional [frame] groups + [setCode] + #cn + optional language
-    const match = line.match(/^(.+?)\s+(?:\[[^\]]+\]\s+)*\[([^\]]+)\]\s+#(\S+)(?:\s+([a-zA-Z]{2,3}))?$/)
-    if (!match) return null
-    const [, card_name, set_code, collector_number, language] = match
-    return {
-      card_name: card_name.trim(),
-      set_code: set_code.trim(),
-      collector_number: collector_number.trim(),
-      language: language ? language.toLowerCase() : undefined
-    }
+    // Must have at least one [bracket] and a #collector_number at the end
+    if (!line.includes('[') || !line.includes('#')) return null
+
+    // Extract collector number: last #word token after all bracket groups
+    // Allow collector numbers like "138a", "675", "P1"
+    const cnMatch = line.match(/\[([^\]]+)\]\s+#(\S+)\s*$/)
+    if (!cnMatch) return null
+
+    const set_code = cnMatch[1].trim()
+    const collector_number = cnMatch[2].trim()
+
+    // Everything before the final [set] #CN block
+    const beforeSetCn = line.slice(0, line.lastIndexOf('[' + cnMatch[1] + ']')).trim()
+
+    // Extract all remaining bracket groups from beforeSetCn (these are optional [lang]/[frame])
+    const bracketGroups = [...beforeSetCn.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1].trim())
+
+    // Card name = everything before the first bracket group (or the whole beforeSetCn if none)
+    const firstBracket = beforeSetCn.indexOf('[')
+    const card_name = (firstBracket === -1 ? beforeSetCn : beforeSetCn.slice(0, firstBracket)).trim()
+    if (!card_name) return null
+
+    // Identify language: a bracket group that is exactly 2-3 letters and looks like a language code
+    // Use the first such group found (lang typically appears first)
+    const langGroup = bracketGroups.find((g) => LANG_PATTERN.test(g))
+    const language = langGroup ? langGroup.toLowerCase() : undefined
+
+    return { card_name, set_code, collector_number, language }
   }
 
   /**
@@ -231,7 +265,7 @@
         <Textarea
           id="card-input"
           bind:value={inputText}
-          placeholder={'Ragavan, Nimble Pilferer | MH2 | 138\nLightning Bolt [Extended Art] [M11] #149 JP\n...\n\nSupports: pipe, tab, comma, or Scryfall format\nCard Name [Frame] [SET] #cn lang'}
+          placeholder={'Ragavan, Nimble Pilferer [MH2] #138\nMikaeus, the Unhallowed [Borderless] [CMM] #675\nRagavan [JA] [Extended Art] [MH2] #138\n\nBracket format: Card Name [lang?] [frame?] [set] #CN\nAlso supports: pipe | tab | comma delimited'}
           class="h-36 font-mono text-sm"
         />
         {#if parseError}
