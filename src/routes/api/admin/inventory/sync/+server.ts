@@ -91,12 +91,12 @@ function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil
 
   // ── Priority 1: explicit 'Card Type' column value ──────────────────────────
   if (sheetType === 'Raised Foil') return { card_type: 'Foil', foil_type: 'Raised Foil' }
-  if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
-  if (sheetType === 'Surge Foil')  return { card_type: 'Foil', foil_type: 'Surge Foil' }
+  if (sheetType === 'Serialized') return { card_type: 'Foil', foil_type: 'Serialized' }
+  if (sheetType === 'Surge Foil') return { card_type: 'Foil', foil_type: 'Surge Foil' }
   if (sheetType === 'Galaxy Foil') return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
-  if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
-  if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
-  if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
+  if (sheetType === 'Holo') return { card_type: 'Holo', foil_type: null }
+  if (sheetType === 'Foil') return { card_type: 'Foil', foil_type: null }
+  if (sheetType === 'Normal') return { card_type: 'Normal', foil_type: null }
 
   // ── Priority 2: serial suffix (e.g. F-3005r = Raised Foil, F-3006z = Serialized, F-3007g = Galaxy Foil) ─
   const serial = row.Serial || ''
@@ -198,70 +198,53 @@ export const POST: RequestHandler = async ({ locals }) => {
       return true
     })
 
-    console.log(`📤 Upserting ${uniqueCards.length} unique cards...`)
+    console.log(`📊 Parsed ${uniqueCards.length} unique cards from sheet`)
 
-    // Fetch existing cards with converted Google Photos URLs to preserve them
-    const existingConvertedUrls = new Map<string, string>()
+    // Single fetch: get serial, ron_image_url, and is_in_stock for all existing cards.
+    // This replaces two separate filtered fetches and also tells us which serials already
+    // exist (so we can INSERT new ones and UPDATE existing ones separately — bypassing the
+    // unreliable upsert() ON CONFLICT behaviour for non-PK unique columns).
+    type ExistingCard = { ron_image_url: string | null; is_in_stock: boolean | null }
+    const existingDbCards = new Map<string, ExistingCard>()
     let offset = 0
     const fetchBatchSize = 1000
     let hasMore = true
 
     while (hasMore) {
-      const { data: existingCards } = await adminClient
+      const { data: dbBatch } = await adminClient
         .from('cards')
-        .select('serial, ron_image_url')
-        .like('ron_image_url', 'https://lh3.googleusercontent.com/%')
+        .select('serial, ron_image_url, is_in_stock')
         .range(offset, offset + fetchBatchSize - 1)
 
-      if (existingCards && existingCards.length > 0) {
-        existingCards.forEach((card) => {
-          if (card.ron_image_url) {
-            existingConvertedUrls.set(card.serial, card.ron_image_url)
-          }
+      if (dbBatch && dbBatch.length > 0) {
+        dbBatch.forEach((card) => {
+          existingDbCards.set(card.serial, {
+            ron_image_url: card.ron_image_url,
+            is_in_stock: card.is_in_stock
+          })
         })
         offset += fetchBatchSize
-        hasMore = existingCards.length === fetchBatchSize
+        hasMore = dbBatch.length === fetchBatchSize
       } else {
         hasMore = false
       }
     }
 
-    console.log(`📷 Found ${existingConvertedUrls.size} cards with converted URLs to preserve`)
+    console.log(`📋 Found ${existingDbCards.size} existing cards in DB`)
 
-    // Fetch existing OOS serials so DB OOS=TRUE is preserved even when sheet says OOS=FALSE
-    // (OOS TRUE takes priority: sheetOOS OR dbOOS → result is OOS)
-    const existingOosSerials = new Set<string>()
-    let oosOffset = 0
-    let oosHasMore = true
-
-    while (oosHasMore) {
-      const { data: oosCards } = await adminClient
-        .from('cards')
-        .select('serial')
-        .eq('is_in_stock', false)
-        .range(oosOffset, oosOffset + fetchBatchSize - 1)
-
-      if (oosCards && oosCards.length > 0) {
-        oosCards.forEach((card) => existingOosSerials.add(card.serial))
-        oosOffset += fetchBatchSize
-        oosHasMore = oosCards.length === fetchBatchSize
-      } else {
-        oosHasMore = false
-      }
-    }
-
-    console.log(`📦 Found ${existingOosSerials.size} existing OOS cards whose status will be preserved`)
-
-    // Preserve converted URLs and apply OOS priority (TRUE wins)
+    // Preserve converted Google Photos URLs and apply OOS priority (DB OOS=TRUE wins)
     const cardsToUpsert = uniqueCards.map((card) => {
-      const existingUrl = existingConvertedUrls.get(card.serial)
+      const existing = existingDbCards.get(card.serial)
+      // Preserve converted URL if DB already holds a lh3.googleusercontent.com URL
+      const existingUrl = existing?.ron_image_url
+      const ron_image_url =
+        existingUrl && existingUrl.startsWith('https://lh3.googleusercontent.com/')
+          ? existingUrl
+          : card.ron_image_url
       // OOS priority: if DB already marks this serial OOS, keep it OOS even if sheet says in-stock.
       // Sheet OOS=TRUE always wins too (card.is_in_stock will already be false in that case).
-      const is_in_stock = existingOosSerials.has(card.serial) ? false : card.is_in_stock
-      if (existingUrl) {
-        return { ...card, ron_image_url: existingUrl, is_in_stock }
-      }
-      return { ...card, is_in_stock }
+      const is_in_stock = existing && !existing.is_in_stock ? false : card.is_in_stock
+      return { ...card, ron_image_url, is_in_stock }
     })
 
     // Detect duplicate card identities before upserting
@@ -303,25 +286,46 @@ export const POST: RequestHandler = async ({ locals }) => {
       console.log(`📝 Marked ${duplicatesResolved} duplicate serials as out of stock`)
     }
 
-    // Upsert in batches
+    // Separate new cards (INSERT) from existing ones (UPDATE).
+    // We avoid upsert() here because Supabase's ON CONFLICT DO UPDATE for non-PK unique
+    // columns (serial) does not reliably update existing rows — existing records silently
+    // remain unchanged. Explicit INSERT + UPDATE guarantees sheet data overwrites DB.
+    const toInsert = cardsToUpsert.filter((c) => !existingDbCards.has(c.serial))
+    const toUpdate = cardsToUpsert.filter((c) => existingDbCards.has(c.serial))
+
+    console.log(`➕ Inserting ${toInsert.length} new cards, ✏️  updating ${toUpdate.length} existing cards...`)
+
     const batchSize = 100
     let successCount = 0
     let errorCount = 0
 
-    for (let i = 0; i < cardsToUpsert.length; i += batchSize) {
-      const batch = cardsToUpsert.slice(i, i + batchSize)
-
-      const { error: upsertError } = await adminClient.from('cards').upsert(batch, {
-        onConflict: 'serial',
-        ignoreDuplicates: false
-      })
-
-      if (upsertError) {
-        logger.error({ error: upsertError.message, batch: Math.floor(i / batchSize) + 1 }, 'Error upserting sync batch')
+    // INSERT new cards in batches
+    for (let i = 0; i < toInsert.length; i += batchSize) {
+      const batch = toInsert.slice(i, i + batchSize)
+      const { error: insertError } = await adminClient.from('cards').insert(batch)
+      if (insertError) {
+        logger.error({ error: insertError.message, batch: Math.floor(i / batchSize) + 1 }, 'Error inserting new cards batch')
         errorCount += batch.length
       } else {
         successCount += batch.length
       }
+    }
+
+    // UPDATE existing cards in parallel batches (sheet is source of truth for all fields)
+    const updateConcurrency = 50
+    for (let i = 0; i < toUpdate.length; i += updateConcurrency) {
+      const batch = toUpdate.slice(i, i + updateConcurrency)
+      const results = await Promise.all(
+        batch.map(({ serial, ...data }) => adminClient.from('cards').update(data).eq('serial', serial))
+      )
+      results.forEach((result, idx) => {
+        if (result.error) {
+          logger.error({ error: result.error.message, serial: batch[idx].serial }, 'Error updating existing card')
+          errorCount++
+        } else {
+          successCount++
+        }
+      })
     }
 
     // Get final count
