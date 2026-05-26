@@ -19,6 +19,7 @@
     frameTypes: string[]
     inStockOnly: boolean
     isNew: boolean
+    isMisprint: boolean
   }
 
   // Supertypes to ignore when matching card types
@@ -166,6 +167,9 @@
 
       // New cards filter
       if (f.isNew && !card.is_new) return false
+
+      // Misprint exclusion — hide misprint cards unless filter is explicitly enabled
+      if (!f.isMisprint && card.is_misprint) return false
 
       return true
     })

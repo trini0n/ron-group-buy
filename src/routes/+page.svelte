@@ -35,7 +35,8 @@
     cardTypes: initialFilters.cardTypes as string[],
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
-    isNew: initialFilters.isNew
+    isNew: initialFilters.isNew,
+    isMisprint: ((initialFilters as Record<string, unknown>).isMisprint as boolean) ?? false
   })
 
   // Cache loaded data so skeleton only shows on initial load
@@ -78,6 +79,7 @@
     frameTypes: '',
     inStockOnly: false,
     isNew: false,
+    isMisprint: false,
     viewMode: 'grid' as 'grid' | 'table'
   }
 
@@ -119,6 +121,7 @@
     if (filters.frameTypes.length > 0) params.set('frames', filters.frameTypes.join(','))
     if (filters.inStockOnly) params.set('stock', '1')
     if (filters.isNew) params.set('new', '1')
+    if (filters.isMisprint) params.set('misprint', '1')
     if (viewMode !== 'grid') params.set('view', viewMode)
     if (currentPage > 1) params.set('page', String(currentPage))
 
@@ -179,6 +182,7 @@
       frameTypes: filters.frameTypes.join(','),
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew,
+      isMisprint: filters.isMisprint,
       viewMode: viewMode
     }
 

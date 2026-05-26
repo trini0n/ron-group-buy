@@ -35,7 +35,7 @@ async function fetchCards(): Promise<Card[]> {
     const { data: batch, error } = await adminClient
       .from('cards')
       .select(
-        'id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id'
+        'id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, is_misprint, ron_image_url, scryfall_id'
       )
       .range(offset, offset + batchSize - 1)
 
@@ -167,6 +167,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     frameTypes: url.searchParams.get('frames')?.split(',').filter(Boolean) || [],
     inStockOnly: url.searchParams.get('stock') === '1',
     isNew: url.searchParams.get('new') === '1',
+    isMisprint: url.searchParams.get('misprint') === '1',
     view: (url.searchParams.get('view') as 'grid' | 'table') || 'grid',
     page: parseInt(url.searchParams.get('page') || '1') || 1
   }
