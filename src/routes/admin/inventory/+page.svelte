@@ -35,6 +35,7 @@
     card_type: string
     is_in_stock: boolean | null
     is_new: boolean | null
+    is_misprint: boolean | null
     foil_type: string | null
     language: string | null
     scryfall_id: string | null
@@ -477,6 +478,9 @@
               {card.card_name}
               {#if card.is_new}
                 <Badge variant="outline" class="ml-2 border-green-500 text-green-500">New</Badge>
+              {/if}
+              {#if card.is_misprint}
+                <Badge class="ml-2 bg-amber-600/80 text-xs text-white">Misprint</Badge>
               {/if}
               {#if card.isDuplicate}
                 <Badge variant="outline" class="ml-2 border-orange-500 text-orange-500">Duplicate</Badge>

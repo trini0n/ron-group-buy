@@ -23,7 +23,7 @@ export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers
   let query = adminClient
     .from('cards_with_duplicates')
     .select(
-      'id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, foil_type, language, scryfall_id, ron_image_url, duplicate_count',
+      'id, serial, card_name, set_name, set_code, collector_number, card_type, is_in_stock, is_new, is_misprint, foil_type, language, scryfall_id, ron_image_url, duplicate_count',
       { count: 'exact' }
     )
     .order('card_name', { ascending: true })

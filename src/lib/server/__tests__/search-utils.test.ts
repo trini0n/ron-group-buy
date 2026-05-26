@@ -21,6 +21,7 @@ function createMockCard(overrides: Partial<CardMatch> = {}): CardMatch {
     scryfall_id: 'abc123',
     type_line: 'Creature',
     language: 'en',
+    is_misprint: null,
     ...overrides
   }
 }
