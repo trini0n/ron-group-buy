@@ -6,9 +6,11 @@ ALTER TABLE cards ADD COLUMN IF NOT EXISTS is_misprint BOOLEAN DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_cards_is_misprint ON cards(is_misprint) WHERE is_misprint = true;
 
 -- Recreate cards_with_duplicates view so c.* re-expands to include is_misprint.
--- PostgreSQL does NOT automatically update view column lists when ALTER TABLE
--- adds new columns — CREATE OR REPLACE is required to refresh the expansion.
-CREATE OR REPLACE VIEW cards_with_duplicates
+-- Must DROP + CREATE because CREATE OR REPLACE cannot change column order --
+-- inserting is_misprint into c.* shifts duplicate_count/duplicate_row_number,
+-- which PostgreSQL rejects as a column rename.
+DROP VIEW IF EXISTS cards_with_duplicates;
+CREATE VIEW cards_with_duplicates
 WITH (security_invoker=on) AS
 SELECT
   c.*,
