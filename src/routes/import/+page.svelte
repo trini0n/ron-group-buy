@@ -111,6 +111,7 @@
     exactMatch: CardMatch | null;
     alternatives: CardMatch[];
     selected: CardMatch | null;
+    isMisprinted?: boolean;
   }
 
   // Board type ordering
@@ -1293,6 +1294,12 @@
                       <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
                         {result.requestedCard.name}{#if hasOptions && currentOption?.language && currentOption.language !== 'en'}&nbsp;<span class="text-muted-foreground">({currentOption.language})</span>{/if}
                       </p>
+                      {#if result.isMisprinted}
+                        <span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          <AlertTriangle class="h-3 w-3" />
+                          Only misprint versions available
+                        </span>
+                      {/if}
                       {#if hasOptions && currentOption}
                         <p class="text-xs text-muted-foreground">
                           [{currentOption.set_code} #{currentOption.collector_number}]

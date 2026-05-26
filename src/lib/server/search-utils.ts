@@ -16,6 +16,7 @@ export interface CardMatch {
   scryfall_id: string | null
   type_line: string | null
   language: string | null
+  is_misprint: boolean | null
 }
 
 /**

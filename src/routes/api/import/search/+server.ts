@@ -20,6 +20,7 @@ interface SearchResult {
   exactMatch: CardMatch | null
   alternatives: CardMatch[]
   selected: CardMatch | null
+  isMisprinted?: boolean
 }
 
 // LRU cache for card data
@@ -47,7 +48,7 @@ function setInCache(name: string, cards: CardMatch[]): void {
 }
 
 const CARD_SELECT_COLUMNS =
-  'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language'
+  'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language, is_misprint'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const { cards } = (await request.json()) as { cards: DeckCard[] }
@@ -152,6 +153,16 @@ async function searchSingleCard(supabase: SupabaseClient, card: DeckCard): Promi
     allMatches = []
   }
 
+  // Misprint exclusion: filter out misprint cards by default
+  // Edge case: if ALL matches are misprint, keep them and flag the result with isMisprinted=true
+  let isMisprinted = false
+  const nonMisprintMatches = allMatches.filter((m) => !m.is_misprint)
+  if (nonMisprintMatches.length === 0 && allMatches.length > 0) {
+    isMisprinted = true
+  } else {
+    allMatches = nonMisprintMatches
+  }
+
   let exactMatch: CardMatch | null = null
   let alternatives: CardMatch[] = []
 
@@ -191,7 +202,8 @@ async function searchSingleCard(supabase: SupabaseClient, card: DeckCard): Promi
     requestedCard: updatedCard,
     exactMatch,
     alternatives,
-    selected: null
+    selected: null,
+    ...(isMisprinted ? { isMisprinted: true } : {})
   }
 }
 
