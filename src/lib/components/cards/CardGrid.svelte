@@ -259,7 +259,8 @@
       cardTypes: [...filters.cardTypes],
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,
-      isNew: filters.isNew
+      isNew: filters.isNew,
+      isMisprint: filters.isMisprint
     }
 
     // Cancel any pending frame to prevent stacking updates

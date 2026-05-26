@@ -6,8 +6,9 @@
   import * as Command from '$components/ui/command'
   import * as Accordion from '$components/ui/accordion'
   import ManaIcon from '$lib/components/icons/ManaIcon.svelte'
-  import { X, ChevronsUpDown, Check, ChevronDown, Filter } from 'lucide-svelte'
+  import { X, ChevronsUpDown, Check, ChevronDown, Filter, Info } from 'lucide-svelte'
   import { browser } from '$app/environment'
+  import * as Tooltip from '$components/ui/tooltip'
 
   interface Set {
     code: string
@@ -25,6 +26,7 @@
     frameTypes: string[]
     inStockOnly: boolean
     isNew: boolean
+    isMisprint: boolean
   }
 
   interface Props {
@@ -173,6 +175,7 @@
     filters.frameTypes = []
     filters.inStockOnly = false
     filters.isNew = false
+    filters.isMisprint = false
     onClearAll?.()
   }
 
@@ -201,7 +204,8 @@
       filters.cardTypes.length > 0 ||
       filters.frameTypes.length > 0 ||
       filters.inStockOnly ||
-      filters.isNew
+      filters.isNew ||
+      filters.isMisprint
   )
 
   // Get display labels for selects
@@ -236,6 +240,7 @@
     if (filters.frameTypes.length > 0) count++
     if (filters.inStockOnly) count++
     if (filters.isNew) count++
+    if (filters.isMisprint) count++
     return count
   })
 </script>
@@ -439,6 +444,29 @@
         <Checkbox checked={filters.isNew} onCheckedChange={(v) => (filters.isNew = !!v)} />
         <span>New Cards Only</span>
       </label>
+      <div class="flex cursor-pointer items-center space-x-2">
+        <Checkbox checked={filters.isMisprint} onCheckedChange={(v) => (filters.isMisprint = !!v)} />
+        <label
+          class="flex cursor-pointer items-center gap-1 text-sm"
+          onclick={() => (filters.isMisprint = !filters.isMisprint)}
+        >
+          <span>Misprints</span>
+          <Tooltip.Provider>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <span {...props} class="inline-flex cursor-default" onclick={(e) => e.stopPropagation()}>
+                    <Info class="h-3.5 w-3.5 text-muted-foreground" />
+                  </span>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                <p class="max-w-[220px] text-xs">Misprint cards have accidental printing errors or do not exist as real paper MTG cards</p>
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </label>
+      </div>
     </div>
   </div>
 </div>

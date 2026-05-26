@@ -128,6 +128,11 @@
       {#if selectedCard.is_new}
         <Badge class="absolute right-2 top-2 bg-green-600/65 backdrop-blur-sm">New</Badge>
       {/if}
+
+      <!-- Misprint badge -->
+      {#if selectedCard.is_misprint}
+        <Badge class="absolute left-2 top-2 bg-amber-600/65 backdrop-blur-sm text-xs">Misprint</Badge>
+      {/if}
     </div>
 
     <!-- Card Info -->
