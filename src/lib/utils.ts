@@ -43,7 +43,10 @@ export function getCardPrice(cardType: string, prices?: Record<string, number>):
     'Galaxy Foil': 1.5,
     'Surge Foil': 1.5,
     'Raised Foil': 3.0,
-    Serialized: 2.5
+    Serialized: 2.5,
+    'Normal Misprint': 0.70,
+    'Holo Misprint': 0.70,
+    'Foil Misprint': 0.70
   }
   return DEFAULTS[cardType] ?? 1.25
 }
@@ -214,6 +217,18 @@ export function getCardUrl(card: {
  */
 export function getFinishLabel(card: { foil_type?: string | null; card_type: string }): string {
   return card.foil_type || card.card_type
+}
+
+/**
+ * Get the price lookup key for a card, accounting for misprint status.
+ * Misprint cards use separate price entries: "Normal Misprint", "Holo Misprint", "Foil Misprint".
+ * All foil subtypes (Foil, Galaxy Foil, Raised Foil, Surge Foil) map to "Foil Misprint".
+ */
+export function getMispriceKey(card: { is_misprint?: boolean | null; foil_type?: string | null; card_type: string }): string {
+  const finish = getFinishLabel(card)
+  if (!card.is_misprint) return finish
+  const finishFamily = (FOIL_SUBTYPES as readonly string[]).includes(finish) ? 'Foil' : finish
+  return `${finishFamily} Misprint`
 }
 
 /**
