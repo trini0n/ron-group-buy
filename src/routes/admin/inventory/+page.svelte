@@ -480,7 +480,7 @@
                 <Badge variant="outline" class="ml-2 border-green-500 text-green-500">New</Badge>
               {/if}
               {#if card.is_misprint}
-                <Badge class="ml-2 bg-amber-600/80 text-xs text-white">Misprint</Badge>
+                <Badge class="ml-2 bg-red-600/80 text-xs text-white">Misprint</Badge>
               {/if}
               {#if card.isDuplicate}
                 <Badge variant="outline" class="ml-2 border-orange-500 text-orange-500">Duplicate</Badge>

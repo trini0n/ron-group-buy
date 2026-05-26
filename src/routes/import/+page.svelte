@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { Button } from '$components/ui/button';
-  import { Input } from '$components/ui/input';
-  import { Label } from '$components/ui/label';
-  import { Badge } from '$components/ui/badge';
-  import * as Card from '$components/ui/card';
-  import { Separator } from '$components/ui/separator';
-  import { cartStore } from '$lib/stores/cart.svelte';
-  import { formatPrice, getCardPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
-  import { toast } from 'svelte-sonner';
+  import { Button } from '$components/ui/button'
+  import { Input } from '$components/ui/input'
+  import { Label } from '$components/ui/label'
+  import { Badge } from '$components/ui/badge'
+  import * as Card from '$components/ui/card'
+  import { Separator } from '$components/ui/separator'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import { formatPrice, getCardPrice, getFinishLabel, getFinishBadgeClasses } from '$lib/utils'
+  import { toast } from 'svelte-sonner'
   import {
     Search,
     Loader2,
@@ -19,99 +19,99 @@
     AlertTriangle,
     X,
     Copy
-  } from 'lucide-svelte';
-  import { Textarea } from '$components/ui/textarea';
-  import * as Accordion from '$components/ui/accordion';
-  import { onMount } from 'svelte';
-  import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils';
-  import { browser } from '$app/environment';
+  } from 'lucide-svelte'
+  import { Textarea } from '$components/ui/textarea'
+  import * as Accordion from '$components/ui/accordion'
+  import { onMount } from 'svelte'
+  import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils'
+  import { browser } from '$app/environment'
 
   // Types
   interface DeckCard {
-    quantity: number;
-    name: string;
-    set?: string;
-    collectorNumber?: string;
-    boardType?: 'commanders' | 'companions' | 'mainboard' | 'sideboard';
-    typeLine?: string;
-    foil?: boolean;
+    quantity: number
+    name: string
+    set?: string
+    collectorNumber?: string
+    boardType?: 'commanders' | 'companions' | 'mainboard' | 'sideboard'
+    typeLine?: string
+    foil?: boolean
   }
 
   interface MoxfieldCard {
-    quantity: number;
-    boardType: string;
+    quantity: number
+    boardType: string
     card: {
-      name: string;
-      set: string;
-      cn: string;
-      type_line?: string;
-    };
+      name: string
+      set: string
+      cn: string
+      type_line?: string
+    }
   }
 
   interface MoxfieldBoard {
-    count: number;
-    cards: Record<string, MoxfieldCard>;
+    count: number
+    cards: Record<string, MoxfieldCard>
   }
 
   interface MoxfieldBoards {
-    mainboard: MoxfieldBoard;
-    sideboard: MoxfieldBoard;
-    commanders: MoxfieldBoard;
-    companions: MoxfieldBoard;
+    mainboard: MoxfieldBoard
+    sideboard: MoxfieldBoard
+    commanders: MoxfieldBoard
+    companions: MoxfieldBoard
   }
 
   interface MoxfieldDeck {
-    name: string;
-    boards: MoxfieldBoards;
-    mainboard?: Record<string, MoxfieldCard>;
-    sideboard?: Record<string, MoxfieldCard>;
-    commanders?: Record<string, MoxfieldCard>;
-    companions?: Record<string, MoxfieldCard>;
+    name: string
+    boards: MoxfieldBoards
+    mainboard?: Record<string, MoxfieldCard>
+    sideboard?: Record<string, MoxfieldCard>
+    commanders?: Record<string, MoxfieldCard>
+    companions?: Record<string, MoxfieldCard>
   }
 
   interface ArchidektCard {
-    quantity: number;
+    quantity: number
     card: {
       oracleCard: {
-        name: string;
-        type?: string;
-        typeLine?: string;
-        types?: string[];
-      };
+        name: string
+        type?: string
+        typeLine?: string
+        types?: string[]
+      }
       edition: {
-        editioncode: string;
-      };
-      collectorNumber: string;
-      typeLine?: string;
-    };
-    categories?: string[];
+        editioncode: string
+      }
+      collectorNumber: string
+      typeLine?: string
+    }
+    categories?: string[]
   }
 
   interface ArchidektDeck {
-    name: string;
-    cards: ArchidektCard[];
+    name: string
+    cards: ArchidektCard[]
   }
 
   interface CardMatch {
-    id: string;
-    serial: string;
-    card_name: string;
-    set_code: string;
-    set_name: string;
-    collector_number: string | null;
-    card_type: string;
-    foil_type: string | null;
-    is_in_stock: boolean;
-    scryfall_id: string | null;
-    language: string | null;
+    id: string
+    serial: string
+    card_name: string
+    set_code: string
+    set_name: string
+    collector_number: string | null
+    card_type: string
+    foil_type: string | null
+    is_in_stock: boolean
+    scryfall_id: string | null
+    language: string | null
   }
 
   interface SearchResult {
-    requestedCard: DeckCard;
-    exactMatch: CardMatch | null;
-    alternatives: CardMatch[];
-    selected: CardMatch | null;
-    isMisprinted?: boolean;
+    requestedCard: DeckCard
+    exactMatch: CardMatch | null
+    alternatives: CardMatch[]
+    selected: CardMatch | null
+    isMisprinted?: boolean
   }
 
   // Board type ordering
@@ -120,14 +120,14 @@
     companions: 1,
     mainboard: 2,
     sideboard: 3
-  };
+  }
 
   const BOARD_LABELS: Record<string, string> = {
     commanders: 'Commander',
     companions: 'Companion',
     mainboard: 'Mainboard',
     sideboard: 'Sideboard'
-  };
+  }
 
   // Card type ordering (primary types extracted from type_line)
   const TYPE_ORDER: Record<string, number> = {
@@ -139,157 +139,166 @@
     Sorcery: 5,
     Land: 6,
     Other: 7
-  };
+  }
 
   // State
-  const SESSION_CACHE_KEY = 'import-deck-state';
+  const SESSION_CACHE_KEY = 'import-deck-state'
 
-  let deckUrl = $state('');
-  let pasteContent = $state('');
-  let isLoading = $state(false);
-  let isParsing = $state(false);
-  let searchResults = $state<SearchResult[]>([]);
-  let deckName = $state('');
-  let deckSource = $state<'moxfield' | 'archidekt' | null>(null);
-  let showMoxfieldWarning = $state(false); // Show warning when Moxfield import fails
-  
+  let deckUrl = $state('')
+  let pasteContent = $state('')
+  let isLoading = $state(false)
+  let isParsing = $state(false)
+  let searchResults = $state<SearchResult[]>([])
+  let deckName = $state('')
+  let deckSource = $state<'moxfield' | 'archidekt' | null>(null)
+  let showMoxfieldWarning = $state(false) // Show warning when Moxfield import fails
+
   // Progress tracking
-  let totalCardsToSearch = $state(0);
-  let cardsSearched = $state(0);
-  const searchProgress = $derived(totalCardsToSearch > 0 ? Math.round((cardsSearched / totalCardsToSearch) * 100) : 0);
+  let totalCardsToSearch = $state(0)
+  let cardsSearched = $state(0)
+  const searchProgress = $derived(totalCardsToSearch > 0 ? Math.round((cardsSearched / totalCardsToSearch) * 100) : 0)
 
   // Track carousel index for each card
-  let carouselIndices = $state<Map<number, number>>(new Map());
+  let carouselIndices = $state<Map<number, number>>(new Map())
 
   // Track which cards are selected for adding to cart
-  let selectedCards = $state<Map<number, CardMatch>>(new Map());
+  let selectedCards = $state<Map<number, CardMatch>>(new Map())
 
-  const notFoundCards = $derived(getNotFoundCards(searchResults));
+  const notFoundCards = $derived(getNotFoundCards(searchResults))
 
-  const totalSelected = $derived(selectedCards.size);
+  const totalSelected = $derived(selectedCards.size)
   const totalQuantity = $derived(
     Array.from(selectedCards.entries()).reduce((sum, [idx]) => {
       const result = searchResults[idx]
-      return sum + (result?.requestedCard.quantity || 0);
+      return sum + (result?.requestedCard.quantity || 0)
     }, 0)
-  );
+  )
 
   // Group and sort results
   const groupedResults = $derived.by(() => {
-    if (searchResults.length === 0) return [];
+    if (searchResults.length === 0) return []
 
     // Group by board type
-    const boards = new Map<string, { results: Array<{ result: SearchResult; originalIdx: number }>; cardTypes: Map<string, Array<{ result: SearchResult; originalIdx: number }>> }>();
+    const boards = new Map<
+      string,
+      {
+        results: Array<{ result: SearchResult; originalIdx: number }>
+        cardTypes: Map<string, Array<{ result: SearchResult; originalIdx: number }>>
+      }
+    >()
 
     searchResults.forEach((result, originalIdx) => {
-      const boardType = result.requestedCard.boardType || 'mainboard';
-      const typeLine = result.requestedCard.typeLine || '';
-      const cardType = extractPrimaryType(typeLine);
+      const boardType = result.requestedCard.boardType || 'mainboard'
+      const typeLine = result.requestedCard.typeLine || ''
+      const cardType = extractPrimaryType(typeLine)
 
       if (!boards.has(boardType)) {
-        boards.set(boardType, { results: [], cardTypes: new Map() });
+        boards.set(boardType, { results: [], cardTypes: new Map() })
       }
 
-      const board = boards.get(boardType)!;
-      board.results.push({ result, originalIdx });
+      const board = boards.get(boardType)!
+      board.results.push({ result, originalIdx })
 
       if (!board.cardTypes.has(cardType)) {
-        board.cardTypes.set(cardType, []);
+        board.cardTypes.set(cardType, [])
       }
-      board.cardTypes.get(cardType)!.push({ result, originalIdx });
-    });
+      board.cardTypes.get(cardType)!.push({ result, originalIdx })
+    })
 
     // Sort boards by order and card types within each board
     const sortedBoards: Array<{
-      boardType: string;
-      label: string;
+      boardType: string
+      label: string
       cardTypes: Array<{
-        type: string;
-        cards: Array<{ result: SearchResult; originalIdx: number }>;
-      }>;
-    }> = [];
+        type: string
+        cards: Array<{ result: SearchResult; originalIdx: number }>
+      }>
+    }> = []
 
-    const boardKeys = Array.from(boards.keys()).sort((a, b) => (BOARD_ORDER[a] ?? 99) - (BOARD_ORDER[b] ?? 99));
+    const boardKeys = Array.from(boards.keys()).sort((a, b) => (BOARD_ORDER[a] ?? 99) - (BOARD_ORDER[b] ?? 99))
 
     for (const boardType of boardKeys) {
-      const board = boards.get(boardType)!;
-      const sortedTypes: Array<{ type: string; cards: Array<{ result: SearchResult; originalIdx: number }> }> = [];
+      const board = boards.get(boardType)!
+      const sortedTypes: Array<{ type: string; cards: Array<{ result: SearchResult; originalIdx: number }> }> = []
 
-      const typeKeys = Array.from(board.cardTypes.keys()).sort((a, b) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
+      const typeKeys = Array.from(board.cardTypes.keys()).sort((a, b) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
 
       for (const type of typeKeys) {
-        const cards = board.cardTypes.get(type)!;
+        const cards = board.cardTypes.get(type)!
         // Sort alphabetically by card name
-        cards.sort((a, b) => a.result.requestedCard.name.localeCompare(b.result.requestedCard.name));
-        sortedTypes.push({ type, cards });
+        cards.sort((a, b) => a.result.requestedCard.name.localeCompare(b.result.requestedCard.name))
+        sortedTypes.push({ type, cards })
       }
 
       sortedBoards.push({
         boardType,
         label: BOARD_LABELS[boardType] || boardType,
         cardTypes: sortedTypes
-      });
+      })
     }
 
-    return sortedBoards;
-  });
+    return sortedBoards
+  })
 
   function extractPrimaryType(typeLine: string): string {
-    if (!typeLine) return 'Other';
+    if (!typeLine) return 'Other'
 
     // Remove everything after the em dash (subtypes)
     const parts = typeLine.split('—')
     const mainPart = parts[0]?.trim() || 'Other'
     // Remove supertypes
-    const types = mainPart.replace(/\b(Legendary|Basic|Snow|World|Tribal)\b/gi, '').trim();
+    const types = mainPart.replace(/\b(Legendary|Basic|Snow|World|Tribal)\b/gi, '').trim()
 
     // Check for primary types
-    if (types.includes('Creature')) return 'Creature';
-    if (types.includes('Planeswalker')) return 'Planeswalker';
-    if (types.includes('Artifact')) return 'Artifact';
-    if (types.includes('Enchantment')) return 'Enchantment';
-    if (types.includes('Instant')) return 'Instant';
-    if (types.includes('Sorcery')) return 'Sorcery';
-    if (types.includes('Land')) return 'Land';
+    if (types.includes('Creature')) return 'Creature'
+    if (types.includes('Planeswalker')) return 'Planeswalker'
+    if (types.includes('Artifact')) return 'Artifact'
+    if (types.includes('Enchantment')) return 'Enchantment'
+    if (types.includes('Instant')) return 'Instant'
+    if (types.includes('Sorcery')) return 'Sorcery'
+    if (types.includes('Land')) return 'Land'
 
-    return 'Other';
+    return 'Other'
   }
 
   function detectDeckSource(url: string): 'moxfield' | 'archidekt' | null {
-    if (url.includes('moxfield.com')) return 'moxfield';
-    if (url.includes('archidekt.com')) return 'archidekt';
-    return null;
+    if (url.includes('moxfield.com')) return 'moxfield'
+    if (url.includes('archidekt.com')) return 'archidekt'
+    return null
   }
 
   async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
-    const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/);
-    if (!match || !match[1]) throw new Error('Invalid Moxfield URL');
+    const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
+    if (!match || !match[1]) throw new Error('Invalid Moxfield URL')
 
-    const deckId = match[1];
-    const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`;
+    const deckId = match[1]
+    const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`
     // Try cors.bridged.cc proxy
-    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`;
+    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`
 
-    const response = await fetch(proxyUrl);
+    const response = await fetch(proxyUrl)
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch deck (status ${response.status})`);
+      throw new Error(`Failed to fetch deck (status ${response.status})`)
     }
 
-    const deck: MoxfieldDeck = await response.json();
-    const cards: DeckCard[] = [];
+    const deck: MoxfieldDeck = await response.json()
+    const cards: DeckCard[] = []
 
-    const hasBoards = deck.boards && deck.boards.mainboard;
+    const hasBoards = deck.boards && deck.boards.mainboard
 
     const getCards = (zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined): Record<string, MoxfieldCard> => {
-      if (!zone) return {};
+      if (!zone) return {}
       if ('cards' in zone && typeof zone.cards === 'object') {
-        return zone.cards as Record<string, MoxfieldCard>;
+        return zone.cards as Record<string, MoxfieldCard>
       }
-      return zone as Record<string, MoxfieldCard>;
-    };
+      return zone as Record<string, MoxfieldCard>
+    }
 
-    const boardTypes: Array<{ zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined; type: DeckCard['boardType'] }> = hasBoards
+    const boardTypes: Array<{
+      zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined
+      type: DeckCard['boardType']
+    }> = hasBoards
       ? [
           { zone: deck.boards.commanders, type: 'commanders' },
           { zone: deck.boards.companions, type: 'companions' },
@@ -301,12 +310,12 @@
           { zone: deck.companions, type: 'companions' },
           { zone: deck.mainboard, type: 'mainboard' },
           { zone: deck.sideboard, type: 'sideboard' }
-        ];
+        ]
 
     for (const { zone, type } of boardTypes) {
-      const cardsMap = getCards(zone);
+      const cardsMap = getCards(zone)
       for (const [, entry] of Object.entries(cardsMap)) {
-        if (!entry.card) continue;
+        if (!entry.card) continue
         cards.push({
           quantity: entry.quantity,
           name: entry.card.name,
@@ -314,60 +323,57 @@
           collectorNumber: entry.card.cn,
           boardType: type,
           typeLine: entry.card.type_line
-        });
+        })
       }
     }
 
-    return { name: deck.name, cards };
+    return { name: deck.name, cards }
   }
 
   async function fetchArchidektDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
-    const match = url.match(/archidekt\.com\/decks\/(\d+)/);
-    if (!match || !match[1]) throw new Error('Invalid Archidekt URL');
+    const match = url.match(/archidekt\.com\/decks\/(\d+)/)
+    if (!match || !match[1]) throw new Error('Invalid Archidekt URL')
 
-    const deckId = match[1];
-    const apiUrl = `https://archidekt.com/api/decks/${deckId}/`;
-    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`;
+    const deckId = match[1]
+    const apiUrl = `https://archidekt.com/api/decks/${deckId}/`
+    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`
 
-    const response = await fetch(proxyUrl);
+    const response = await fetch(proxyUrl)
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch deck (status ${response.status})`);
+      throw new Error(`Failed to fetch deck (status ${response.status})`)
     }
 
-    const deck: ArchidektDeck = await response.json();
-    const cards: DeckCard[] = [];
-    const seenCards = new Set<string>();
+    const deck: ArchidektDeck = await response.json()
+    const cards: DeckCard[] = []
+    const seenCards = new Set<string>()
 
     for (const entry of deck.cards || []) {
-      const cardName = entry.card.oracleCard.name;
-      
+      const cardName = entry.card.oracleCard.name
+
       // Deduplicate - Archidekt lists the same card in multiple categories
-      if (seenCards.has(cardName)) continue;
-      seenCards.add(cardName);
-      
+      if (seenCards.has(cardName)) continue
+      seenCards.add(cardName)
+
       // Archidekt uses categories for board type
-      const categories = entry.categories || [];
-      let boardType: DeckCard['boardType'] = 'mainboard';
-      if (categories.includes('Commander')) boardType = 'commanders';
-      else if (categories.includes('Companion')) boardType = 'companions';
-      else if (categories.includes('Sideboard') || categories.includes('Maybeboard')) boardType = 'sideboard';
+      const categories = entry.categories || []
+      let boardType: DeckCard['boardType'] = 'mainboard'
+      if (categories.includes('Commander')) boardType = 'commanders'
+      else if (categories.includes('Companion')) boardType = 'companions'
+      else if (categories.includes('Sideboard') || categories.includes('Maybeboard')) boardType = 'sideboard'
 
       // Get type line from various possible sources
-      let typeLine = entry.card.typeLine 
-        || entry.card.oracleCard.typeLine 
-        || entry.card.oracleCard.type 
-        || '';
-      
+      let typeLine = entry.card.typeLine || entry.card.oracleCard.typeLine || entry.card.oracleCard.type || ''
+
       // If still empty, try to infer from categories
       if (!typeLine) {
-        if (categories.includes('Creature') || categories.includes('Creatures')) typeLine = 'Creature';
-        else if (categories.includes('Instant') || categories.includes('Instants')) typeLine = 'Instant';
-        else if (categories.includes('Sorcery') || categories.includes('Sorceries')) typeLine = 'Sorcery';
-        else if (categories.includes('Artifact') || categories.includes('Artifacts')) typeLine = 'Artifact';
-        else if (categories.includes('Enchantment') || categories.includes('Enchantments')) typeLine = 'Enchantment';
-        else if (categories.includes('Planeswalker') || categories.includes('Planeswalkers')) typeLine = 'Planeswalker';
-        else if (categories.includes('Land') || categories.includes('Lands')) typeLine = 'Land';
+        if (categories.includes('Creature') || categories.includes('Creatures')) typeLine = 'Creature'
+        else if (categories.includes('Instant') || categories.includes('Instants')) typeLine = 'Instant'
+        else if (categories.includes('Sorcery') || categories.includes('Sorceries')) typeLine = 'Sorcery'
+        else if (categories.includes('Artifact') || categories.includes('Artifacts')) typeLine = 'Artifact'
+        else if (categories.includes('Enchantment') || categories.includes('Enchantments')) typeLine = 'Enchantment'
+        else if (categories.includes('Planeswalker') || categories.includes('Planeswalkers')) typeLine = 'Planeswalker'
+        else if (categories.includes('Land') || categories.includes('Lands')) typeLine = 'Land'
       }
 
       cards.push({
@@ -377,31 +383,31 @@
         collectorNumber: entry.card.collectorNumber,
         boardType,
         typeLine
-      });
+      })
     }
 
-    return { name: deck.name, cards };
+    return { name: deck.name, cards }
   }
 
   async function fetchDeck() {
     if (!deckUrl.trim()) {
-      toast.error('Please enter a deck URL');
-      return;
+      toast.error('Please enter a deck URL')
+      return
     }
 
-    const source = detectDeckSource(deckUrl);
+    const source = detectDeckSource(deckUrl)
     if (!source) {
-      toast.error('Please enter a valid Moxfield or Archidekt URL');
-      return;
+      toast.error('Please enter a valid Moxfield or Archidekt URL')
+      return
     }
 
-    deckSource = source;
-    isLoading = true;
-    searchResults = [];
-    selectedCards = new Map();
-    carouselIndices = new Map();
-    totalCardsToSearch = 0;
-    cardsSearched = 0;
+    deckSource = source
+    isLoading = true
+    searchResults = []
+    selectedCards = new Map()
+    carouselIndices = new Map()
+    totalCardsToSearch = 0
+    cardsSearched = 0
 
     try {
       // Use server-side API with retry logic and caching
@@ -409,96 +415,98 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: deckUrl, source })
-      });
+      })
 
       if (!deckResponse.ok) {
-        const errorData = await deckResponse.text();
-        throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`);
+        const errorData = await deckResponse.text()
+        throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`)
       }
 
-      const data: { name: string; cards: DeckCard[] } = await deckResponse.json();
+      const data: { name: string; cards: DeckCard[] } = await deckResponse.json()
 
-      deckName = data.name || 'Imported Deck';
-      isParsing = true;
-      totalCardsToSearch = data.cards.length;
-      
+      deckName = data.name || 'Imported Deck'
+      isParsing = true
+      totalCardsToSearch = data.cards.length
+
       // Single request for all cards (optimized batch search)
       const searchResponse = await fetch('/api/import/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cards: data.cards })
-      });
+      })
 
       if (!searchResponse.ok) {
-        throw new Error('Failed to search for cards');
+        throw new Error('Failed to search for cards')
       }
 
-      const allResults: SearchResult[] = await searchResponse.json();
-      cardsSearched = allResults.length;
-      
-      searchResults = allResults;
+      const allResults: SearchResult[] = await searchResponse.json()
+      cardsSearched = allResults.length
+
+      searchResults = allResults
 
       // Auto-select exact matches that are in stock
-      const newSelected = new Map<number, CardMatch>();
-      const newCarouselIndices = new Map<number, number>();
+      const newSelected = new Map<number, CardMatch>()
+      const newCarouselIndices = new Map<number, number>()
       allResults.forEach((result, idx) => {
-        newCarouselIndices.set(idx, 0);
+        newCarouselIndices.set(idx, 0)
         if (result.exactMatch && result.exactMatch.is_in_stock) {
-          newSelected.set(idx, result.exactMatch);
+          newSelected.set(idx, result.exactMatch)
         }
-      });
-      selectedCards = newSelected;
-      carouselIndices = newCarouselIndices;
+      })
+      selectedCards = newSelected
+      carouselIndices = newCarouselIndices
 
-      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
-      const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
-      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
-      
+      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length
+      const inStock = allResults.filter(
+        (r) => r.exactMatch?.is_in_stock || r.alternatives.some((a) => a.is_in_stock)
+      ).length
+      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`)
+
       // Clear warning on successful import
-      showMoxfieldWarning = false;
+      showMoxfieldWarning = false
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to import deck';
-      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to import deck'
+
       // Check if it's the Moxfield paste suggestion error
       if (errorMessage.includes('copy the deck list') || errorMessage.includes('Paste Deck List')) {
-        showMoxfieldWarning = true;
+        showMoxfieldWarning = true
       }
-      
-      toast.error(errorMessage);
+
+      toast.error(errorMessage)
     } finally {
-      isLoading = false;
-      isParsing = false;
-      totalCardsToSearch = 0;
-      cardsSearched = 0;
+      isLoading = false
+      isParsing = false
+      totalCardsToSearch = 0
+      cardsSearched = 0
     }
   }
 
   function parseDeckList(text: string): DeckCard[] {
-    const cards: DeckCard[] = [];
-    const lines = text.split('\n');
-    
+    const cards: DeckCard[] = []
+    const lines = text.split('\n')
+
     // Regex logic: Priority for strictly formatted lines
     // ^(\d+) -> Quantity
     // \s+(.+?) -> Name (non-greedy) - may include " / " for MDFC
     // (?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)? -> Optional Set group: (set) followed optionally by CN
     // (?:\s+\*(.+?)\*)? -> Optional Foil group
     // $ -> End of line check
-    const regex = /^(\d+)\s+(.+?)(?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)?(?:\s+\*(.+?)\*)?$/;
+    const regex = /^(\d+)\s+(.+?)(?:\s+\(([a-zA-Z0-9]+)\)(?:\s+([a-zA-Z0-9]+))?)?(?:\s+\*(.+?)\*)?$/
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
+      const trimmed = line.trim()
+      if (!trimmed) continue
 
-      const match = trimmed.match(regex);
+      const match = trimmed.match(regex)
       if (match) {
-        const [, qty, fullName, set, cn, foil] = match;
-        
+        const [, qty, fullName, set, cn, foil] = match
+
         //  Handle MDFC (Modal Double-Faced Cards) - extract first face only
         // Example: "Witch Enchanter / Witch-Blessed Meadow" -> "Witch Enchanter"
-        if (!fullName) continue;
+        if (!fullName) continue
         const nameParts = fullName.includes(' / ') ? fullName.split(' / ') : [fullName]
         const name = (nameParts[0] ?? fullName).trim()
-        
+
         cards.push({
           quantity: parseInt(qty!),
           name,
@@ -506,294 +514,297 @@
           collectorNumber: cn,
           boardType: 'mainboard',
           foil: !!foil
-        });
+        })
       } else {
         // Fallback for simple "1 Card Name"
         // Try to match simpler pattern "Qty Name"
-        const simpleRegex = /^(\d+)\s+(.+)$/;
-        const simpleMatch = trimmed.match(simpleRegex);
+        const simpleRegex = /^(\d+)\s+(.+)$/
+        const simpleMatch = trimmed.match(simpleRegex)
         if (simpleMatch) {
-          const fullName = simpleMatch[2]!.trim();
+          const fullName = simpleMatch[2]!.trim()
           const nameParts = fullName.includes(' / ') ? fullName.split(' / ') : [fullName]
           const name = (nameParts[0] ?? fullName).trim()
-          
+
           cards.push({
             quantity: parseInt(simpleMatch[1]!),
             name,
             boardType: 'mainboard'
-          });
+          })
         }
       }
     }
-    return cards;
+    return cards
   }
 
   async function importPastedDeck() {
     if (!pasteContent.trim()) {
-      toast.error('Please paste a decklist');
-      return;
+      toast.error('Please paste a decklist')
+      return
     }
 
-    isLoading = true;
-    searchResults = [];
-    selectedCards = new Map();
-    carouselIndices = new Map();
-    totalCardsToSearch = 0;
-    cardsSearched = 0;
-    deckName = 'Pasted Deck';
-    deckSource = null;
+    isLoading = true
+    searchResults = []
+    selectedCards = new Map()
+    carouselIndices = new Map()
+    totalCardsToSearch = 0
+    cardsSearched = 0
+    deckName = 'Pasted Deck'
+    deckSource = null
 
     try {
-      const cards = parseDeckList(pasteContent);
+      const cards = parseDeckList(pasteContent)
       if (cards.length === 0) {
-        toast.error('No valid cards found in text');
-        isLoading = false;
-        return;
+        toast.error('No valid cards found in text')
+        isLoading = false
+        return
       }
 
-      isParsing = true;
-      totalCardsToSearch = cards.length;
-      
+      isParsing = true
+      totalCardsToSearch = cards.length
+
       // Single request for all cards (optimized batch search)
       const searchResponse = await fetch('/api/import/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cards })
-      });
+      })
 
       if (!searchResponse.ok) {
-        throw new Error('Failed to search for cards');
+        throw new Error('Failed to search for cards')
       }
 
-      const allResults: SearchResult[] = await searchResponse.json();
-      cardsSearched = allResults.length;
-      
-      searchResults = allResults;
+      const allResults: SearchResult[] = await searchResponse.json()
+      cardsSearched = allResults.length
+
+      searchResults = allResults
 
       // Auto-select exact matches that are in stock
-      const newSelected = new Map<number, CardMatch>();
-      const newCarouselIndices = new Map<number, number>();
+      const newSelected = new Map<number, CardMatch>()
+      const newCarouselIndices = new Map<number, number>()
       allResults.forEach((result, idx) => {
-        newCarouselIndices.set(idx, 0);
+        newCarouselIndices.set(idx, 0)
         if (result.exactMatch && result.exactMatch.is_in_stock) {
-          newSelected.set(idx, result.exactMatch);
+          newSelected.set(idx, result.exactMatch)
         }
-      });
-      selectedCards = newSelected;
-      carouselIndices = newCarouselIndices;
+      })
+      selectedCards = newSelected
+      carouselIndices = newCarouselIndices
 
-      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length;
-      const inStock = allResults.filter((r) => r.exactMatch?.is_in_stock || r.alternatives.some(a => a.is_in_stock)).length;
-      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`);
+      const matchCount = allResults.filter((r) => r.exactMatch || r.alternatives.length > 0).length
+      const inStock = allResults.filter(
+        (r) => r.exactMatch?.is_in_stock || r.alternatives.some((a) => a.is_in_stock)
+      ).length
+      toast.success(`Found ${matchCount} matches (${inStock} in stock) out of ${allResults.length} cards`)
 
       // Clear warning on successful paste import
-      showMoxfieldWarning = false;
-
+      showMoxfieldWarning = false
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to import deck');
+      toast.error(err instanceof Error ? err.message : 'Failed to import deck')
     } finally {
-      isLoading = false;
-      isParsing = false;
+      isLoading = false
+      isParsing = false
     }
   }
 
   function getAllOptions(result: SearchResult): CardMatch[] {
-    const options: CardMatch[] = [];
-    if (result.exactMatch) options.push(result.exactMatch);
-    options.push(...result.alternatives.filter((a) => a.id !== result.exactMatch?.id));
-    return options;
+    const options: CardMatch[] = []
+    if (result.exactMatch) options.push(result.exactMatch)
+    options.push(...result.alternatives.filter((a) => a.id !== result.exactMatch?.id))
+    return options
   }
 
   function getCarouselIndex(idx: number): number {
-    return carouselIndices.get(idx) || 0;
+    return carouselIndices.get(idx) || 0
   }
 
   function nextOption(idx: number, result: SearchResult) {
-    const options = getAllOptions(result);
-    const uniqueOptions = getUniqueSetCollectorOptions(options);
-    if (uniqueOptions.length <= 1) return;
-    const current = getCarouselIndex(idx);
-    const next = (current + 1) % uniqueOptions.length;
-    carouselIndices = new Map(carouselIndices).set(idx, next);
+    const options = getAllOptions(result)
+    const uniqueOptions = getUniqueSetCollectorOptions(options)
+    if (uniqueOptions.length <= 1) return
+    const current = getCarouselIndex(idx)
+    const next = (current + 1) % uniqueOptions.length
+    carouselIndices = new Map(carouselIndices).set(idx, next)
     // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      const newOption = uniqueOptions[next]!;
-      const finishVariants = getFinishVariants(options, newOption);
-      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
-      selectedCards = new Map(selectedCards).set(idx, inStockVariant);
+      const newOption = uniqueOptions[next]!
+      const finishVariants = getFinishVariants(options, newOption)
+      const inStockVariant = finishVariants.find((v) => v.is_in_stock) || newOption
+      selectedCards = new Map(selectedCards).set(idx, inStockVariant)
     }
   }
 
   function prevOption(idx: number, result: SearchResult) {
-    const options = getAllOptions(result);
-    const uniqueOptions = getUniqueSetCollectorOptions(options);
-    if (uniqueOptions.length <= 1) return;
-    const current = getCarouselIndex(idx);
-    const prev = (current - 1 + uniqueOptions.length) % uniqueOptions.length;
-    carouselIndices = new Map(carouselIndices).set(idx, prev);
+    const options = getAllOptions(result)
+    const uniqueOptions = getUniqueSetCollectorOptions(options)
+    if (uniqueOptions.length <= 1) return
+    const current = getCarouselIndex(idx)
+    const prev = (current - 1 + uniqueOptions.length) % uniqueOptions.length
+    carouselIndices = new Map(carouselIndices).set(idx, prev)
     // Update selection to first in-stock finish of new set+collector
     if (selectedCards.has(idx)) {
-      const newOption = uniqueOptions[prev]!;
-      const finishVariants = getFinishVariants(options, newOption);
-      const inStockVariant = finishVariants.find(v => v.is_in_stock) || newOption;
-      selectedCards = new Map(selectedCards).set(idx, inStockVariant);
+      const newOption = uniqueOptions[prev]!
+      const finishVariants = getFinishVariants(options, newOption)
+      const inStockVariant = finishVariants.find((v) => v.is_in_stock) || newOption
+      selectedCards = new Map(selectedCards).set(idx, inStockVariant)
     }
   }
 
   function getCurrentOption(idx: number, result: SearchResult): CardMatch | null {
-    const options = getAllOptions(result);
-    const uniqueOptions = getUniqueSetCollectorOptions(options);
-    if (uniqueOptions.length === 0) return null;
-    const carouselIdx = getCarouselIndex(idx);
-    return uniqueOptions[carouselIdx] ?? uniqueOptions[0]!;
+    const options = getAllOptions(result)
+    const uniqueOptions = getUniqueSetCollectorOptions(options)
+    if (uniqueOptions.length === 0) return null
+    const carouselIdx = getCarouselIndex(idx)
+    return uniqueOptions[carouselIdx] ?? uniqueOptions[0]!
   }
 
   // Finish order for sorting
   const FINISH_ORDER: Record<string, number> = {
-    'Normal': 0,
-    'Holo': 1,
-    'Foil': 2,
+    Normal: 0,
+    Holo: 1,
+    Foil: 2,
     'Surge Foil': 3,
     'Raised Foil': 4,
-    'Serialized': 5
-  };
+    Serialized: 5
+  }
 
   // Get finish variants for the current option (same set_code + collector_number + language)
   // Deduped by card_type and sorted: Normal → Holo → Foil
   function getFinishVariants(options: CardMatch[], currentOption: CardMatch | null): CardMatch[] {
-    if (!currentOption) return [];
-    
+    if (!currentOption) return []
+
     // Filter to same set+collector+language
     const sameSetCollector = options.filter(
       (opt) =>
         opt.set_code === currentOption.set_code &&
         opt.collector_number === currentOption.collector_number &&
         (opt.language || 'en') === (currentOption.language || 'en')
-    );
-    
+    )
+
     // Dedupe by card_type (finish), prefer in-stock
-    const finishMap = new Map<string, CardMatch>();
+    const finishMap = new Map<string, CardMatch>()
     for (const card of sameSetCollector) {
-      const existing = finishMap.get(card.card_type);
+      const existing = finishMap.get(card.card_type)
       if (!existing || (card.is_in_stock && !existing.is_in_stock)) {
-        finishMap.set(card.card_type, card);
+        finishMap.set(card.card_type, card)
       }
     }
-    
+
     // Sort by finish order
     return Array.from(finishMap.values()).sort((a, b) => {
-      const orderA = FINISH_ORDER[a.card_type] ?? 99;
-      const orderB = FINISH_ORDER[b.card_type] ?? 99;
-      return orderA - orderB;
-    });
+      const orderA = FINISH_ORDER[a.card_type] ?? 99
+      const orderB = FINISH_ORDER[b.card_type] ?? 99
+      return orderA - orderB
+    })
   }
 
   // Get unique set+collector+language combinations for carousel navigation (deduped by finish)
   function getUniqueSetCollectorOptions(options: CardMatch[]): CardMatch[] {
-    const seen = new Set<string>();
+    const seen = new Set<string>()
     return options.filter((opt) => {
-      const key = `${opt.set_code}|${opt.collector_number}|${opt.language || 'en'}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+      const key = `${opt.set_code}|${opt.collector_number}|${opt.language || 'en'}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
 
   // Select a specific finish variant (only switches finish if card is already selected)
   function selectFinish(idx: number, finishVariant: CardMatch) {
-    if (!finishVariant.is_in_stock) return;
+    if (!finishVariant.is_in_stock) return
     // Only switch finish if card is already selected
     if (selectedCards.has(idx)) {
-      selectedCards = new Map(selectedCards).set(idx, finishVariant);
+      selectedCards = new Map(selectedCards).set(idx, finishVariant)
     }
   }
 
   function toggleCardSelection(idx: number, card: CardMatch | null) {
-    if (!card) return;
-    const newSelected = new Map(selectedCards);
+    if (!card) return
+    const newSelected = new Map(selectedCards)
     if (newSelected.has(idx)) {
-      newSelected.delete(idx);
+      newSelected.delete(idx)
     } else {
-      newSelected.set(idx, card);
+      newSelected.set(idx, card)
     }
-    selectedCards = newSelected;
+    selectedCards = newSelected
   }
 
   function selectAllInStock() {
-    const newSelected = new Map<number, CardMatch>();
+    const newSelected = new Map<number, CardMatch>()
     searchResults.forEach((result, idx) => {
-      const options = getAllOptions(result);
-      const inStockOption = options.find((o) => o.is_in_stock);
+      const options = getAllOptions(result)
+      const inStockOption = options.find((o) => o.is_in_stock)
       if (inStockOption) {
-        newSelected.set(idx, inStockOption);
+        newSelected.set(idx, inStockOption)
       }
-    });
-    selectedCards = newSelected;
-    toast.success(`Selected ${newSelected.size} in-stock cards`);
+    })
+    selectedCards = newSelected
+    toast.success(`Selected ${newSelected.size} in-stock cards`)
   }
 
   function clearSelection() {
-    selectedCards = new Map();
+    selectedCards = new Map()
   }
 
   async function copyUnavailableCards() {
-    if (notFoundCards.length === 0) return;
-    const text = notFoundCards.map(formatCardForClipboard).join('\n');
+    if (notFoundCards.length === 0) return
+    const text = notFoundCards.map(formatCardForClipboard).join('\n')
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success(`Copied ${notFoundCards.length} unavailable card${notFoundCards.length === 1 ? '' : 's'} to clipboard`);
+      await navigator.clipboard.writeText(text)
+      toast.success(
+        `Copied ${notFoundCards.length} unavailable card${notFoundCards.length === 1 ? '' : 's'} to clipboard`
+      )
     } catch {
-      toast.error('Failed to copy to clipboard');
+      toast.error('Failed to copy to clipboard')
     }
   }
 
   // Select all in-stock cards for a specific card type within a board
   function selectAllCardType(boardType: string, cardType: string) {
-    const newSelected = new Map(selectedCards);
+    const newSelected = new Map(selectedCards)
     searchResults.forEach((result, idx) => {
-      const resultBoardType = result.requestedCard.boardType || 'mainboard';
-      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      const resultBoardType = result.requestedCard.boardType || 'mainboard'
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '')
       if (resultBoardType === boardType && resultCardType === cardType) {
-        const options = getAllOptions(result);
-        const inStockOption = options.find((o) => o.is_in_stock);
+        const options = getAllOptions(result)
+        const inStockOption = options.find((o) => o.is_in_stock)
         if (inStockOption) {
-          newSelected.set(idx, inStockOption);
+          newSelected.set(idx, inStockOption)
         }
       }
-    });
-    selectedCards = newSelected;
+    })
+    selectedCards = newSelected
   }
 
   // Clear all selections for a specific card type within a board
   function clearCardType(boardType: string, cardType: string) {
-    const newSelected = new Map(selectedCards);
+    const newSelected = new Map(selectedCards)
     searchResults.forEach((result, idx) => {
-      const resultBoardType = result.requestedCard.boardType || 'mainboard';
-      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      const resultBoardType = result.requestedCard.boardType || 'mainboard'
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '')
       if (resultBoardType === boardType && resultCardType === cardType) {
-        newSelected.delete(idx);
+        newSelected.delete(idx)
       }
-    });
-    selectedCards = newSelected;
+    })
+    selectedCards = newSelected
   }
 
   // Count selected cards in a card type section
   function countSelectedInCardType(boardType: string, cardType: string): number {
-    let count = 0;
+    let count = 0
     searchResults.forEach((result, idx) => {
-      const resultBoardType = result.requestedCard.boardType || 'mainboard';
-      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '');
+      const resultBoardType = result.requestedCard.boardType || 'mainboard'
+      const resultCardType = extractPrimaryType(result.requestedCard.typeLine || '')
       if (resultBoardType === boardType && resultCardType === cardType && selectedCards.has(idx)) {
-        count++;
+        count++
       }
-    });
-    return count;
+    })
+    return count
   }
 
   async function addSelectedToCart() {
     if (selectedCards.size === 0) {
-      toast.error('No cards selected');
-      return;
+      toast.error('No cards selected')
+      return
     }
 
     // Prepare bulk items array
@@ -803,34 +814,33 @@
         card: card as any,
         quantity: result!.requestedCard.quantity
       }
-    });
+    })
 
     // Add all items in a single API call
-    const success = await cartStore.addItems(itemsToAdd);
+    const success = await cartStore.addItems(itemsToAdd)
 
     if (success) {
-      toast.success(`Added ${itemsToAdd.length} cards to cart`);
-      selectedCards = new Map();
+      toast.success(`Added ${itemsToAdd.length} cards to cart`)
+      selectedCards = new Map()
     } else {
-      toast.error('Failed to add cards to cart');
+      toast.error('Failed to add cards to cart')
     }
   }
 
-
   function getCardImageUrl(scryfallId: string | null, size: 'small' | 'normal' = 'normal'): string {
-    if (!scryfallId) return '/placeholder-card.png';
-    return `https://cards.scryfall.io/${size}/front/${scryfallId.charAt(0)}/${scryfallId.charAt(1)}/${scryfallId}.jpg`;
+    if (!scryfallId) return '/placeholder-card.png'
+    return `https://cards.scryfall.io/${size}/front/${scryfallId.charAt(0)}/${scryfallId.charAt(1)}/${scryfallId}.jpg`
   }
 
   function getSellerInfo(card: CardMatch): string {
     // Extract seller info from serial if available
-    const parts = card.serial?.split('_') || [];
-    return parts[0] || 'Unknown';
+    const parts = card.serial?.split('_') || []
+    return parts[0] || 'Unknown'
   }
 
   // Session Caching
   function saveStateToCache() {
-    if (!browser) return;
+    if (!browser) return
 
     const cacheData = {
       deckUrl,
@@ -840,97 +850,97 @@
       selectedCards: Array.from(selectedCards.entries()),
       carouselIndices: Array.from(carouselIndices.entries()),
       timestamp: Date.now()
-    };
+    }
 
     try {
-      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cacheData));
+      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cacheData))
     } catch (e) {
-      console.error('Failed to save to session cache', e);
+      console.error('Failed to save to session cache', e)
     }
   }
 
   function loadStateFromCache() {
-    if (!browser) return;
+    if (!browser) return
 
     try {
-      const cached = sessionStorage.getItem(SESSION_CACHE_KEY);
-      if (!cached) return;
+      const cached = sessionStorage.getItem(SESSION_CACHE_KEY)
+      if (!cached) return
 
-      const data = JSON.parse(cached);
-      
+      const data = JSON.parse(cached)
+
       // Restore state
-      deckUrl = data.deckUrl || '';
-      deckName = data.deckName || '';
-      deckSource = data.deckSource || null;
-      searchResults = data.searchResults || [];
-      
+      deckUrl = data.deckUrl || ''
+      deckName = data.deckName || ''
+      deckSource = data.deckSource || null
+      searchResults = data.searchResults || []
+
       // Restore Maps
       if (data.selectedCards) {
-        selectedCards = new Map(data.selectedCards);
+        selectedCards = new Map(data.selectedCards)
       }
       if (data.carouselIndices) {
-        carouselIndices = new Map(data.carouselIndices);
+        carouselIndices = new Map(data.carouselIndices)
       }
 
       if (searchResults.length > 0) {
-        toast.success('Restored previous search results');
+        toast.success('Restored previous search results')
       }
     } catch (e) {
-      console.error('Failed to load from session cache', e);
-      sessionStorage.removeItem(SESSION_CACHE_KEY);
+      console.error('Failed to load from session cache', e)
+      sessionStorage.removeItem(SESSION_CACHE_KEY)
     }
   }
 
   function clearCache() {
-    if (!browser) return;
-    sessionStorage.removeItem(SESSION_CACHE_KEY);
+    if (!browser) return
+    sessionStorage.removeItem(SESSION_CACHE_KEY)
   }
 
   // Controls which accordion panel is open in the import card
-  let pasteAccordionValue = $state<string | undefined>(undefined);
+  let pasteAccordionValue = $state<string | undefined>(undefined)
 
   // Load from cache on mount, then check for bookmarklet hash params
   onMount(() => {
-    loadStateFromCache();
+    loadStateFromCache()
 
     if (browser) {
-      const hash = window.location.hash;
+      const hash = window.location.hash
       if (hash.startsWith('#moxfield-import')) {
         try {
-          const params = new URLSearchParams(hash.slice(1));
-          const text = params.get('moxfield-import');
-          const name = params.get('name');
+          const params = new URLSearchParams(hash.slice(1))
+          const text = params.get('moxfield-import')
+          const name = params.get('name')
           if (text) {
-            pasteContent = decodeURIComponent(text);
-            deckName = name ? decodeURIComponent(name) : 'Moxfield Deck';
+            pasteContent = decodeURIComponent(text)
+            deckName = name ? decodeURIComponent(name) : 'Moxfield Deck'
             // Open the paste accordion and kick off the import
-            pasteAccordionValue = 'paste';
+            pasteAccordionValue = 'paste'
             // Slight delay so the accordion finishes animating open
-            setTimeout(() => importPastedDeck(), 150);
+            setTimeout(() => importPastedDeck(), 150)
             // Clean up the URL so refreshing doesn't re-import
-            history.replaceState(null, '', window.location.pathname);
+            history.replaceState(null, '', window.location.pathname)
           }
         } catch (e) {
-          console.warn('[bookmarklet] failed to parse hash params', e);
+          console.warn('[bookmarklet] failed to parse hash params', e)
         }
       }
     }
-  });
+  })
 
   // Auto-save when relevant state changes (only if not loading)
   $effect(() => {
     if (!isLoading && searchResults.length > 0) {
       // Track dependencies
-      deckUrl;
-      deckName;
-      deckSource;
-      searchResults;
-      selectedCards;
-      carouselIndices;
-      
-      saveStateToCache();
+      deckUrl
+      deckName
+      deckSource
+      searchResults
+      selectedCards
+      carouselIndices
+
+      saveStateToCache()
     }
-  });
+  })
 </script>
 
 <svelte:head>
@@ -940,9 +950,7 @@
 <div class="container max-w-7xl py-8">
   <div class="mb-8">
     <h1 class="text-3xl font-bold">Import Deck</h1>
-    <p class="text-muted-foreground">
-      Paste a Moxfield or Archidekt deck URL to find cards in our inventory
-    </p>
+    <p class="text-muted-foreground">Paste a Moxfield or Archidekt deck URL to find cards in our inventory</p>
   </div>
 
   <!-- URL Input -->
@@ -971,9 +979,7 @@
         </Button>
       </div>
 
-      <p class="mt-2 text-sm text-muted-foreground">
-        Import a deck from Moxfield or Archidekt above
-      </p>
+      <p class="mt-2 text-sm text-muted-foreground">Import a deck from Moxfield or Archidekt above</p>
 
       {#if showMoxfieldWarning}
         <div class="mt-4 flex items-start gap-3 rounded-md border border-yellow-600/50 bg-yellow-500/10 p-4">
@@ -985,12 +991,15 @@
             <p class="text-sm text-yellow-800 dark:text-yellow-200">
               Use the <button
                 class="underline font-medium"
-                onclick={() => { showMoxfieldWarning = false; pasteAccordionValue = 'moxfield-help'; }}
-              >Moxfield Bookmarklet</button> below for one-click imports, or paste the deck list manually.
+                onclick={() => {
+                  showMoxfieldWarning = false
+                  pasteAccordionValue = 'moxfield-help'
+                }}>Moxfield Bookmarklet</button
+              > below for one-click imports, or paste the deck list manually.
             </p>
           </div>
           <button
-            onclick={() => showMoxfieldWarning = false}
+            onclick={() => (showMoxfieldWarning = false)}
             class="shrink-0 rounded-sm opacity-70 hover:opacity-100"
             aria-label="Close"
           >
@@ -1002,7 +1011,6 @@
       <!-- Paste Decklist + Moxfield Bookmarklet -->
       <div class="mt-4">
         <Accordion.Root type="single" bind:value={pasteAccordionValue}>
-
           <!-- ── Moxfield Bookmarklet instructions ───────────────────────────── -->
           <Accordion.Item value="moxfield-help">
             <Accordion.Trigger class="text-sm text-muted-foreground hover:no-underline">
@@ -1011,20 +1019,28 @@
             <Accordion.Content>
               <div class="space-y-4 pt-2 text-sm">
                 <p class="text-muted-foreground">
-                  Moxfield blocks server-side requests, but your browser can fetch the deck directly.
-                  This bookmarklet runs on Moxfield, grabs the deck list, and sends it here automatically.
+                  Moxfield blocks server-side requests, but your browser can fetch the deck directly. This bookmarklet
+                  runs on Moxfield, grabs the deck list, and sends it here automatically.
                 </p>
 
                 <!-- Step 1 -->
                 <div class="flex gap-3">
-                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+                  <span
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+                    >1</span
+                  >
                   <div>
                     <p class="font-medium">Drag this button to your bookmarks bar</p>
-                    <p class="mt-1 text-xs text-muted-foreground">If the bar isn't visible: <kbd class="rounded border px-1 py-0.5 text-xs">Ctrl+Shift+B</kbd> (Windows) or <kbd class="rounded border px-1 py-0.5 text-xs">⌘+Shift+B</kbd> (Mac)</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      If the bar isn't visible: <kbd class="rounded border px-1 py-0.5 text-xs">Ctrl+Shift+B</kbd>
+                      (Windows) or <kbd class="rounded border px-1 py-0.5 text-xs">⌘+Shift+B</kbd> (Mac)
+                    </p>
                     <!-- The bookmarklet link -->
                     <!-- svelte-ignore a11y_invalid_attribute -->
                     <a
-                      href={browser ? `javascript:(function(){var m=location.href.match(/moxfield\\.com\\/decks\\/([a-zA-Z0-9_-]+)/);if(!m){alert('Open a Moxfield deck page first.');return;}var id=m[1];fetch('https://api2.moxfield.com/v3/decks/all/'+id).then(function(r){return r.json();}).then(function(d){var eid=d.exportId;var name=encodeURIComponent(d.name||'Moxfield Deck');fetch('https://api2.moxfield.com/v2/decks/all/'+id+'/export?exportId='+eid,{headers:{Accept:'text/plain'}}).then(function(r){return r.text();}).then(function(t){location.href='https://rons-group-buy.vercel.app/import#moxfield-import='+encodeURIComponent(t)+'&name='+name;});});})();` : '#'}
+                      href={browser
+                        ? `javascript:(function(){var m=location.href.match(/moxfield\\.com\\/decks\\/([a-zA-Z0-9_-]+)/);if(!m){alert('Open a Moxfield deck page first.');return;}var id=m[1];fetch('https://api2.moxfield.com/v3/decks/all/'+id).then(function(r){return r.json();}).then(function(d){var eid=d.exportId;var name=encodeURIComponent(d.name||'Moxfield Deck');fetch('https://api2.moxfield.com/v2/decks/all/'+id+'/export?exportId='+eid,{headers:{Accept:'text/plain'}}).then(function(r){return r.text();}).then(function(t){location.href='https://rons-group-buy.vercel.app/import#moxfield-import='+encodeURIComponent(t)+'&name='+name;});});})();`
+                        : '#'}
                       class="mt-2 inline-flex cursor-grab items-center gap-2 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 active:cursor-grabbing"
                       ondragstart={(e) => e.dataTransfer?.setData('text/plain', '')}
                     >
@@ -1035,24 +1051,37 @@
 
                 <!-- Step 2 -->
                 <div class="flex gap-3">
-                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+                  <span
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+                    >2</span
+                  >
                   <div>
                     <p class="font-medium">Open the Moxfield deck you want to import</p>
-                    <p class="mt-1 text-xs text-muted-foreground">Any public or unlisted deck URL like <code class="rounded bg-muted px-1">moxfield.com/decks/…</code></p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      Any public or unlisted deck URL like <code class="rounded bg-muted px-1"
+                        >moxfield.com/decks/…</code
+                      >
+                    </p>
                   </div>
                 </div>
 
                 <!-- Step 3 -->
                 <div class="flex gap-3">
-                  <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                  <span
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+                    >3</span
+                  >
                   <div>
                     <p class="font-medium">Click the bookmarklet</p>
-                    <p class="mt-1 text-xs text-muted-foreground">It will fetch the deck list and redirect you back here. The import will start automatically.</p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                      It will fetch the deck list and redirect you back here. The import will start automatically.
+                    </p>
                   </div>
                 </div>
 
                 <p class="rounded-md border border-muted bg-muted/40 p-3 text-xs text-muted-foreground">
-                  <strong>Privacy:</strong> The bookmarklet only reads the deck you're currently viewing and sends it to this site. No data is stored on Moxfield or any third party.
+                  <strong>Privacy:</strong> The bookmarklet only reads the deck you're currently viewing and sends it to this
+                  site. No data is stored on Moxfield or any third party.
                 </p>
               </div>
             </Accordion.Content>
@@ -1089,10 +1118,9 @@
               </div>
             </Accordion.Content>
           </Accordion.Item>
-
         </Accordion.Root>
       </div>
-      
+
       <!-- Progress bar during search -->
       {#if isParsing && totalCardsToSearch > 0}
         <div class="mt-4 space-y-2">
@@ -1101,10 +1129,7 @@
             <span class="font-medium">{cardsSearched} / {totalCardsToSearch} cards</span>
           </div>
           <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div 
-              class="h-full bg-primary transition-all duration-300 ease-out"
-              style="width: {searchProgress}%"
-            ></div>
+            <div class="h-full bg-primary transition-all duration-300 ease-out" style="width: {searchProgress}%"></div>
           </div>
         </div>
       {/if}
@@ -1121,12 +1146,8 @@
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onclick={selectAllInStock}>
-          Select All In Stock
-        </Button>
-        <Button variant="ghost" size="sm" onclick={clearSelection}>
-          Clear Selection
-        </Button>
+        <Button variant="outline" size="sm" onclick={selectAllInStock}>Select All In Stock</Button>
+        <Button variant="ghost" size="sm" onclick={clearSelection}>Clear Selection</Button>
         {#if notFoundCards.length > 0}
           <Button variant="outline" size="sm" onclick={copyUnavailableCards} class="gap-1.5 text-muted-foreground">
             <Copy class="h-3.5 w-3.5" />
@@ -1159,7 +1180,9 @@
 
         {#each board.cardTypes as cardTypeGroup}
           {@const selectedInType = countSelectedInCardType(board.boardType, cardTypeGroup.type)}
-          {@const inStockCount = cardTypeGroup.cards.filter(c => getAllOptions(c.result).some(o => o.is_in_stock)).length}
+          {@const inStockCount = cardTypeGroup.cards.filter((c) =>
+            getAllOptions(c.result).some((o) => o.is_in_stock)
+          ).length}
           <div class="mb-6">
             <div class="mb-3 flex items-center justify-between">
               <h4 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">
@@ -1169,18 +1192,18 @@
                 {/if}
               </h4>
               <div class="flex gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   class="h-6 px-2 text-xs"
                   onclick={() => selectAllCardType(board.boardType, cardTypeGroup.type)}
                   disabled={inStockCount === 0}
                 >
                   Select All
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   class="h-6 px-2 text-xs"
                   onclick={() => clearCardType(board.boardType, cardTypeGroup.type)}
                   disabled={selectedInType === 0}
@@ -1216,18 +1239,23 @@
                         class="h-full w-full object-cover {!currentOption.is_in_stock ? 'opacity-50 grayscale' : ''}"
                         loading="lazy"
                       />
-                      
+
                       <!-- Left carousel click zone (15% width) -->
                       {#if uniqueOptions.length > 1}
                         <button
-                          onclick={(e) => { e.stopPropagation(); prevOption(originalIdx, result); }}
+                          onclick={(e) => {
+                            e.stopPropagation()
+                            prevOption(originalIdx, result)
+                          }}
                           class="absolute left-0 top-0 h-full w-[15%] flex items-center justify-start pl-1 hover:bg-black/30 transition-all cursor-pointer"
                           aria-label="Previous card printing"
                         >
-                          <ChevronLeft class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
+                          <ChevronLeft
+                            class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]"
+                          />
                         </button>
                       {/if}
-                      
+
                       <!-- Center click zone for selection -->
                       <button
                         onclick={() => currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
@@ -1235,40 +1263,51 @@
                         disabled={!currentOption?.is_in_stock}
                         aria-label="Select card"
                       ></button>
-                      
+
                       <!-- Right carousel click zone (15% width) -->
                       {#if uniqueOptions.length > 1}
                         <button
-                          onclick={(e) => { e.stopPropagation(); nextOption(originalIdx, result); }}
+                          onclick={(e) => {
+                            e.stopPropagation()
+                            nextOption(originalIdx, result)
+                          }}
                           class="absolute right-0 top-0 h-full w-[15%] flex items-center justify-end pr-1 hover:bg-black/30 transition-all cursor-pointer"
                           aria-label="Next card printing"
                         >
-                          <ChevronRight class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]" />
+                          <ChevronRight
+                            class="h-6 w-6 text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)] [text-shadow:0_0_4px_rgba(0,0,0,0.9)]"
+                          />
                         </button>
                       {/if}
-                      
+
                       <!-- Match type indicator -->
                       <div
                         class="absolute top-2 right-2 h-3 w-3 rounded-full {isExactMatch
                           ? 'bg-green-500'
                           : 'bg-yellow-500'}"
                       ></div>
-                      
+
                       <!-- Quantity badge -->
                       {#if result.requestedCard.quantity > 1}
-                        <Badge variant="secondary" class="absolute top-2 left-2 text-xs">x{result.requestedCard.quantity}</Badge>
+                        <Badge variant="secondary" class="absolute top-2 left-2 text-xs"
+                          >x{result.requestedCard.quantity}</Badge
+                        >
                       {/if}
-                      
+
                       <!-- Carousel position indicator (shows different printings, not finishes) -->
                       {#if uniqueOptions.length > 1}
-                        <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                        <div
+                          class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-0.5 rounded"
+                        >
                           {carouselIdx + 1} / {uniqueOptions.length}
                         </div>
                       {/if}
-                      
+
                       <!-- Selection indicator overlay -->
                       {#if isSelected}
-                        <div class="absolute inset-0 bg-primary/10 pointer-events-none flex items-center justify-center">
+                        <div
+                          class="absolute inset-0 bg-primary/10 pointer-events-none flex items-center justify-center"
+                        >
                           <div class="bg-primary/80 rounded-full p-1.5 shadow-lg">
                             <Check class="h-6 w-6 text-primary-foreground" />
                           </div>
@@ -1287,15 +1326,23 @@
                   <!-- Card Info -->
                   <div class="p-2 space-y-1.5">
                     <button
-                      onclick={() => hasOptions && currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
-                      class="w-full text-left {hasOptions && currentOption?.is_in_stock ? 'cursor-pointer' : 'cursor-default'}"
+                      onclick={() =>
+                        hasOptions && currentOption?.is_in_stock && toggleCardSelection(originalIdx, currentOption)}
+                      class="w-full text-left {hasOptions && currentOption?.is_in_stock
+                        ? 'cursor-pointer'
+                        : 'cursor-default'}"
                       disabled={!hasOptions || !currentOption?.is_in_stock}
                     >
                       <p class="text-xs font-medium truncate" title={result.requestedCard.name}>
-                        {result.requestedCard.name}{#if hasOptions && currentOption?.language && currentOption.language !== 'en'}&nbsp;<span class="text-muted-foreground">({currentOption.language})</span>{/if}
+                        {result.requestedCard
+                          .name}{#if hasOptions && currentOption?.language && currentOption.language !== 'en'}&nbsp;<span
+                            class="text-muted-foreground">({currentOption.language})</span
+                          >{/if}
                       </p>
                       {#if result.isMisprinted}
-                        <span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        <span
+                          class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                        >
                           <AlertTriangle class="h-3 w-3" />
                           Only misprint versions available
                         </span>
@@ -1306,19 +1353,22 @@
                         </p>
                       {/if}
                     </button>
-                    
+
                     <!-- Finish Segment Control -->
                     {#if finishVariants.length > 1}
                       <div class="flex rounded-md border overflow-hidden">
                         {#each finishVariants as variant}
                           {@const isActiveFinish = isSelected && selectedCard?.id === variant.id}
                           <button
-                            onclick={(e) => { e.stopPropagation(); selectFinish(originalIdx, variant); }}
+                            onclick={(e) => {
+                              e.stopPropagation()
+                              selectFinish(originalIdx, variant)
+                            }}
                             disabled={!variant.is_in_stock}
                             class="flex-1 py-1 px-1 text-center transition-all text-[10px] leading-tight
-                              {isActiveFinish 
-                                ? 'bg-primary text-primary-foreground font-medium' 
-                                : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                              {isActiveFinish
+                              ? 'bg-primary text-primary-foreground font-medium'
+                              : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
                               {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
                           >
                             <div>{getFinishLabel(variant)}</div>
@@ -1328,10 +1378,14 @@
                       </div>
                     {:else if finishVariants.length === 1}
                       <div class="flex items-center justify-between gap-1">
-                        <Badge class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]!))}">
+                        <Badge
+                          class="text-[10px] px-1 py-0 {getFinishBadgeClasses(getFinishLabel(finishVariants[0]!))}"
+                        >
                           {getFinishLabel(finishVariants[0]!)}
                         </Badge>
-                        <span class="text-xs font-semibold">{formatPrice(getCardPrice(finishVariants[0]!.card_type))}</span>
+                        <span class="text-xs font-semibold"
+                          >{formatPrice(getCardPrice(finishVariants[0]!.card_type))}</span
+                        >
                       </div>
                     {/if}
                   </div>

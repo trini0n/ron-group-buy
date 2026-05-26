@@ -1,105 +1,113 @@
 <script lang="ts">
-  import type { Card } from '$lib/server/types';
-  import { Button } from '$components/ui/button';
-  import { Badge } from '$components/ui/badge';
-  import * as CardUI from '$components/ui/card';
-  import { Input } from '$components/ui/input';
-  import * as Tooltip from '$components/ui/tooltip';
-  import { getRonImageUrl, getScryfallImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
-  import { Plus, Minus, ShoppingCart } from 'lucide-svelte';
-  import { cartStore } from '$lib/stores/cart.svelte';
+  import type { Card } from '$lib/server/types'
+  import { Button } from '$components/ui/button'
+  import { Badge } from '$components/ui/badge'
+  import * as CardUI from '$components/ui/card'
+  import { Input } from '$components/ui/input'
+  import * as Tooltip from '$components/ui/tooltip'
+  import {
+    getRonImageUrl,
+    getScryfallImageUrl,
+    getCardPrice,
+    formatPrice,
+    getCardUrl,
+    getFinishLabel,
+    getFinishBadgeClasses
+  } from '$lib/utils'
+  import { Plus, Minus, ShoppingCart } from 'lucide-svelte'
+  import { cartStore } from '$lib/stores/cart.svelte'
 
   interface Props {
-    card: Card;
-    finishVariants?: Card[];
+    card: Card
+    finishVariants?: Card[]
   }
 
-  let { card, finishVariants = [card] }: Props = $props();
+  let { card, finishVariants = [card] }: Props = $props()
 
   // Quantity state
-  let quantity = $state(1);
-  
+  let quantity = $state(1)
+
   // Track selected finish variant (can be changed by user or props)
-  let selectedCard = $state<Card>({} as Card);
-  
+  let selectedCard = $state<Card>({} as Card)
+
   // Set selectedCard when card or finishVariants changes
   $effect(() => {
-    const inStock = finishVariants.find(v => v.is_in_stock);
-    selectedCard = inStock || finishVariants[0] || card;
-  });
+    const inStock = finishVariants.find((v) => v.is_in_stock)
+    selectedCard = inStock || finishVariants[0] || card
+  })
 
   // Get both image URLs for the selected card
-  const ronImageUrl = $derived(getRonImageUrl(selectedCard.ron_image_url));
+  const ronImageUrl = $derived(getRonImageUrl(selectedCard.ron_image_url))
   const scryfallImageUrl = $derived(
     selectedCard.scryfall_id ? getScryfallImageUrl(selectedCard.scryfall_id, 'normal') : '/images/card-placeholder.png'
-  );
+  )
 
   // Track if Ron's image has failed for this specific card
-  let ronImageFailed = $state(false);
+  let ronImageFailed = $state(false)
 
   // Reset failed state when selected card changes
   $effect(() => {
-    const _ = selectedCard.serial;
-    ronImageFailed = false;
-  });
+    const _ = selectedCard.serial
+    ronImageFailed = false
+  })
 
   // Use Ron's image first (if available and not failed), otherwise Scryfall
-  const currentImageUrl = $derived(ronImageUrl && !ronImageFailed ? ronImageUrl : scryfallImageUrl);
+  const currentImageUrl = $derived(ronImageUrl && !ronImageFailed ? ronImageUrl : scryfallImageUrl)
 
-  const price = $derived(getCardPrice(getFinishLabel(selectedCard)));
+  const price = $derived(getCardPrice(getFinishLabel(selectedCard)))
 
   // Format card identifier: SET_CODE #COLLECTOR_NUMBER (LANG if not 'en')
   const cardIdentifier = $derived.by(() => {
-    const parts: string[] = [];
+    const parts: string[] = []
     if (selectedCard.set_code) {
-      parts.push(selectedCard.set_code.toUpperCase());
+      parts.push(selectedCard.set_code.toUpperCase())
     }
     if (selectedCard.collector_number) {
-      parts.push(`#${selectedCard.collector_number}`);
+      parts.push(`#${selectedCard.collector_number}`)
     }
     if (selectedCard.language && selectedCard.language.toLowerCase() !== 'en') {
-      parts.push(`(${selectedCard.language.toUpperCase()})`);
+      parts.push(`(${selectedCard.language.toUpperCase()})`)
     }
-    return parts.join(' ') || selectedCard.set_name || '';
-  });
+    return parts.join(' ') || selectedCard.set_name || ''
+  })
 
   // Get display label for card finish (Normal, Holo, Foil, or Surge Foil)
-  const finishLabel = $derived(getFinishLabel(selectedCard));
-  const finishClasses = $derived(getFinishBadgeClasses(finishLabel));
-  
+  const finishLabel = $derived(getFinishLabel(selectedCard))
+  const finishClasses = $derived(getFinishBadgeClasses(finishLabel))
+
   // Check if any variant is in stock
-  const anyInStock = $derived(finishVariants.some(v => v.is_in_stock));
+  const anyInStock = $derived(finishVariants.some((v) => v.is_in_stock))
 
   // Check if this card is already in the cart
-  const isInCart = $derived(cartStore.isInCart(selectedCard.id));
+  const isInCart = $derived(cartStore.isInCart(selectedCard.id))
 
   function addToCart(e: Event) {
-    e.preventDefault();
-    e.stopPropagation();
-    cartStore.addItem(selectedCard, quantity);
-    quantity = 1; // Reset after adding
+    e.preventDefault()
+    e.stopPropagation()
+    cartStore.addItem(selectedCard, quantity)
+    quantity = 1 // Reset after adding
   }
 
   function incrementQuantity(e: Event) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (quantity < 99) quantity++;
+    e.preventDefault()
+    e.stopPropagation()
+    if (quantity < 99) quantity++
   }
 
   function decrementQuantity(e: Event) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (quantity > 1) quantity--;
+    e.preventDefault()
+    e.stopPropagation()
+    if (quantity > 1) quantity--
   }
 
   function handleQuantityInput(e: Event) {
-    e.stopPropagation();
+    e.stopPropagation()
   }
 
   function handleImageError() {
     // If we're currently showing Ron's image, mark it as failed to switch to Scryfall
     if (ronImageUrl && !ronImageFailed) {
-      ronImageFailed = true;
+      ronImageFailed = true
     }
   }
 </script>
@@ -131,7 +139,7 @@
 
       <!-- Misprint badge -->
       {#if selectedCard.is_misprint}
-        <Badge class="absolute left-2 top-2 bg-amber-600/65 backdrop-blur-sm text-xs">Misprint</Badge>
+        <Badge class="absolute left-2 top-2 bg-red-600/65 backdrop-blur-sm text-xs">Misprint</Badge>
       {/if}
     </div>
 
@@ -146,19 +154,23 @@
           {cardIdentifier}
         </p>
       </div>
-      
+
       <!-- Finish Segment Control or Single Badge -->
       {#if finishVariants.length > 1}
         <div class="mt-2 flex rounded-md border overflow-hidden">
           {#each finishVariants as variant}
             {@const isActive = selectedCard.serial === variant.serial}
             <button
-              onclick={(e) => { e.preventDefault(); e.stopPropagation(); selectedCard = variant; }}
+              onclick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                selectedCard = variant
+              }}
               disabled={!variant.is_in_stock}
               class="flex-1 py-1 px-1 text-center transition-all text-[10px] leading-tight
-                {isActive 
-                  ? 'bg-primary text-primary-foreground font-medium' 
-                  : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                {isActive
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
                 {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
             >
               <div>{getFinishLabel(variant)}</div>
