@@ -31,6 +31,7 @@ export interface CardFilters {
   cardType?: 'Normal' | 'Holo' | 'Foil';
   inStockOnly?: boolean;
   isNew?: boolean;
+  isMisprint?: boolean;
   typeLineContains?: string;
 }
 

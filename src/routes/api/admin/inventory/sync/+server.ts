@@ -36,6 +36,7 @@ interface CsvRow {
   'Ron Print': string
   OOS: string
   '🆕': string
+  Misprint: string
 }
 
 interface CardRecord {
@@ -65,6 +66,7 @@ interface CardRecord {
   ron_image_url: string | null
   is_in_stock: boolean
   is_new: boolean
+  is_misprint: boolean
 }
 
 function parseBoolean(value: string): boolean {
@@ -146,7 +148,8 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
       mana_cost: row['Mana Cost'] || null,
       ron_image_url: row['Ron Print'] || null,
       is_in_stock: !parseBoolean(row.OOS),
-      is_new: parseIsNew(row['🆕'])
+      is_new: parseIsNew(row['🆕']),
+      is_misprint: parseBoolean(row['Misprint'])
     }))
 }
 
@@ -238,9 +241,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       // Preserve converted URL if DB already holds a lh3.googleusercontent.com URL
       const existingUrl = existing?.ron_image_url
       const ron_image_url =
-        existingUrl && existingUrl.startsWith('https://lh3.googleusercontent.com/')
-          ? existingUrl
-          : card.ron_image_url
+        existingUrl && existingUrl.startsWith('https://lh3.googleusercontent.com/') ? existingUrl : card.ron_image_url
       // OOS priority: if DB already marks this serial OOS, keep it OOS even if sheet says in-stock.
       // Sheet OOS=TRUE always wins too (card.is_in_stock will already be false in that case).
       const is_in_stock = existing && !existing.is_in_stock ? false : card.is_in_stock
@@ -304,7 +305,10 @@ export const POST: RequestHandler = async ({ locals }) => {
       const batch = toInsert.slice(i, i + batchSize)
       const { error: insertError } = await adminClient.from('cards').insert(batch)
       if (insertError) {
-        logger.error({ error: insertError.message, batch: Math.floor(i / batchSize) + 1 }, 'Error inserting new cards batch')
+        logger.error(
+          { error: insertError.message, batch: Math.floor(i / batchSize) + 1 },
+          'Error inserting new cards batch'
+        )
         errorCount += batch.length
       } else {
         successCount += batch.length
