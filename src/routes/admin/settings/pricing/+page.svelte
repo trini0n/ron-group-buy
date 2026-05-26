@@ -11,7 +11,7 @@
   let { data } = $props();
 
   // Display order for card types
-  const TYPE_ORDER = ['Normal', 'Holo', 'Foil', 'Raised Foil', 'Serialized'];
+  const TYPE_ORDER = ['Normal', 'Holo', 'Foil', 'Raised Foil', 'Serialized', 'Normal Misprint', 'Holo Misprint', 'Foil Misprint'];
 
   type PricingRow = { card_type: string; price: number };
 
@@ -78,7 +78,10 @@
     Holo: 'bg-violet-200 text-violet-800',
     Foil: 'bg-amber-200 text-amber-800',
     'Raised Foil': 'bg-rose-200 text-rose-800',
-    Serialized: 'bg-yellow-200 text-yellow-800'
+    Serialized: 'bg-yellow-200 text-yellow-800',
+    'Normal Misprint': 'bg-red-100 text-red-800',
+    'Holo Misprint':   'bg-red-200 text-red-800',
+    'Foil Misprint':   'bg-red-300 text-red-900'
   };
 </script>
 

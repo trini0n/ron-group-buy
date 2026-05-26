@@ -18,7 +18,7 @@
 
   import { Separator } from "$components/ui/separator";
   import { cartStore } from "$lib/stores/cart.svelte";
-  import { formatPrice, getCardPrice, getFinishLabel } from "$lib/utils";
+  import { formatPrice, getCardPrice, getFinishLabel, getMispriceKey } from "$lib/utils";
   import { createSupabaseClient } from "$lib/supabase";
   import { browser } from "$app/environment";
   import {
@@ -160,10 +160,10 @@
     >();
     for (const item of cartStore.items) {
       // Use effective finish (foil_type ?? card_type) for correct grouping and pricing
-      const finish = getFinishLabel(item.card);
-      const price = getCardPrice(finish, prices);
-      const existing = groups.get(finish) ?? { count: 0, total: 0, price };
-      groups.set(finish, {
+      const priceKey = getMispriceKey(item.card);
+      const price = getCardPrice(priceKey, prices);
+      const existing = groups.get(priceKey) ?? { count: 0, total: 0, price };
+      groups.set(priceKey, {
         count: existing.count + item.quantity,
         total: existing.total + price * item.quantity,
         price,
@@ -271,7 +271,7 @@
             name: item.card.card_name,
             cardType: item.card.card_type,
             quantity: item.quantity,
-            unitPrice: getCardPrice(getFinishLabel(item.card)),
+            unitPrice: getCardPrice(getMispriceKey(item.card)),
             // Identity fields for stable matching across inventory resyncs
             setCode: item.card.set_code,
             collectorNumber: item.card.collector_number,
@@ -678,7 +678,7 @@
                 class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3"
               >
                 {#each cartStore.items as item (item.id)}
-                  {@const price = getCardPrice(getFinishLabel(item.card))}
+                  {@const price = getCardPrice(getMispriceKey(item.card))}
                   <div class="flex justify-between text-sm">
                     <span class="truncate pr-2">
                       {item.card.card_name} × {item.quantity}

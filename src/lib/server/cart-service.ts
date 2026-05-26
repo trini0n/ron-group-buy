@@ -43,9 +43,15 @@ export class CartService {
    * Mirrors getFinishLabel() from $lib/utils but works on plain objects
    * without importing the client-side util into server code.
    * foil_type takes priority over card_type (e.g. 'Raised Foil' > 'Foil').
+   * Misprint cards get a separate price key (e.g. 'Normal Misprint').
    */
-  private effectiveFinish(card: { card_type: string; foil_type?: string | null }): string {
-    return card.foil_type ?? card.card_type
+  private effectiveFinish(card: { card_type: string; foil_type?: string | null; is_misprint?: boolean | null }): string {
+    const finish = card.foil_type ?? card.card_type
+    if (card.is_misprint) {
+      const isAnyFoil = (['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const).includes(finish as any)
+      return isAnyFoil ? 'Foil Misprint' : `${finish} Misprint`
+    }
+    return finish
   }
 
   /**
@@ -106,7 +112,7 @@ export class CartService {
     const { data: items, error: itemsError } = await this.supabase
       .from('cart_items')
       .select(
-        'id, cart_id, card_id, quantity, price_at_add, card_name_snapshot, card_type_snapshot, is_in_stock_snapshot, added_at, card:cards(id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id)'
+        'id, cart_id, card_id, quantity, price_at_add, card_name_snapshot, card_type_snapshot, is_in_stock_snapshot, added_at, card:cards(id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, ron_image_url, scryfall_id, is_misprint)'
       )
       .eq('cart_id', cartId)
       .order('added_at', { ascending: true })
@@ -178,7 +184,7 @@ export class CartService {
     // Get card data for snapshot — include foil_type so pricing uses effective finish
     const { data: card, error: cardError } = await this.supabase
       .from('cards')
-      .select('id, card_name, card_type, foil_type, is_in_stock')
+      .select('id, card_name, card_type, foil_type, is_in_stock, is_misprint')
       .eq('id', cardId)
       .single()
 
@@ -264,7 +270,7 @@ export class CartService {
     const cardIds = items.map((item) => item.card_id)
     const { data: cards, error: cardsError } = await this.supabase
       .from('cards')
-      .select('id, card_name, card_type, foil_type, is_in_stock')
+      .select('id, card_name, card_type, foil_type, is_in_stock, is_misprint')
       .in('id', cardIds)
 
     if (cardsError) {

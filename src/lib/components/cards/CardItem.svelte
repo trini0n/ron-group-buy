@@ -12,6 +12,7 @@
     formatPrice,
     getCardUrl,
     getFinishLabel,
+    getMispriceKey,
     getFinishBadgeClasses
   } from '$lib/utils'
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte'
@@ -54,7 +55,7 @@
   // Use Ron's image first (if available and not failed), otherwise Scryfall
   const currentImageUrl = $derived(ronImageUrl && !ronImageFailed ? ronImageUrl : scryfallImageUrl)
 
-  const price = $derived(getCardPrice(getFinishLabel(selectedCard)))
+  const price = $derived(getCardPrice(getMispriceKey(selectedCard)))
 
   // Format card identifier: SET_CODE #COLLECTOR_NUMBER (LANG if not 'en')
   const cardIdentifier = $derived.by(() => {

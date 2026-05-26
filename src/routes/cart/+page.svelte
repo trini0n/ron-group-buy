@@ -5,7 +5,7 @@
   import * as AlertDialog from '$components/ui/alert-dialog';
   import * as Dialog from '$components/ui/dialog';
   import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getFinishBadgeClasses } from '$lib/utils';
+  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getMispriceKey, getFinishBadgeClasses } from '$lib/utils';
   import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle, Info, Package, X, Merge } from 'lucide-svelte';
   import { invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -198,7 +198,7 @@
       <div class="lg:col-span-2">
         <div class="space-y-4">
           {#each cartStore.items as item (item.id)}
-            {@const price = getCardPrice(getFinishLabel(item.card))}
+            {@const price = getCardPrice(getMispriceKey(item.card))}
             {@const imageUrl = getCardImageUrl(item.card.ron_image_url, item.card.scryfall_id, 'small')}
 
             <Card.Root>

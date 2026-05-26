@@ -5,7 +5,7 @@
   import * as Card from '$components/ui/card';
   import * as Breadcrumb from '$components/ui/breadcrumb';
   import { Separator } from '$components/ui/separator';
-  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getFinishBadgeClasses, isDefaultLanguage } from '$lib/utils';
+  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getMispriceKey, getFinishBadgeClasses, isDefaultLanguage } from '$lib/utils';
   import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte';
   import { cartStore } from '$lib/stores/cart.svelte';
   import { untrack } from 'svelte';
@@ -73,7 +73,7 @@
   
   const price = $derived.by(() => {
     if (!selectedCard) return 0;
-    return getCardPrice(getFinishLabel(selectedCard));
+    return getCardPrice(getMispriceKey(selectedCard));
   });
 
   // Reset image index when card changes or if index is out of bounds
@@ -256,7 +256,7 @@
                     {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
                 >
                   <div>{getFinishLabel(variant)}</div>
-                  <div class="font-semibold">{formatPrice(getCardPrice(getFinishLabel(variant)))}</div>
+                  <div class="font-semibold">{formatPrice(getCardPrice(getMispriceKey(variant)))}</div>
                 </button>
               {/each}
             </div>
