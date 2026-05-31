@@ -444,13 +444,10 @@
         <Checkbox checked={filters.isNew} onCheckedChange={(v) => (filters.isNew = !!v)} />
         <span>New Cards Only</span>
       </label>
-      <div class="flex cursor-pointer items-center space-x-2">
+      <label class="flex cursor-pointer items-center space-x-2">
         <Checkbox checked={filters.isMisprint} onCheckedChange={(v) => (filters.isMisprint = !!v)} />
-        <label
-          class="flex cursor-pointer items-center gap-1 text-sm"
-          onclick={() => (filters.isMisprint = !filters.isMisprint)}
-        >
-          <span>Misprints</span>
+        <span class="flex items-center gap-1">
+          Misprints Only
           <Tooltip.Provider>
             <Tooltip.Root>
               <Tooltip.Trigger>
@@ -461,12 +458,14 @@
                 {/snippet}
               </Tooltip.Trigger>
               <Tooltip.Content>
-                <p class="max-w-[220px] text-xs">Misprint cards have accidental printing errors or do not exist as real paper MTG cards</p>
+                <p class="max-w-[220px] text-xs">
+                  Misprint cards have accidental printing errors or do not exist as real paper MTG cards
+                </p>
               </Tooltip.Content>
             </Tooltip.Root>
           </Tooltip.Provider>
-        </label>
-      </div>
+        </span>
+      </label>
     </div>
   </div>
 </div>

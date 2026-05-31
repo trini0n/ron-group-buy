@@ -1,49 +1,69 @@
 <script lang="ts">
-  import { Button } from '$components/ui/button';
-  import { Badge } from '$components/ui/badge';
-  import * as Card from '$components/ui/card';
-  import * as AlertDialog from '$components/ui/alert-dialog';
-  import * as Dialog from '$components/ui/dialog';
-  import { cartStore } from '$lib/stores/cart.svelte';
-  import { getCardImageUrl, getCardPrice, formatPrice, getCardUrl, getFinishLabel, getMispriceKey, getFinishBadgeClasses } from '$lib/utils';
-  import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, Loader2, AlertTriangle, Info, Package, X, Merge } from 'lucide-svelte';
-  import { invalidateAll } from '$app/navigation';
-  import { toast } from 'svelte-sonner';
+  import { Button } from '$components/ui/button'
+  import { Badge } from '$components/ui/badge'
+  import * as Card from '$components/ui/card'
+  import * as AlertDialog from '$components/ui/alert-dialog'
+  import * as Dialog from '$components/ui/dialog'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import {
+    getCardImageUrl,
+    getCardPrice,
+    formatPrice,
+    getCardUrl,
+    getFinishLabel,
+    getMispriceKey,
+    getFinishBadgeClasses
+  } from '$lib/utils'
+  import {
+    Trash2,
+    Minus,
+    Plus,
+    ShoppingCart,
+    ArrowRight,
+    Loader2,
+    AlertTriangle,
+    Info,
+    Package,
+    X,
+    Merge
+  } from 'lucide-svelte'
+  import { invalidateAll } from '$app/navigation'
+  import { toast } from 'svelte-sonner'
 
-  let clearCartDialogOpen = $state(false);
-  let pendingOrderDialogOpen = $state(false);
-  let pendingOrderAction = $state<'merge' | 'cancel' | null>(null);
+  let clearCartDialogOpen = $state(false)
+  let pendingOrderDialogOpen = $state(false)
+  let pendingOrderAction = $state<'merge' | 'cancel' | null>(null)
 
-  let { data } = $props();
+  let { data } = $props()
 
   const isGroupBuyOpen = $derived.by(() => {
-    if (!data.groupBuyConfig) return false;
+    if (!data.groupBuyConfig) return false
     // If not active, it's closed
-    if (!data.groupBuyConfig.is_active) return false;
-    
-    const now = new Date();
-    const opens = data.groupBuyConfig.opens_at ? new Date(data.groupBuyConfig.opens_at) : null;
-    const closes = data.groupBuyConfig.closes_at ? new Date(data.groupBuyConfig.closes_at) : null;
+    if (!data.groupBuyConfig.is_active) return false
+
+    const now = new Date()
+    const opens = data.groupBuyConfig.opens_at ? new Date(data.groupBuyConfig.opens_at) : null
+    const closes = data.groupBuyConfig.closes_at ? new Date(data.groupBuyConfig.closes_at) : null
 
     // If opens_at is set and we haven't reached it yet, it's not open
-    if (opens && now < opens) return false;
+    if (opens && now < opens) return false
     // If closes_at is set and we've passed it, it's not open
-    if (closes && now > closes) return false;
-    
+    if (closes && now > closes) return false
+
     // Active and within date range (or no date constraints)
-    return true;
-  });
+    return true
+  })
 
   async function handlePendingOrderAction(action: 'merge' | 'cancel') {
     if (!data.existingPendingOrder) {
       // Data was refreshed (e.g. auth token renewed) while dialog was open and the order
       // is no longer accessible. Close the dialog and let the user try again.
-      pendingOrderDialogOpen = false;
-      toast.info('Order data refreshed — please try again');
-      return;
+      pendingOrderDialogOpen = false
+      toast.info('Order data refreshed — please try again')
+      return
     }
 
-    pendingOrderAction = action;
+    pendingOrderAction = action
     try {
       const response = await fetch(`/api/orders/${data.existingPendingOrder.id}/pending`, {
         method: 'POST',
@@ -52,62 +72,60 @@
           action,
           expectedVersion: cartStore.version > 0 ? cartStore.version : undefined
         })
-      });
+      })
 
       if (response.status === 409) {
         // Cart was concurrently modified — refresh page data and show informational toast
-        const err = await response.json();
-        toast.error(err.error || 'Cart was updated — please try again');
-        await invalidateAll();
-        return;
+        const err = await response.json()
+        toast.error(err.error || 'Cart was updated — please try again')
+        await invalidateAll()
+        return
       }
 
       if (!response.ok) {
-        const err = await response.json();
-        toast.error(err.error || err.message || 'Failed to process order');
-        return;
+        const err = await response.json()
+        toast.error(err.error || err.message || 'Failed to process order')
+        return
       }
 
-      pendingOrderDialogOpen = false;
+      pendingOrderDialogOpen = false
 
       if (action === 'merge') {
-        const result = await response.json();
+        const result = await response.json()
         // Update store directly from response — no syncFromServer() round-trip needed.
         // result.cart + result.items are only present when the merge actually ran.
         // If they're missing the server returned an early-return (e.g. concurrent claim),
         // which means nothing was merged — show a retry message instead of false success.
         if (result.cart && result.items) {
-          cartStore.applyMergeResponse(result);
-          const removed = result.report?.items_removed?.length ?? 0;
+          cartStore.applyMergeResponse(result)
+          const removed = result.report?.items_removed?.length ?? 0
           if (removed > 0) {
-            const merged =
-              (result.report?.items_added?.length ?? 0) +
-              (result.report?.items_combined?.length ?? 0);
+            const merged = (result.report?.items_added?.length ?? 0) + (result.report?.items_combined?.length ?? 0)
             toast.success(`${merged} item${merged !== 1 ? 's' : ''} added to cart`, {
               description: `${removed} item${removed !== 1 ? 's' : ''} could not be merged (sold out or no longer available)`
-            });
+            })
           } else {
-            toast.success('Order items added to your cart');
+            toast.success('Order items added to your cart')
           }
         } else {
           // Server returned success but without cart data — concurrent claim or transient issue.
           // Close the dialog and let the user retry after the page reloads.
-          pendingOrderDialogOpen = false;
-          toast.info('Please try again in a moment');
-          await invalidateAll();
-          return;
+          pendingOrderDialogOpen = false
+          toast.info('Please try again in a moment')
+          await invalidateAll()
+          return
         }
       } else {
-        toast.success('Pending order cancelled');
+        toast.success('Pending order cancelled')
       }
 
       // Re-run +page.server.ts load to clear existingPendingOrder from data
       // invalidateAll() is SvelteKit-idiomatic and avoids a full page tear-down
-      await invalidateAll();
+      await invalidateAll()
     } catch (err) {
-      toast.error('Failed to process order');
+      toast.error('Failed to process order')
     } finally {
-      pendingOrderAction = null;
+      pendingOrderAction = null
     }
   }
 </script>
@@ -127,15 +145,18 @@
         <div class="flex-1 min-w-0">
           <h3 class="font-medium text-blue-800 dark:text-blue-300">You have a pending order</h3>
           <p class="mt-0.5 text-sm text-blue-700 dark:text-blue-400">
-            Order <span class="font-mono font-medium">{data.existingPendingOrder.orderNumber}</span> has {data.existingPendingOrder.itemCount} 
-            {data.existingPendingOrder.itemCount === 1 ? 'card' : 'cards'} totaling {formatPrice(data.existingPendingOrder.total)}.
+            Order <span class="font-mono font-medium">{data.existingPendingOrder.orderNumber}</span> has {data
+              .existingPendingOrder.itemCount}
+            {data.existingPendingOrder.itemCount === 1 ? 'card' : 'cards'} totaling {formatPrice(
+              data.existingPendingOrder.total
+            )}.
           </p>
         </div>
-        <Button 
+        <Button
           variant="outline"
           size="sm"
           class="shrink-0 border-blue-400 text-blue-700 hover:bg-blue-100 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/40"
-          onclick={() => pendingOrderDialogOpen = true}
+          onclick={() => (pendingOrderDialogOpen = true)}
         >
           <Package class="mr-2 h-4 w-4" />
           Manage
@@ -148,12 +169,8 @@
     <div class="flex flex-col items-center justify-center py-16 text-center">
       <ShoppingCart class="mb-4 h-16 w-16 text-muted-foreground" />
       <h2 class="text-xl font-medium">Your cart is empty</h2>
-      <p class="mt-2 text-muted-foreground">
-        Start browsing cards to add them to your cart.
-      </p>
-      <Button href="/" class="mt-4">
-        Browse Cards
-      </Button>
+      <p class="mt-2 text-muted-foreground">Start browsing cards to add them to your cart.</p>
+      <Button href="/" class="mt-4">Browse Cards</Button>
     </div>
   {:else if cartStore.items.length === 0 && cartStore.isSyncing}
     <div class="flex flex-col items-center justify-center py-16 text-center">
@@ -179,12 +196,18 @@
             <ul class="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
               {#each cartStore.validation?.invalid_items || [] as item}
                 <li>
-                  <strong>{item.card_name}</strong>: {item.reason === 'sold_out' ? 'Sold out' : item.reason === 'listing_removed' ? 'No longer available' : 'Quantity reduced'}
+                  <strong>{item.card_name}</strong>: {item.reason === 'sold_out'
+                    ? 'Sold out'
+                    : item.reason === 'listing_removed'
+                      ? 'No longer available'
+                      : 'Quantity reduced'}
                 </li>
               {/each}
               {#each cartStore.validation?.price_changes || [] as change}
                 <li>
-                  <strong>{change.card_name}</strong>: Price changed from {formatPrice(change.old_price)} to {formatPrice(change.new_price)}
+                  <strong>{change.card_name}</strong>: Price changed from {formatPrice(change.old_price)} to {formatPrice(
+                    change.new_price
+                  )}
                 </li>
               {/each}
             </ul>
@@ -205,12 +228,7 @@
               <Card.Content class="flex gap-4 p-4">
                 <!-- Card Image -->
                 <a href={getCardUrl(item.card)} class="shrink-0">
-                  <img
-                    src={imageUrl}
-                    alt={item.card.card_name}
-                    class="h-24 w-auto rounded"
-                    loading="lazy"
-                  />
+                  <img src={imageUrl} alt={item.card.card_name} class="h-24 w-auto rounded" loading="lazy" />
                 </a>
 
                 <!-- Card Details -->
@@ -222,7 +240,9 @@
                       </a>
                       <p class="text-sm text-muted-foreground">{item.card.set_name}</p>
                       <div class="mt-1 flex gap-2">
-                        <Badge class="text-xs {getFinishBadgeClasses(getFinishLabel(item.card))}">{getFinishLabel(item.card)}</Badge>
+                        <Badge class="text-xs {getFinishBadgeClasses(getFinishLabel(item.card))}"
+                          >{getFinishLabel(item.card)}</Badge
+                        >
                         {#if !item.card.is_in_stock}
                           <Badge variant="destructive" class="text-xs">Out of Stock</Badge>
                         {/if}
@@ -282,7 +302,10 @@
               <AlertDialog.Header>
                 <AlertDialog.Title>Clear Cart?</AlertDialog.Title>
                 <AlertDialog.Description>
-                  Are you sure you want to clear your cart completely? This will remove all {cartStore.itemCount} item{cartStore.itemCount === 1 ? '' : 's'} from your cart. This action cannot be undone.
+                  Are you sure you want to clear your cart completely? This will remove all {cartStore.itemCount} item{cartStore.itemCount ===
+                  1
+                    ? ''
+                    : 's'} from your cart. This action cannot be undone.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>
@@ -319,12 +342,7 @@
               </div>
             </div>
 
-            <Button
-              class="w-full"
-              size="lg"
-              href="/checkout"
-              disabled={!isGroupBuyOpen}
-            >
+            <Button class="w-full" size="lg" href="/checkout" disabled={!isGroupBuyOpen}>
               {#if isGroupBuyOpen}
                 Proceed to Checkout
                 <ArrowRight class="ml-2 h-4 w-4" />
@@ -340,9 +358,7 @@
             {/if}
 
             {#if !data.user}
-              <p class="text-center text-sm text-muted-foreground">
-                You'll need to sign in to complete your order.
-              </p>
+              <p class="text-center text-sm text-muted-foreground">You'll need to sign in to complete your order.</p>
             {/if}
           </Card.Content>
         </Card.Root>
@@ -360,7 +376,7 @@
         Order <span class="font-mono font-medium">{data.existingPendingOrder?.orderNumber}</span>
       </Dialog.Description>
     </Dialog.Header>
-    
+
     <div class="py-4">
       <div class="rounded-lg bg-muted/50 p-4">
         <div class="flex items-center justify-between">
@@ -372,15 +388,13 @@
           <span class="font-bold">{formatPrice(data.existingPendingOrder?.total ?? 0)}</span>
         </div>
       </div>
-      
-      <p class="mt-4 text-sm text-muted-foreground">
-        What would you like to do with this order?
-      </p>
+
+      <p class="mt-4 text-sm text-muted-foreground">What would you like to do with this order?</p>
     </div>
-    
+
     <div class="space-y-2">
-      <Button 
-        class="w-full justify-start gap-3 h-auto py-4" 
+      <Button
+        class="w-full justify-start gap-3 h-auto py-4"
         variant="outline"
         onclick={() => handlePendingOrderAction('merge')}
         disabled={pendingOrderAction !== null}
@@ -396,9 +410,9 @@
           </div>
         {/if}
       </Button>
-      
-      <Button 
-        class="w-full justify-start gap-3 h-auto py-4" 
+
+      <Button
+        class="w-full justify-start gap-3 h-auto py-4"
         variant="outline"
         onclick={() => handlePendingOrderAction('cancel')}
         disabled={pendingOrderAction !== null}
@@ -415,14 +429,10 @@
         {/if}
       </Button>
     </div>
-    
+
     <Dialog.Footer class="mt-4">
-      <Button variant="ghost" onclick={() => pendingOrderDialogOpen = false}>
-        Close
-      </Button>
-      <Button variant="outline" href="/orders/{data.existingPendingOrder?.id}">
-        View full order
-      </Button>
+      <Button variant="ghost" onclick={() => (pendingOrderDialogOpen = false)}>Close</Button>
+      <Button variant="outline" href="/orders/{data.existingPendingOrder?.id}">View full order</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

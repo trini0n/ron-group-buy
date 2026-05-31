@@ -45,7 +45,11 @@ export class CartService {
    * foil_type takes priority over card_type (e.g. 'Raised Foil' > 'Foil').
    * Misprint cards get a separate price key (e.g. 'Normal Misprint').
    */
-  private effectiveFinish(card: { card_type: string; foil_type?: string | null; is_misprint?: boolean | null }): string {
+  private effectiveFinish(card: {
+    card_type: string
+    foil_type?: string | null
+    is_misprint?: boolean | null
+  }): string {
     const finish = card.foil_type ?? card.card_type
     if (card.is_misprint) {
       const isAnyFoil = (['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const).includes(finish as any)

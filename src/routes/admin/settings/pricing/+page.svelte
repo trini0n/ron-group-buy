@@ -1,75 +1,80 @@
 <script lang="ts">
-  import { Button } from '$components/ui/button';
-  import { Input } from '$components/ui/input';
-  import * as Card from '$components/ui/card';
-  import * as Table from '$components/ui/table';
-  import { Badge } from '$components/ui/badge';
-  import { Save, DollarSign, RotateCcw } from 'lucide-svelte';
-  import { toast } from 'svelte-sonner';
-  import { invalidateAll } from '$app/navigation';
+  import { Button } from '$components/ui/button'
+  import { Input } from '$components/ui/input'
+  import * as Card from '$components/ui/card'
+  import * as Table from '$components/ui/table'
+  import { Badge } from '$components/ui/badge'
+  import { Save, DollarSign, RotateCcw } from 'lucide-svelte'
+  import { toast } from 'svelte-sonner'
+  import { invalidateAll } from '$app/navigation'
 
-  let { data } = $props();
+  let { data } = $props()
 
   // Display order for card types
-  const TYPE_ORDER = ['Normal', 'Holo', 'Foil', 'Raised Foil', 'Serialized', 'Normal Misprint', 'Holo Misprint', 'Foil Misprint'];
+  const TYPE_ORDER = [
+    'Normal',
+    'Holo',
+    'Foil',
+    'Raised Foil',
+    'Serialized',
+    'Normal Misprint',
+    'Holo Misprint',
+    'Foil Misprint'
+  ]
 
-  type PricingRow = { card_type: string; price: number };
+  type PricingRow = { card_type: string; price: number }
 
   // Local editable copy — populated and kept in sync by the $effect below
-  let localPricing = $state<PricingRow[]>([]);
+  let localPricing = $state<PricingRow[]>([])
 
   // Keep in sync if data is invalidated
   $effect(() => {
     localPricing = [...data.pricing].sort(
-      (a, b) =>
-        (TYPE_ORDER.indexOf(a.card_type) + 1 || 99) -
-        (TYPE_ORDER.indexOf(b.card_type) + 1 || 99)
-    );
-  });
+      (a, b) => (TYPE_ORDER.indexOf(a.card_type) + 1 || 99) - (TYPE_ORDER.indexOf(b.card_type) + 1 || 99)
+    )
+  })
 
-  let isSaving = $state(false);
+  let isSaving = $state(false)
   let isDirty = $derived(
     localPricing.some((row) => {
-      const original = data.pricing.find((p: PricingRow) => p.card_type === row.card_type);
-      return original && Number(original.price) !== Number(row.price);
+      const original = data.pricing.find((p: PricingRow) => p.card_type === row.card_type)
+      return original && Number(original.price) !== Number(row.price)
     })
-  );
+  )
 
   function resetPrices() {
     localPricing = [...data.pricing].sort(
-      (a, b) =>
-        (TYPE_ORDER.indexOf(a.card_type) + 1 || 99) -
-        (TYPE_ORDER.indexOf(b.card_type) + 1 || 99)
-    );
+      (a, b) => (TYPE_ORDER.indexOf(a.card_type) + 1 || 99) - (TYPE_ORDER.indexOf(b.card_type) + 1 || 99)
+    )
   }
 
   async function savePrices() {
-    const hasInvalid = localPricing.some((r) => isNaN(r.price) || r.price < 0);
+    const hasInvalid = localPricing.some((r) => isNaN(r.price) || r.price < 0)
     if (hasInvalid) {
-      toast.error('All prices must be valid non-negative numbers');
-      return;
+      toast.error('All prices must be valid non-negative numbers')
+      return
     }
 
-    isSaving = true;
+    isSaving = true
     try {
       const response = await fetch('/api/admin/pricing', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(localPricing.map((r) => ({ card_type: r.card_type, price: Number(r.price) })))
-      });
+      })
 
       if (response.ok) {
-        const result = await response.json();
-        toast.success(`Prices updated (${result.updated} types). Pending orders backfilled.`);
-        await invalidateAll();
+        const result = await response.json()
+        toast.success(`Prices updated (${result.updated} types). Pending orders backfilled.`)
+        await invalidateAll()
       } else {
-        const err = await response.json();
-        toast.error(err.message || 'Failed to save prices');
+        const err = await response.json()
+        toast.error(err.message || 'Failed to save prices')
       }
     } catch {
-      toast.error('Failed to save prices');
+      toast.error('Failed to save prices')
     } finally {
-      isSaving = false;
+      isSaving = false
     }
   }
 
@@ -80,9 +85,9 @@
     'Raised Foil': 'bg-rose-200 text-rose-800',
     Serialized: 'bg-yellow-200 text-yellow-800',
     'Normal Misprint': 'bg-red-100 text-red-800',
-    'Holo Misprint':   'bg-red-200 text-red-800',
-    'Foil Misprint':   'bg-red-300 text-red-900'
-  };
+    'Holo Misprint': 'bg-red-200 text-red-800',
+    'Foil Misprint': 'bg-red-300 text-red-900'
+  }
 </script>
 
 <div class="p-8 max-w-2xl">
@@ -90,8 +95,8 @@
     <div>
       <h1 class="text-3xl font-bold">Card Type Pricing</h1>
       <p class="text-muted-foreground">
-        Set prices per card type. Changes take effect immediately in the store and are
-        backfilled to all pending orders in the active group buy.
+        Set prices per card type. Changes take effect immediately in the store and are backfilled to all pending orders
+        in the active group buy.
       </p>
     </div>
   </div>
@@ -102,9 +107,7 @@
         <DollarSign class="h-5 w-5 text-primary" />
         <Card.Title>Prices by Card Type</Card.Title>
       </div>
-      <Card.Description>
-        Edit the price for each finish type. Click Save to apply.
-      </Card.Description>
+      <Card.Description>Edit the price for each finish type. Click Save to apply.</Card.Description>
     </Card.Header>
     <Card.Content>
       <Table.Root>
@@ -135,13 +138,7 @@
               <Table.Cell>
                 <div class="relative">
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.25"
-                    class="pl-7 w-32"
-                    bind:value={row.price}
-                  />
+                  <Input type="number" min="0" step="0.25" class="pl-7 w-32" bind:value={row.price} />
                 </div>
               </Table.Cell>
             </Table.Row>

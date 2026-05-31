@@ -290,24 +290,29 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Resolve prices and card types server-side (security: never trust client-supplied unitPrice)
-  // Fetch foil_type alongside card_type so we can compute the effective finish for pricing
+  // Fetch foil_type and is_misprint alongside card_type so we can compute the effective finish for pricing
   const prices = await fetchPrices(locals.supabase)
   const cardIds = items.map((item: OrderItem) => item.cardId)
   const { data: cardRows, error: cardFetchErr } = await locals.supabase
     .from('cards')
-    .select('id, card_type, foil_type')
+    .select('id, card_type, foil_type, is_misprint')
     .in('id', cardIds)
   if (cardFetchErr) {
     throw error(500, 'Failed to fetch card pricing data')
   }
   // Map card_id -> base card_type (for the card_type column in order_items)
   const serverCardTypeMap = new Map(cardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? [])
-  // Map card_id -> effective finish (foil_type ?? card_type) used for price resolution
+  // Map card_id -> effective finish used for price resolution.
+  // Misprint cards use a separate price key (e.g. 'Normal Misprint', 'Foil Misprint') at $0.70.
+  const FOIL_FINISHES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil']
   const serverFinishMap = new Map(
-    cardRows?.map((r: { id: string; card_type: string; foil_type?: string | null }) => [
-      r.id,
-      r.foil_type ?? r.card_type
-    ]) ?? []
+    cardRows?.map((r: { id: string; card_type: string; foil_type?: string | null; is_misprint?: boolean | null }) => {
+      const finish = r.foil_type ?? r.card_type
+      if (r.is_misprint) {
+        return [r.id, FOIL_FINISHES.includes(finish) ? 'Foil Misprint' : `${finish} Misprint`]
+      }
+      return [r.id, finish]
+    }) ?? []
   )
 
   // Build items payload for the RPC — no order_id, the DB function sets it
@@ -393,22 +398,28 @@ async function mergeIntoExistingOrder(
   locals: App.Locals
 ) {
   // Resolve prices server-side for new items (security: never trust client-supplied unitPrice)
-  // Fetch foil_type so we can compute the effective finish for pricing
+  // Fetch foil_type and is_misprint so we can compute the effective finish for pricing
   const mergePrices = await fetchPrices(locals.supabase)
   const newCardIds = newItems.map((i) => i.cardId)
   const { data: mergeCardRows } = await locals.supabase
     .from('cards')
-    .select('id, card_type, foil_type')
+    .select('id, card_type, foil_type, is_misprint')
     .in('id', newCardIds)
   const mergeCardTypeMap = new Map(
     mergeCardRows?.map((r: { id: string; card_type: string }) => [r.id, r.card_type]) ?? []
   )
-  // Effective finish map for pricing (foil_type ?? card_type)
+  // Effective finish map for pricing. Misprint cards use a separate price key at $0.70.
+  const mergeFoilFinishes = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil']
   const mergeFinishMap = new Map(
-    mergeCardRows?.map((r: { id: string; card_type: string; foil_type?: string | null }) => [
-      r.id,
-      r.foil_type ?? r.card_type
-    ]) ?? []
+    mergeCardRows?.map(
+      (r: { id: string; card_type: string; foil_type?: string | null; is_misprint?: boolean | null }) => {
+        const finish = r.foil_type ?? r.card_type
+        if (r.is_misprint) {
+          return [r.id, mergeFoilFinishes.includes(finish) ? 'Foil Misprint' : `${finish} Misprint`]
+        }
+        return [r.id, finish]
+      }
+    ) ?? []
   )
 
   // Get existing order items

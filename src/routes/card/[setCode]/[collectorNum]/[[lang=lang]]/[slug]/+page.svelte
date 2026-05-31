@@ -1,111 +1,130 @@
 <script lang="ts">
-  import type { Card as CardType } from '$lib/server/types';
-  import { Button } from '$components/ui/button';
-  import { Badge } from '$components/ui/badge';
-  import * as Card from '$components/ui/card';
-  import * as Breadcrumb from '$components/ui/breadcrumb';
-  import { Separator } from '$components/ui/separator';
-  import { getCardImages, getCardPrice, formatPrice, getFinishLabel, getMispriceKey, getFinishBadgeClasses, isDefaultLanguage } from '$lib/utils';
-  import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte';
-  import { cartStore } from '$lib/stores/cart.svelte';
-  import { untrack } from 'svelte';
+  import type { Card as CardType } from '$lib/server/types'
+  import { Button } from '$components/ui/button'
+  import { Badge } from '$components/ui/badge'
+  import * as Card from '$components/ui/card'
+  import * as Breadcrumb from '$components/ui/breadcrumb'
+  import { Separator } from '$components/ui/separator'
+  import {
+    getCardImages,
+    getCardPrice,
+    formatPrice,
+    getFinishLabel,
+    getMispriceKey,
+    getFinishBadgeClasses,
+    isDefaultLanguage
+  } from '$lib/utils'
+  import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import { untrack } from 'svelte'
 
   // Language code to display name mapping
   const LANGUAGE_NAMES: Record<string, string> = {
-    'ja': 'Japanese',
-    'de': 'German',
-    'fr': 'French',
-    'it': 'Italian',
-    'es': 'Spanish',
-    'pt': 'Portuguese',
-    'ko': 'Korean',
-    'ru': 'Russian',
-    'zhs': 'Simplified Chinese',
-    'zht': 'Traditional Chinese'
-  };
+    ja: 'Japanese',
+    de: 'German',
+    fr: 'French',
+    it: 'Italian',
+    es: 'Spanish',
+    pt: 'Portuguese',
+    ko: 'Korean',
+    ru: 'Russian',
+    zhs: 'Simplified Chinese',
+    zht: 'Traditional Chinese'
+  }
 
-  let { data } = $props();
+  let { data } = $props()
 
   // Get finish variants from server data
-  const finishVariants = $derived(data.finishVariants as CardType[] || [data.card]);
-  
+  const finishVariants = $derived((data.finishVariants as CardType[]) || [data.card])
+
   // Track selected finish variant - use untrack to explicitly capture initial value
-  let selectedCard = $state<CardType>(untrack(() => data.card));
-  
+  let selectedCard = $state<CardType>(untrack(() => data.card))
+
   // Reset selectedCard when page data changes (navigation)
   $effect(() => {
-    const newCard = data.card;
-    selectedCard = newCard;
-  });
+    const newCard = data.card
+    selectedCard = newCard
+  })
 
   // Extract the primary card type from type_line (exclude supertypes)
   const primaryCardType = $derived.by(() => {
-    const typeLine = selectedCard?.type_line || '';
+    const typeLine = selectedCard?.type_line || ''
     // Card types in MTG (the ones we want to extract)
-    const cardTypes = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Planeswalker', 'Battle', 'Kindred', 'Tribal'];
-    
+    const cardTypes = [
+      'Creature',
+      'Instant',
+      'Sorcery',
+      'Enchantment',
+      'Artifact',
+      'Land',
+      'Planeswalker',
+      'Battle',
+      'Kindred',
+      'Tribal'
+    ]
+
     // Split by " — " to get the types part (before subtypes)
-    const mainTypes = typeLine.split(' — ')[0] || typeLine;
-    
+    const mainTypes = typeLine.split(' — ')[0] || typeLine
+
     // Find the first matching card type
     for (const type of cardTypes) {
       if (mainTypes.includes(type)) {
-        return type;
+        return type
       }
     }
-    return null;
-  });
+    return null
+  })
 
   // Build breadcrumb URLs with filters applied
-  const setFilterUrl = $derived(`/?set=${selectedCard?.set_code?.toLowerCase() || ''}`);
+  const setFilterUrl = $derived(`/?set=${selectedCard?.set_code?.toLowerCase() || ''}`)
   const typeFilterUrl = $derived.by(() => {
-    if (!primaryCardType) return setFilterUrl;
-    return `${setFilterUrl}&types=${primaryCardType}`;
-  });
+    if (!primaryCardType) return setFilterUrl
+    return `${setFilterUrl}&types=${primaryCardType}`
+  })
 
   // Compute images array - ensure it's always valid
   const images = $derived.by(() => {
-    if (!selectedCard) return [{ url: '/images/card-placeholder.png', label: 'Placeholder' }];
-    return getCardImages(selectedCard.ron_image_url, selectedCard.scryfall_id, 'large');
-  });
+    if (!selectedCard) return [{ url: '/images/card-placeholder.png', label: 'Placeholder' }]
+    return getCardImages(selectedCard.ron_image_url, selectedCard.scryfall_id, 'large')
+  })
 
-  let currentImageIndex = $state(0);
-  
+  let currentImageIndex = $state(0)
+
   const price = $derived.by(() => {
-    if (!selectedCard) return 0;
-    return getCardPrice(getMispriceKey(selectedCard));
-  });
+    if (!selectedCard) return 0
+    return getCardPrice(getMispriceKey(selectedCard))
+  })
 
   // Reset image index when card changes or if index is out of bounds
   $effect(() => {
     if (currentImageIndex >= images.length) {
-      currentImageIndex = 0;
+      currentImageIndex = 0
     }
-  });
+  })
 
   function nextImage() {
-    if (images.length <= 1) return;
-    currentImageIndex = (currentImageIndex + 1) % images.length;
+    if (images.length <= 1) return
+    currentImageIndex = (currentImageIndex + 1) % images.length
   }
 
   function prevImage() {
-    if (images.length <= 1) return;
-    currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+    if (images.length <= 1) return
+    currentImageIndex = (currentImageIndex - 1 + images.length) % images.length
   }
 
   function addToCart() {
-    cartStore.addItem(selectedCard);
+    cartStore.addItem(selectedCard)
   }
 
   // Current image with safety check
-  const currentImage = $derived(images[currentImageIndex] ?? images[0]);
+  const currentImage = $derived(images[currentImageIndex] ?? images[0])
 
   // Get display name for card's language
   const languageDisplay = $derived.by(() => {
-    const lang = selectedCard?.language?.toLowerCase();
-    if (!lang || isDefaultLanguage(lang)) return null;
-    return LANGUAGE_NAMES[lang] || lang.toUpperCase();
-  });
+    const lang = selectedCard?.language?.toLowerCase()
+    if (!lang || isDefaultLanguage(lang)) return null
+    return LANGUAGE_NAMES[lang] || lang.toUpperCase()
+  })
 </script>
 
 <svelte:head>
@@ -122,27 +141,27 @@
           <span class="sr-only">Home</span>
         </Breadcrumb.Link>
       </Breadcrumb.Item>
-      
+
       <Breadcrumb.Separator />
-      
+
       <Breadcrumb.Item>
         <Breadcrumb.Link href={setFilterUrl}>
           {selectedCard.set_name} ({selectedCard.set_code?.toUpperCase()})
         </Breadcrumb.Link>
       </Breadcrumb.Item>
-      
+
       {#if primaryCardType}
         <Breadcrumb.Separator />
-        
+
         <Breadcrumb.Item>
           <Breadcrumb.Link href={typeFilterUrl}>
             {primaryCardType}
           </Breadcrumb.Link>
         </Breadcrumb.Item>
       {/if}
-      
+
       <Breadcrumb.Separator />
-      
+
       <Breadcrumb.Item>
         <Breadcrumb.Page>{selectedCard.card_name}</Breadcrumb.Page>
       </Breadcrumb.Item>
@@ -161,12 +180,12 @@
             loading="lazy"
             referrerpolicy="no-referrer"
             onerror={(e) => {
-              const img = e.currentTarget as HTMLImageElement;
-              img.src = '/images/card-placeholder.png';
+              const img = e.currentTarget as HTMLImageElement
+              img.src = '/images/card-placeholder.png'
             }}
           />
         {/if}
-        
+
         <!-- Navigation arrows (only show if multiple images) -->
         {#if images.length > 1}
           <button
@@ -185,15 +204,17 @@
           </button>
         {/if}
       </div>
-      
+
       <!-- Image indicator dots and label -->
       {#if images.length > 1}
         <div class="flex flex-col items-center gap-2">
           <div class="flex gap-2">
             {#each images as image, i}
               <button
-                onclick={() => currentImageIndex = i}
-                class="h-3 w-3 rounded-full transition-colors {i === currentImageIndex ? 'bg-primary' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}"
+                onclick={() => (currentImageIndex = i)}
+                class="h-3 w-3 rounded-full transition-colors {i === currentImageIndex
+                  ? 'bg-primary'
+                  : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}"
                 aria-label="Go to {image.label}"
               ></button>
             {/each}
@@ -247,12 +268,12 @@
               {#each finishVariants as variant}
                 {@const isActive = selectedCard.serial === variant.serial}
                 <button
-                  onclick={() => selectedCard = variant}
+                  onclick={() => (selectedCard = variant)}
                   disabled={!variant.is_in_stock}
                   class="flex-1 py-2 px-3 text-center transition-all text-sm
-                    {isActive 
-                      ? 'bg-primary text-primary-foreground font-medium' 
-                      : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                    {isActive
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
                     {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
                 >
                   <div>{getFinishLabel(variant)}</div>

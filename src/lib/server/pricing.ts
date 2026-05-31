@@ -19,9 +19,9 @@ export const FALLBACK_PRICES: CardPrices = {
   'Surge Foil': 1.5,
   'Raised Foil': 3.0,
   Serialized: 2.5,
-  'Normal Misprint': 0.70,
-  'Holo Misprint': 0.70,
-  'Foil Misprint': 0.70
+  'Normal Misprint': 0.7,
+  'Holo Misprint': 0.7,
+  'Foil Misprint': 0.7
 }
 
 /**
