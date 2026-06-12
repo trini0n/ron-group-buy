@@ -333,7 +333,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }))
 
   if (replaceOldOrderId) {
-    const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('replace_order' as any, {
+    const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('replace_order', {
       p_user_id: locals.user.id,
       p_old_order_id: replaceOldOrderId,
       p_order_number: generateOrderNumber(),
@@ -361,7 +361,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ orderId: replaceResult.order_id, orderNumber: replaceResult.order_number })
   }
 
-  const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('create_order_with_items' as any, {
+  const { data: rpcResult, error: rpcError } = await locals.supabase.rpc('create_order_with_items', {
     p_user_id: locals.user.id,
     p_order_number: generateOrderNumber(),
     p_group_buy_id: activeGroupBuy?.id ?? null,
