@@ -467,9 +467,15 @@
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to import deck'
 
-      // Check if it's the Moxfield paste suggestion error
-      if (errorMessage.includes('copy the deck list') || errorMessage.includes('Paste Deck List')) {
+      // Check if it's a Moxfield block — show warning and auto-open paste panel
+      if (
+        errorMessage.includes('blocked') ||
+        errorMessage.includes('copy the deck list') ||
+        errorMessage.includes('Paste Deck List') ||
+        errorMessage.includes('Export → Plain Text')
+      ) {
         showMoxfieldWarning = true
+        pasteAccordionValue = 'paste'
       }
 
       toast.error(errorMessage)
@@ -979,7 +985,7 @@
         </Button>
       </div>
 
-      <p class="mt-2 text-sm text-muted-foreground">Import a deck from Moxfield or Archidekt above</p>
+      <p class="mt-2 text-sm text-muted-foreground">Import a deck from Moxfield or Archidekt above. If Moxfield fails, use Moxfield's ⋯ More → Export → Plain Text and paste below.</p>
 
       {#if showMoxfieldWarning}
         <div class="mt-4 flex items-start gap-3 rounded-md border border-yellow-600/50 bg-yellow-500/10 p-4">

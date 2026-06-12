@@ -1,6 +1,5 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { parseDeckList } from '$lib/deck-utils'
 import { logger } from '$lib/server/logger'
 import { LRUCache } from 'lru-cache'
 import { createRateLimiter, getClientIp } from '$lib/server/rate-limiter'
@@ -139,75 +138,39 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
   if (!match) throw new Error('Invalid Moxfield URL')
   const publicId = match[1]!
 
-  const statuses: string[] = []
+  // Use v2 endpoint directly — returns full board JSON without needing an exportId.
+  // The v3+exportId flow was blocked by Cloudflare; v2 JSON has everything we need.
+  const resp = await fetch(`https://api2.moxfield.com/v2/decks/all/${publicId}`, {
+    headers: MOXFIELD_HEADERS
+  })
 
-  function logResp(label: string, r: Response) {
-    const cfRay = r.headers.get('cf-ray')
-    const note = cfRay ? ` (cf-ray: ${cfRay})` : ''
-    console.log(`[moxfield] ${label}: ${r.status}${note}`)
-    statuses.push(`${label}=${r.status}`)
+  const cfRay = resp.headers.get('cf-ray')
+  logger.info({ status: resp.status, cfRay }, '[moxfield] v2 response')
+
+  if (resp.status === 404) throw error(404, 'Deck not found on Moxfield')
+
+  if (resp.status === 401 || resp.status === 403) {
+    throw error(
+      422,
+      `Moxfield blocked the import request (${resp.status}). Open the deck on Moxfield → ⋯ More → Export → Plain Text, then paste the list below.`
+    )
   }
 
-  // Strategy 1: v3 JSON → exportId → plain-text export
-  try {
-    const deckResp = await fetch(`https://api2.moxfield.com/v3/decks/all/${publicId}`, {
-      headers: MOXFIELD_HEADERS
-    })
-    logResp('v3-json', deckResp)
-
-    if (deckResp.ok) {
-      const deck: MoxfieldDeck = await deckResp.json()
-      const deckName = deck.name
-      const exportId = deck.exportId
-
-      if (exportId) {
-        const exportResp = await fetch(
-          `https://api2.moxfield.com/v2/decks/all/${publicId}/export?exportId=${exportId}`,
-          { headers: { ...MOXFIELD_HEADERS, Accept: 'text/plain, */*' } }
-        )
-        logResp('export', exportResp)
-
-        if (exportResp.ok) {
-          const text = await exportResp.text()
-          const cards = parseDeckList(text)
-          console.log(`[moxfield] parsed ${cards.length} cards from export`)
-          return { name: deckName, cards }
-        }
-      }
-
-      // export blocked — fall back to parsing JSON boards directly
-      console.log('[moxfield] falling back to JSON board parsing')
-      return parseMoxfieldJsonDeck(deck)
-    }
-
-    if (deckResp.status === 404) throw error(404, 'Deck not found on Moxfield')
-  } catch (err) {
-    if (err && typeof err === 'object' && 'status' in err) throw err // re-throw SvelteKit errors
-    console.warn('[moxfield] strategy 1 failed:', err instanceof Error ? err.message : err)
+  if (!resp.ok) {
+    throw error(
+      422,
+      `Moxfield returned an error (${resp.status}). Use Moxfield's Export → Plain Text feature and paste it below instead.`
+    )
   }
 
-  // Strategy 2: v2 JSON fallback
-  try {
-    const resp = await fetch(`https://api2.moxfield.com/v2/decks/all/${publicId}`, {
-      headers: MOXFIELD_HEADERS
-    })
-    logResp('v2-json', resp)
-    if (resp.ok) {
-      const deck: MoxfieldDeck = await resp.json()
-      return parseMoxfieldJsonDeck(deck)
-    }
-    if (resp.status === 404) throw error(404, 'Deck not found on Moxfield')
-  } catch (err) {
-    if (err && typeof err === 'object' && 'status' in err) throw err
-    console.warn('[moxfield] strategy 2 failed:', err instanceof Error ? err.message : err)
+  const deck: MoxfieldDeck = await resp.json()
+  const result = parseMoxfieldJsonDeck(deck)
+
+  if (result.cards.length === 0) {
+    throw error(422, 'No cards found in this Moxfield deck. The deck may be private or empty.')
   }
 
-  // All strategies blocked — return 422 so it's not logged as a server crash
-  console.warn(`[moxfield] all strategies blocked: ${statuses.join(', ')}`)
-  throw error(
-    422,
-    `Moxfield is currently blocking automated imports (${statuses.join(', ')}). Please copy the deck list from Moxfield and use the "Paste Deck List" option instead.`
-  )
+  return result
 }
 
 function parseMoxfieldJsonDeck(deck: MoxfieldDeck): { name: string; cards: DeckCard[] } {
