@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { LRUCache } from 'lru-cache'
 import { logger } from '$lib/server/logger'
 import { isFoil, sortMatches, type CardMatch } from '$lib/server/search-utils'
+import { createRateLimiter, getClientIp } from '$lib/server/rate-limiter'
 
 interface DeckCard {
   quantity: number
@@ -50,7 +51,15 @@ function setInCache(name: string, cards: CardMatch[]): void {
 const CARD_SELECT_COLUMNS =
   'id, serial, card_name, set_code, set_name, collector_number, card_type, foil_type, is_in_stock, scryfall_id, type_line, language, is_misprint'
 
+// Rate limiter: 30 requests/min per IP — runs Supabase queries, limit prevents cost amplification
+const searchLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 })
+
 export const POST: RequestHandler = async ({ request, locals }) => {
+  const { limited } = searchLimiter(getClientIp(request))
+  if (limited) {
+    throw error(429, 'Too many requests — please wait before searching again')
+  }
+
   const { cards } = (await request.json()) as { cards: DeckCard[] }
 
   if (!cards || !Array.isArray(cards)) {

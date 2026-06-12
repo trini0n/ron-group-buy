@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types'
 import { parseDeckList } from '$lib/deck-utils'
 import { logger } from '$lib/server/logger'
 import { LRUCache } from 'lru-cache'
+import { createRateLimiter, getClientIp } from '$lib/server/rate-limiter'
 
 interface MoxfieldCard {
   quantity: number
@@ -68,7 +69,15 @@ const deckCache = new LRUCache<string, object>({
   ttl: 5 * 60 * 1000
 })
 
+// Rate limiter: 10 requests/min per IP — proxies Moxfield/Archidekt, so strict limit
+const deckImportLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 })
+
 export const POST: RequestHandler = async ({ request }) => {
+  const { limited } = deckImportLimiter(getClientIp(request))
+  if (limited) {
+    throw error(429, 'Too many requests — please wait before importing another deck')
+  }
+
   const { url, source } = await request.json()
 
   if (!url || !source) {
