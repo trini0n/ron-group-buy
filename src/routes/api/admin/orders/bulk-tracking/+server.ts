@@ -100,12 +100,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     // Record status history entries
     if (isAddingTracking) {
-      const historyEntries = []
+      type OrderStatus = 'pending' | 'invoiced' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+      const historyEntries: { order_id: string; old_status: OrderStatus; new_status: OrderStatus; changed_by: string | null; notes: string }[] = []
 
       if (previousStatus && previousStatus !== 'shipped') {
         historyEntries.push({
           order_id: order.id,
-          old_status: previousStatus,
+          old_status: previousStatus as OrderStatus,
           new_status: 'shipped',
           changed_by: locals.user?.id ?? null,
           notes: 'Status auto-updated when tracking number was added via bulk upload'

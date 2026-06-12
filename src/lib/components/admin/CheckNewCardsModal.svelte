@@ -81,14 +81,14 @@
     const cnMatch = line.match(/\[([^\]]+)\]\s+#(\S+)\s*$/)
     if (!cnMatch) return null
 
-    const set_code = cnMatch[1].trim()
-    const collector_number = cnMatch[2].trim()
+    const set_code = cnMatch[1]!.trim()
+    const collector_number = cnMatch[2]!.trim()
 
     // Everything before the final [set] #CN block
-    const beforeSetCn = line.slice(0, line.lastIndexOf('[' + cnMatch[1] + ']')).trim()
+    const beforeSetCn = line.slice(0, line.lastIndexOf('[' + cnMatch[1]! + ']')).trim()
 
     // Extract all remaining bracket groups from beforeSetCn (these are optional [lang]/[frame])
-    const bracketGroups = [...beforeSetCn.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1].trim())
+    const bracketGroups = [...beforeSetCn.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]!.trim())
 
     // Card name = everything before the first bracket group (or the whole beforeSetCn if none)
     const firstBracket = beforeSetCn.indexOf('[')
