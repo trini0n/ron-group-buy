@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
+import { parseDeckList } from '$lib/deck-utils'
 import { logger } from '$lib/server/logger'
 import { LRUCache } from 'lru-cache'
 import { createRateLimiter, getClientIp } from '$lib/server/rate-limiter'
@@ -117,59 +118,73 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 }
 
-// Browser-like headers for Moxfield requests
-const MOXFIELD_HEADERS: HeadersInit = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  Accept: 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  Referer: 'https://www.moxfield.com/',
-  Origin: 'https://www.moxfield.com',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-site',
-  'Cache-Control': 'no-cache'
+const MOXFIELD_HEADERS = {
+  'User-Agent': 'RonsGroupBuy/1.0',
+  Accept: 'application/json',
 }
 
 const BOARD_TYPES = ['commanders', 'companions', 'mainboard', 'sideboard'] as const
 
 async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: DeckCard[] }> {
   const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
-  if (!match) throw new Error('Invalid Moxfield URL')
-  const publicId = match[1]!
+  if (!match?.[1]) throw new Error('Invalid Moxfield URL')
+  const publicId = match[1]
 
-  // Use v2 endpoint directly — returns full board JSON without needing an exportId.
-  // The v3+exportId flow was blocked by Cloudflare; v2 JSON has everything we need.
-  const resp = await fetch(`https://api2.moxfield.com/v2/decks/all/${publicId}`, {
+  // Step 1: fetch deck metadata (v3)
+  const metaRes = await fetch(`https://api2.moxfield.com/v3/decks/all/${publicId}`, {
     headers: MOXFIELD_HEADERS
   })
+  logger.info({ status: metaRes.status }, '[moxfield] v3 metadata response')
 
-  const cfRay = resp.headers.get('cf-ray')
-  logger.info({ status: resp.status, cfRay }, '[moxfield] v2 response')
-
-  if (resp.status === 404) throw error(404, 'Deck not found on Moxfield')
-
-  if (resp.status === 401 || resp.status === 403) {
+  if (metaRes.status === 404) throw error(404, 'Deck not found on Moxfield')
+  if (!metaRes.ok)
     throw error(
       422,
-      `Moxfield blocked the import request (${resp.status}). Open the deck on Moxfield → ⋯ More → Export → Plain Text, then paste the list below.`
+      `Moxfield blocked this request (${metaRes.status}). Please copy the deck list from Moxfield and use the Paste Deck List option instead.`
     )
+
+  const deck: MoxfieldDeck = await metaRes.json()
+
+  // Step 2: if exportId available, fetch plain-text export and enrich with board data
+  if (deck.exportId) {
+    const exportRes = await fetch(
+      `https://api2.moxfield.com/v2/decks/all/${publicId}/export?exportId=${deck.exportId}`,
+      { headers: { ...MOXFIELD_HEADERS, Accept: 'text/plain' } }
+    )
+    logger.info({ status: exportRes.status }, '[moxfield] export response')
+
+    if (exportRes.ok) {
+      const cards = parseDeckList(await exportRes.text())
+
+      // Enrich boardType + typeLine from v3 board data
+      const boardTypeMap = new Map<string, DeckCard['boardType']>()
+      const typeLineMap = new Map<string, string>()
+      for (const boardType of BOARD_TYPES) {
+        const board = deck.boards?.[boardType]
+        for (const entry of Object.values(board?.cards ?? {})) {
+          if (!entry.card?.name) continue
+          const key = entry.card.name.toLowerCase()
+          boardTypeMap.set(key, boardType)
+          if (entry.card.type_line) typeLineMap.set(key, entry.card.type_line)
+        }
+      }
+      for (const card of cards) {
+        const key = card.name.toLowerCase()
+        const mapped = boardTypeMap.get(key)
+        if (mapped) card.boardType = mapped
+        const tl = typeLineMap.get(key)
+        if (tl) card.typeLine = tl
+      }
+
+      return { name: deck.name, cards }
+    }
   }
 
-  if (!resp.ok) {
-    throw error(
-      422,
-      `Moxfield returned an error (${resp.status}). Use Moxfield's Export → Plain Text feature and paste it below instead.`
-    )
-  }
-
-  const deck: MoxfieldDeck = await resp.json()
+  // Fallback: parse boards directly from the v3 JSON
+  logger.info('[moxfield] falling back to JSON board parsing')
   const result = parseMoxfieldJsonDeck(deck)
-
-  if (result.cards.length === 0) {
+  if (result.cards.length === 0)
     throw error(422, 'No cards found in this Moxfield deck. The deck may be private or empty.')
-  }
-
   return result
 }
 
