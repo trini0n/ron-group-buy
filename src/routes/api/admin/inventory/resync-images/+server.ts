@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
+import { env } from '$env/dynamic/private'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getDirectPhotoUrl } from '$lib/server/gphoto-converter'
@@ -10,9 +11,9 @@ const ResyncImagesSchema = z.object({
   card_ids: z.array(z.string().min(1)).min(1).max(50)
 })
 
-// Published CSV URL for the Library sheet
-const LIBRARY_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSMUbO_Hsty-uIqFPWL2RdYyZ4nWPCHoW9n1YApAdZeg9A8JUGfME_dPyNSWpSamE6_DOAMYQOevvlK/pub?gid=1297811197&single=true&output=csv'
+// Published CSV URL for the Library sheet — configured via GOOGLE_SHEETS_LIBRARY_URL env var
+const LIBRARY_CSV_URL = env.GOOGLE_SHEETS_LIBRARY_URL ?? ''
+
 
 interface CsvRow {
   Serial: string
