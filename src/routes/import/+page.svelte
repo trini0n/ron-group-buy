@@ -25,6 +25,7 @@
   import { onMount } from 'svelte'
   import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils'
   import { browser } from '$app/environment'
+  import { PUBLIC_MOXFIELD_PROXY } from '$env/static/public'
 
   // Types
   interface DeckCard {
@@ -284,8 +285,12 @@
     if (!match || !match[1]) throw new Error('Invalid Moxfield URL')
 
     const deckId = match[1]
-    // Fetch directly — no CORS proxy needed; user's browser IP passes Cloudflare
-    const response = await fetch(`https://api2.moxfield.com/v3/decks/all/${deckId}`, {
+    // Route through Cloudflare Worker proxy (adds CORS headers; Worker runs on CF edge so Moxfield trusts it)
+    // Falls back to direct URL if PUBLIC_MOXFIELD_PROXY is not set
+    const apiUrl = PUBLIC_MOXFIELD_PROXY
+      ? `${PUBLIC_MOXFIELD_PROXY}/${deckId}`
+      : `https://api2.moxfield.com/v3/decks/all/${deckId}`
+    const response = await fetch(apiUrl, {
       headers: { Accept: 'application/json' }
     })
 
