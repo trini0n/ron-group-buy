@@ -7,16 +7,16 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** 17 — Sets Foundation (DB + Admin CRUD)
-**Plan:** Planning complete — 2 plans ready
-**Status:** Ready for execution
-**Last activity:** 2026-06-14 — Phase 17 plans written (17-01-PLAN.md, 17-02-PLAN.md)
+**Phase:** 17 — Sets Foundation (DB + Admin CRUD) ✅ Complete
+**Plan:** All 2 plans complete
+**Status:** Phase 17 verified
+**Last activity:** 2026-06-14 — Phase 17 executed (migration, API routes, admin pages, nav link)
 
 ## Next Steps
 
-1. `/gsd-execute 17` — Execute Phase 17 plans (17-01 then 17-02)
-2. Apply DB migration to Supabase before/after execute
-3. Plan Phase 18 after Phase 17 is verified
+1. **Apply DB migration to Supabase** — run `supabase/migrations/20260614000000_sets_table.sql` in production
+2. After migration: run `npm run db:generate` to regenerate types, then remove `as any` casts in sets routes
+3. `/gsd-plan-phase 18` — Plan Phase 18: Public Sets pages
 
 ## Active Decisions
 

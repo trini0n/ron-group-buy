@@ -153,12 +153,13 @@ Add a `misprint` boolean flag to cards. Misprint cards are excluded from all cat
 
 **Goal:** Create the `sets` and `set_cards` DB tables, admin UI to manage sets (create/edit/delete/reorder), and the card-association UI (paste `setCode coll# lang` lines).
 **Depends on:** Phase 16
+**Status:** ✅ Complete
 **Plans:** 2 plans
 
 Plans:
 
-- [ ] 17-01 — DB migration + Admin sets list + set create/edit/delete + admin nav link
-- [ ] 17-02 — Admin set detail page: card association textarea + remove card
+- [x] 17-01 — DB migration + Admin sets list + set create/edit/delete + admin nav link
+- [x] 17-02 — Admin set detail page: card association textarea + remove card
 
 **Success criteria:**
 1. `sets` table exists with `set_code`, `set_name`, `sort_order`; `set_cards` join table with FK constraints
