@@ -7,16 +7,16 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** Not started
-**Plan:** —
-**Status:** Milestone planned — ready to execute Phase 17
-**Last activity:** 2026-06-14 — v1.2 milestone created (REQUIREMENTS, ROADMAP, PROJECT updated)
+**Phase:** 17 — Sets Foundation (DB + Admin CRUD)
+**Plan:** Planning complete — 2 plans ready
+**Status:** Ready for execution
+**Last activity:** 2026-06-14 — Phase 17 plans written (17-01-PLAN.md, 17-02-PLAN.md)
 
 ## Next Steps
 
-1. `/gsd-plan-phase 17` — Plan Phase 17: Sets Foundation (DB + Admin CRUD)
-2. Execute Phase 17 plans (17-01, 17-02)
-3. Execute Phase 18 (18-01) — Public sets pages
+1. `/gsd-execute 17` — Execute Phase 17 plans (17-01 then 17-02)
+2. Apply DB migration to Supabase before/after execute
+3. Plan Phase 18 after Phase 17 is verified
 
 ## Active Decisions
 
