@@ -7,7 +7,7 @@ import { logger } from '$lib/server/logger'
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
-  let body: { set_name?: string; sort_order?: number }
+  let body: { set_name?: string; sort_order?: number; price?: number | null }
   try {
     body = await request.json()
   } catch {
@@ -16,6 +16,7 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   const updates: Record<string, unknown> = {}
   if (body.set_name !== undefined) updates.set_name = body.set_name.trim()
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order
+  if (body.price !== undefined) updates.price = body.price ?? null
   if (Object.keys(updates).length === 0) throw error(400, 'No updatable fields provided')
   const { data, error: dbError } = await adminClient
     .from('sets')

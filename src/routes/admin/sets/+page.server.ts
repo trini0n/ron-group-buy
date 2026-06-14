@@ -2,13 +2,22 @@ import type { PageServerLoad } from './$types'
 import { createAdminClient } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
 
+interface SetRow {
+  set_code: string
+  set_name: string
+  sort_order: number
+  price: number | null
+  set_cards: { count: number }[]
+}
+
 export const load: PageServerLoad = async ({ setHeaders }) => {
   setHeaders({ 'Cache-Control': 'private, max-age=60' })
   const adminClient = createAdminClient()
 
-  const { data: sets, error } = await adminClient
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sets, error } = await (adminClient as any)
     .from('sets')
-    .select('set_code, set_name, sort_order, set_cards(count)')
+    .select('set_code, set_name, sort_order, price, set_cards(count)')
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
 
@@ -18,13 +27,12 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
   }
 
   return {
-    sets: (sets ?? []).map((s) => ({
+    sets: ((sets ?? []) as SetRow[]).map((s) => ({
       set_code: s.set_code,
       set_name: s.set_name,
       sort_order: s.sort_order,
-      card_count: Array.isArray(s.set_cards)
-        ? ((s.set_cards[0] as { count: number } | undefined)?.count ?? 0)
-        : 0
+      price: s.price,
+      card_count: s.set_cards?.[0]?.count ?? 0
     }))
   }
 }
