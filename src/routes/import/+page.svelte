@@ -267,66 +267,56 @@
     return null
   }
 
+  // MDFC normalization: take first face only ("A // B" → "A")
+  function normalizeMdfc(name: string): string {
+    const parts = name.split(' // ')
+    if (parts.length > 1) return parts[0].trim()
+    const singleParts = name.split(' / ')
+    if (singleParts.length > 1) return singleParts[0].trim()
+    return name.trim()
+  }
+
+  // Fetch Moxfield deck from the browser.
+  // Moxfield sits behind Cloudflare Bot Management which blocks Vercel/AWS datacenter IPs.
+  // The user's browser passes the check (residential IP + real Chrome TLS fingerprint).
   async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
     const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
     if (!match || !match[1]) throw new Error('Invalid Moxfield URL')
 
     const deckId = match[1]
-    const apiUrl = `https://api2.moxfield.com/v3/decks/all/${deckId}`
-    // Try cors.bridged.cc proxy
-    const proxyUrl = `https://cors.bridged.cc/${apiUrl}`
-
-    const response = await fetch(proxyUrl)
+    // Fetch directly — no CORS proxy needed; user's browser IP passes Cloudflare
+    const response = await fetch(`https://api2.moxfield.com/v3/decks/all/${deckId}`, {
+      headers: { Accept: 'application/json' }
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch deck (status ${response.status})`)
+      throw new Error(
+        `Moxfield returned ${response.status}. Please use the Paste Deck List option instead.`
+      )
     }
 
     const deck: MoxfieldDeck = await response.json()
     const cards: DeckCard[] = []
 
-    const hasBoards = deck.boards && deck.boards.mainboard
-
-    const getCards = (zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined): Record<string, MoxfieldCard> => {
-      if (!zone) return {}
-      if ('cards' in zone && typeof zone.cards === 'object') {
-        return zone.cards as Record<string, MoxfieldCard>
-      }
-      return zone as Record<string, MoxfieldCard>
-    }
-
-    const boardTypes: Array<{
-      zone: MoxfieldBoard | Record<string, MoxfieldCard> | undefined
-      type: DeckCard['boardType']
-    }> = hasBoards
-      ? [
-          { zone: deck.boards.commanders, type: 'commanders' },
-          { zone: deck.boards.companions, type: 'companions' },
-          { zone: deck.boards.mainboard, type: 'mainboard' },
-          { zone: deck.boards.sideboard, type: 'sideboard' }
-        ]
-      : [
-          { zone: deck.commanders, type: 'commanders' },
-          { zone: deck.companions, type: 'companions' },
-          { zone: deck.mainboard, type: 'mainboard' },
-          { zone: deck.sideboard, type: 'sideboard' }
-        ]
-
-    for (const { zone, type } of boardTypes) {
-      const cardsMap = getCards(zone)
-      for (const [, entry] of Object.entries(cardsMap)) {
+    const boardNames = ['commanders', 'companions', 'mainboard', 'sideboard'] as const
+    for (const boardName of boardNames) {
+      const board = deck.boards?.[boardName] as MoxfieldBoard | undefined
+      if (!board?.cards) continue
+      for (const [, entry] of Object.entries(board.cards)) {
         if (!entry.card) continue
         cards.push({
           quantity: entry.quantity,
-          name: entry.card.name,
+          name: normalizeMdfc(entry.card.name),
           set: entry.card.set?.toUpperCase(),
           collectorNumber: entry.card.cn,
-          boardType: type,
+          boardType: boardName,
           typeLine: entry.card.type_line
         })
       }
     }
 
+    if (cards.length === 0)
+      throw new Error('No cards found. Please use the Paste Deck List option instead.')
     return { name: deck.name, cards }
   }
 
@@ -410,19 +400,27 @@
     cardsSearched = 0
 
     try {
-      // Use server-side API with retry logic and caching
-      const deckResponse = await fetch('/api/import/deck', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: deckUrl, source })
-      })
+      let data: { name: string; cards: DeckCard[] }
 
-      if (!deckResponse.ok) {
-        const errorData = await deckResponse.text()
-        throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`)
+      if (source === 'moxfield') {
+        // Fetch from browser — user's residential IP passes Cloudflare;
+        // Vercel/server datacenter IPs are blocked by Cloudflare Bot Management.
+        data = await fetchMoxfieldDeckClient(deckUrl)
+      } else {
+        // Archidekt: server-side fetch works fine (not behind Cloudflare Bot Management)
+        const deckResponse = await fetch('/api/import/deck', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: deckUrl, source })
+        })
+
+        if (!deckResponse.ok) {
+          const errorData = await deckResponse.text()
+          throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`)
+        }
+
+        data = await deckResponse.json()
       }
-
-      const data: { name: string; cards: DeckCard[] } = await deckResponse.json()
 
       deckName = data.name || 'Imported Deck'
       isParsing = true
