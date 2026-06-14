@@ -7,17 +7,15 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** 18 — Public Sets Pages (Browse)
-**Plan:** 18-01 ready for execution
-**Status:** Planned
-**Last activity:** 2026-06-14 — Phase 18 planned; Phase 19 (bundle cart) defined in ROADMAP
+**Phase:** 18 — Public Sets Pages (Browse) ✅ Complete
+**Plan:** 18-01 executed
+**Status:** Phase 18 verified
+**Last activity:** 2026-06-14 — Phase 18 executed (public listing, detail pages, nav link)
 
 ## Next Steps
 
-1. Apply DB migration `20260614000001_sets_add_price.sql` in Supabase Dashboard (price column)
-2. Run `npm run db:generate:remote` to regenerate types and remove `as any` cast in sets page server
-3. `/execute 18` — execute Phase 18 plan (18-01)
-4. After Phase 18: discuss Phase 19 (set bundle cart)
+1. `/gsd-plan-phase 19` or `/execute 19` — Set Bundle Cart + Checkout
+2. Discuss Phase 19 cart model before planning
 
 ## Active Decisions
 
