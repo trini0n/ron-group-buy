@@ -29,9 +29,8 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(400, 'Maximum 2000 lines per request')
   }
 
-  // Verify the set exists — use any cast since 'sets' not in generated types yet
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: setRow } = await (adminClient as any)
+  // Verify the set exists
+  const { data: setRow } = await adminClient
     .from('sets')
     .select('set_code')
     .eq('set_code', params.setCode)
@@ -116,10 +115,9 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   // Deduplicate card IDs
   const uniqueCardIds = [...new Set(cardIds)]
 
-  // Upsert into set_cards — ignoreDuplicates silently skips already-associated cards (ASSOC-05)
+  // Upsert into set_cards — ignoreDuplicates silently skips already-associated cards
   const inserts = uniqueCardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: insertError } = await (adminClient as any)
+  const { data: inserted, error: insertError } = await adminClient
     .from('set_cards')
     .upsert(inserts, { onConflict: 'set_code,card_id', ignoreDuplicates: true })
     .select('id')
@@ -129,7 +127,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(500, 'Failed to associate cards with set')
   }
 
-  const added = (inserted as { id: string }[] | null)?.length ?? 0
+  const added = inserted?.length ?? 0
   const already_present = uniqueCardIds.length - added
 
   return json({ added, already_present, errors: allErrors } satisfies AssociateResult)

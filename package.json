@@ -16,6 +16,7 @@
     "test:ci": "vitest run --coverage",
     "coverage": "vitest run --coverage",
     "db:generate": "supabase gen types typescript --local > src/lib/server/database.types.ts",
+    "db:generate:remote": "supabase gen types typescript --project-id ritpdjwomrvkfogqanlj > src/lib/server/database.types.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "sync:cards": "tsx scripts/sync-cards.ts"
