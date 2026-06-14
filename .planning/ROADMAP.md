@@ -176,9 +176,9 @@ NAV-02
 
 ---
 
-## Phase 18: Public Sets Listing + Detail Pages
+## Phase 18: Public Sets Listing + Detail Pages (Browse)
 
-**Goal:** Public `/sets` listing page and `/sets/[setCode]` detail page showing the admin-curated card list for each set.
+**Goal:** Public `/sets` listing page and `/sets/[setCode]` detail page. Browse-only — no cart integration. Sets display with price, card grid on detail page.
 **Depends on:** Phase 17
 **Plans:** 1 plan
 
@@ -187,18 +187,41 @@ Plans:
 - [ ] 18-01 — `/sets` listing + `/sets/[setCode]` detail + public nav link
 
 **Success criteria:**
-1. `/sets` renders all sets sorted by `sort_order` then `set_name`; shows card count per set
-2. `/sets/[setCode]` renders full card list sorted by Scryfall release date → collector number
+1. `/sets` renders all sets sorted by `sort_order` then `set_name`; shows set name, code, card count, price
+2. `/sets/[setCode]` renders full card grid sorted by Scryfall release date → collector number
 3. Invalid `setCode` returns 404
 4. Empty states render correctly for both pages
-5. Each card links to its existing detail page
-6. "Sets" appears in the public nav
+5. Each card on the detail page links to its existing card detail page
+6. "Sets" appears in the public nav (desktop + mobile)
 7. No regressions to existing catalog or admin
 
 **Requirements covered:**
 PUB-01, PUB-02, PUB-03, PUB-04, PUB-05,
 DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04, DETAIL-05,
 NAV-01
+
+---
+
+## Phase 19: Set Bundle Cart + Checkout
+
+**Goal:** Allow users to add a full set as a single bundle line item to the cart at the set's price. Requires cart system changes to support a new "bundle" item type alongside individual cards.
+**Depends on:** Phase 18
+**Plans:** TBD
+
+Plans:
+
+- [ ] 19-01 — Cart system: bundle line item type (set_code + price, not card_id)
+- [ ] 19-02 — "Add Set to Cart" button on `/sets` listing + cart UI for bundle items
+- [ ] 19-03 — Checkout + order system: handle bundle items
+
+**Success criteria:**
+1. "Add to Cart" button on `/sets` listing adds the set as a single bundle line item at `sets.price`
+2. Cart displays bundle items separately from individual cards
+3. Checkout correctly processes and stores bundle orders
+4. Order history shows bundle items correctly
+
+**Requirements covered:**
+CART-01 (new), CART-02 (new), ORDER-01 (new)
 
 ---
 
@@ -232,5 +255,8 @@ NAV-01
 | DETAIL-05     | 18    | — |
 | NAV-01        | 18    | — |
 | NAV-02        | 17    | — |
+| CART-01       | 19    | — |
+| CART-02       | 19    | — |
+| ORDER-01      | 19    | — |
 
-Coverage: 0/26 requirements (0%) — milestone starting
+Coverage: 0/30 requirements (0%) — milestone in progress

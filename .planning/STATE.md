@@ -7,16 +7,17 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** 17 — Sets Foundation (DB + Admin CRUD) ✅ Complete
-**Plan:** All 2 plans complete
-**Status:** Phase 17 verified
-**Last activity:** 2026-06-14 — Phase 17 executed (migration, API routes, admin pages, nav link)
+**Phase:** 18 — Public Sets Pages (Browse)
+**Plan:** 18-01 ready for execution
+**Status:** Planned
+**Last activity:** 2026-06-14 — Phase 18 planned; Phase 19 (bundle cart) defined in ROADMAP
 
 ## Next Steps
 
-1. **Apply DB migration to Supabase** — run `supabase/migrations/20260614000000_sets_table.sql` in production
-2. After migration: run `npm run db:generate` to regenerate types, then remove `as any` casts in sets routes
-3. `/gsd-plan-phase 18` — Plan Phase 18: Public Sets pages
+1. Apply DB migration `20260614000001_sets_add_price.sql` in Supabase Dashboard (price column)
+2. Run `npm run db:generate:remote` to regenerate types and remove `as any` cast in sets page server
+3. `/execute 18` — execute Phase 18 plan (18-01)
+4. After Phase 18: discuss Phase 19 (set bundle cart)
 
 ## Active Decisions
 
