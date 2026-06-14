@@ -33,11 +33,17 @@ const OrderItemSchema = z.object({
   language: z.string().optional()
 })
 
+const OrderBundleSchema = z.object({
+  setCode: z.string().min(1),
+  quantity: z.number().int().min(1).max(99)
+})
+
 const CreateOrderSchema = z.object({
   addressId: z.string().optional(),
   newAddress: AddressSchema.optional(),
   shippingType: z.enum(['regular', 'express']).optional(),
-  items: z.array(OrderItemSchema).min(1),
+  items: z.array(OrderItemSchema).default([]),
+  bundles: z.array(OrderBundleSchema).default([]),
   action: z.enum(['replace', 'merge']).optional(),
   paypalEmail: z.string().trim().min(1),
   phoneNumber: z.string().trim().min(1),
@@ -87,6 +93,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     newAddress,
     shippingType,
     items,
+    bundles,
     action,
     paypalEmail,
     phoneNumber,
@@ -98,6 +105,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   } = parseResult.data
 
   let replaceOldOrderId: string | null = null
+
+  // Must have at least one item OR one bundle
+  if (items.length === 0 && bundles.length === 0) {
+    return json({ error: 'Cart is empty' }, { status: 400 })
+  }
 
   const e164Regex = /^\+[1-9]\d{1,14}$/
   if (!e164Regex.test(String(phoneNumber).trim())) {
@@ -385,6 +397,38 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     throw error(500, 'Failed to create order')
   }
   const createResult = rpcResult as { order_id: string; order_number: string }
+
+  // Insert bundle items after RPC succeeds (snapshot set_name + price at purchase time)
+  if (bundles && bundles.length > 0) {
+    const setCodes = bundles.map((b: { setCode: string; quantity: number }) => b.setCode)
+    const { data: setRows } = await locals.supabase
+      .from('sets')
+      .select('set_code, set_name, price')
+      .in('set_code', setCodes)
+    const setMap = new Map(setRows?.map((s: { set_code: string; set_name: string; price: number | null }) => [s.set_code, s]) ?? [])
+
+    const bundleRows = bundles
+      .map((b: { setCode: string; quantity: number }) => {
+        const set = setMap.get(b.setCode)
+        if (!set || set.price == null) return null
+        return {
+          order_id: createResult.order_id,
+          set_code: b.setCode,
+          set_name: set.set_name,
+          quantity: b.quantity,
+          price_at_purchase: Number(set.price)
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+
+    if (bundleRows.length > 0) {
+      const { error: bundleInsertErr } = await locals.supabase.from('order_bundle_items').insert(bundleRows)
+      if (bundleInsertErr) {
+        logger.error({ error: bundleInsertErr, orderId: createResult.order_id }, 'Failed to insert order_bundle_items')
+      }
+    }
+  }
+
   return json({ orderId: createResult.order_id, orderNumber: createResult.order_number })
 }
 

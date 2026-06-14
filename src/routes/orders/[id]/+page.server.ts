@@ -32,6 +32,13 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
           is_borderless,
           is_etched
         )
+      ),
+      order_bundle_items (
+        id,
+        set_code,
+        set_name,
+        quantity,
+        price_at_purchase
       )
     `)
     .eq('id', params.id)

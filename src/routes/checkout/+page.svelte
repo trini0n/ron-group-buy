@@ -241,6 +241,10 @@
             isFoil: item.card.is_foil,
             isEtched: item.card.is_etched,
             language: item.card.language || 'en'
+          })),
+          bundles: cartStore.bundles.map((b) => ({
+            setCode: b.set_code,
+            quantity: b.quantity
           }))
         })
       })
@@ -572,6 +576,15 @@
 
             {#if showItems}
               <div class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3">
+                {#each cartStore.bundles as bundle (bundle.id)}
+                  <div class="flex justify-between text-sm">
+                    <span class="truncate pr-2">
+                      {bundle.set.set_name} × {bundle.quantity}
+                      <span class="text-muted-foreground">(Set)</span>
+                    </span>
+                    <span class="shrink-0">{formatPrice((bundle.set.price ?? 0) * bundle.quantity)}</span>
+                  </div>
+                {/each}
                 {#each cartStore.items as item (item.id)}
                   {@const price = getCardPrice(getMispriceKey(item.card))}
                   <div class="flex justify-between text-sm">
@@ -590,7 +603,7 @@
             <!-- Subtotal Breakdown -->
             <div class="space-y-2">
               <div class="flex justify-between text-sm font-medium">
-                <span>Subtotal ({cartStore.itemCount} cards)</span>
+                <span>Subtotal ({cartStore.items.length} card{cartStore.items.length !== 1 ? 's' : ''}{cartStore.bundles.length > 0 ? ` + ${cartStore.bundles.length} set${cartStore.bundles.length !== 1 ? 's' : ''}` : ''})</span>
                 <span>{formatPrice(cartStore.total)}</span>
               </div>
               <div class="ml-4 space-y-1">

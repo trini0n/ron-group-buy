@@ -4,7 +4,7 @@
   import * as Card from '$components/ui/card';
   import * as Tooltip from '$components/ui/tooltip';
   import { formatPrice, getTrackingUrl, getCardImageUrl, getCardPrice, getFinishLabel, getFrameEffectLabel } from '$lib/utils';
-  import { ArrowLeft, Check, ExternalLink, Package, Truck } from 'lucide-svelte';
+  import { ArrowLeft, Check, ExternalLink, Package, Truck, Boxes } from 'lucide-svelte';
   import { Separator } from '$components/ui/separator';
 
   let { data } = $props();
@@ -32,6 +32,14 @@
     (sum: number, item: any) => sum + item.unit_price * (item.quantity ?? 1),
     0
   ));
+
+  // Bundle subtotal (snapshotted price at purchase)
+  const bundleSubtotal = $derived.by(() =>
+    (order.order_bundle_items ?? []).reduce(
+      (sum: number, b: any) => sum + Number(b.price_at_purchase) * (b.quantity ?? 1),
+      0
+    )
+  );
 
   // Group order items by card_type for a dynamic breakdown
   const priceBreakdown = $derived.by(() => {
@@ -61,7 +69,7 @@
   const rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international);
   const shippingCost = $derived(order.shipping_type === 'express' ? rates.express : rates.regular);
   const tariffCost = $derived(rates.tariff);
-  const grandTotal = $derived(subtotal + shippingCost + tariffCost);
+  const grandTotal = $derived(subtotal + bundleSubtotal + shippingCost + tariffCost);
 </script>
 
 <svelte:head>
@@ -113,6 +121,25 @@
         </Card.Header>
         <Card.Content class="p-0">
           <div class="divide-y">
+            <!-- Bundle items -->
+            {#each (data.order.order_bundle_items ?? []) as bundle (bundle.id)}
+              <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Boxes class="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <a href="/sets/{bundle.set_code}" class="font-medium hover:underline">{bundle.set_name}</a>
+                    <p class="text-sm text-muted-foreground">Set Bundle · {bundle.set_code}</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="font-medium">{formatPrice(Number(bundle.price_at_purchase) * (bundle.quantity ?? 1))}</p>
+                  <p class="text-sm text-muted-foreground">{bundle.quantity ?? 1} × {formatPrice(Number(bundle.price_at_purchase))}</p>
+                </div>
+              </div>
+            {/each}
+            <!-- Card items -->
             {#each data.order.order_items as item (item.id)}
               {@const frameEffect = getFrameEffectLabel(item.card)}
               {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
@@ -151,8 +178,8 @@
         <Card.Footer class="flex-col items-stretch border-t bg-muted/50 py-4">
           <div class="w-full space-y-2">
             <div class="flex justify-between text-sm font-medium">
-              <span>Subtotal ({itemCount} cards)</span>
-              <span>{formatPrice(subtotal)}</span>
+              <span>Subtotal ({itemCount} card{itemCount !== 1 ? 's' : ''}{(data.order.order_bundle_items ?? []).length > 0 ? ` + ${(data.order.order_bundle_items ?? []).length} set${(data.order.order_bundle_items ?? []).length !== 1 ? 's' : ''}` : ''})</span>
+              <span>{formatPrice(subtotal + bundleSubtotal)}</span>
             </div>
             <div class="ml-4 space-y-1">
               {#each priceBreakdown as [type, group]}
