@@ -1,30 +1,32 @@
 ---
-updated: 2026-06-11
+updated: 2026-06-14
 ---
 
 # Project State
 
 ## Current Position
 
-**Milestone:** v1.1 — Admin New Card Checker
-**Phase:** 16 complete — Misprint Card Filter Type
-**Plan:** all 3 plans complete
-**Status:** Phase 16 fully complete + critical issues resolved
-**Last activity:** 2026-06-11 — Codebase map generated; 4 critical issues fixed (C-01/C-02/C-03/C-04)
+**Milestone:** v1.2 — Sets
+**Phase:** Not started
+**Plan:** —
+**Status:** Milestone planned — ready to execute Phase 17
+**Last activity:** 2026-06-14 — v1.2 milestone created (REQUIREMENTS, ROADMAP, PROJECT updated)
 
 ## Next Steps
 
-1. Execute Phase 11 (Admin New Card Checker)
-2. Add GOOGLE_SHEETS_LIBRARY_URL to local .env (the old hardcoded URL)
-3. Note: 2 pre-existing test failures in groupAndSortOrderItems (unrelated to recent work)
+1. `/gsd-plan-phase 17` — Plan Phase 17: Sets Foundation (DB + Admin CRUD)
+2. Execute Phase 17 plans (17-01, 17-02)
+3. Execute Phase 18 (18-01) — Public sets pages
 
 ## Active Decisions
 
-| Decision      | Choice                                                    | Made       | Affects      |
-| ------------- | --------------------------------------------------------- | ---------- | ------------ |
-| Match logic   | set_code + collector_number + card_type family            | 2026-05-03 | API endpoint |
-| Foil matching | card_type IN (Foil, Galaxy Foil, Raised Foil, Surge Foil) | 2026-05-03 | API endpoint |
-| UI placement  | Modal triggered from Admin Inventory page                 | 2026-05-03 | Phase 11     |
+| Decision          | Choice                                                                          | Made       | Affects      |
+| ----------------- | ------------------------------------------------------------------------------- | ---------- | ------------ |
+| Sets table design | `sets` (set_code PK, set_name, sort_order) + `set_cards` join; no FK on cards  | 2026-06-14 | Phase 17 DB  |
+| Card association  | `setCode coll# lang` per line; all card_type matches included                  | 2026-06-14 | Phase 17 API |
+| Sets sort (public)| `sort_order ASC`, then `set_name ASC`                                          | 2026-06-14 | Phase 18 UI  |
+| Cards sort        | Scryfall release date ASC → collector_number ASC (numeric-aware)                | 2026-06-14 | Phase 18 UI  |
+| Auth              | Sets pages are public (no auth required)                                        | 2026-06-14 | Phase 18 UI  |
 
 ## Blockers
 
@@ -34,17 +36,23 @@ None.
 
 ### Pending Todos
 
-0 pending todos — is:TAG autocomplete shipped ✓
+0 pending todos
 
 ### Roadmap Evolution
 
-- Phase 12 added: Add filtering cards by tagged / oracletag type (lands: shockland, fetchland, vergeland, etc.)
-- Phase 13 added: is:TAG autocomplete dropdown in search bar
-- Phase 16 added: Misprint card filter type (hidden by default, opt-in filter, excluded from all search including decklist)
+- Phase 17 added: Sets Foundation — DB migration + admin CRUD + card association UI
+- Phase 18 added: Public /sets listing + /sets/[setCode] detail pages
+
+### Milestone History
+
+| Milestone | Phases   | Status    |
+| --------- | -------- | --------- |
+| v1.0      | 1–10     | Shipped   |
+| v1.1      | 11–16    | Completed |
+| v1.2      | 17–18    | In flight |
 
 ## Session Context
 
-First milestone being tracked in GSD. Previous work (v1.0) retroactively recorded.
 ### Quick Tasks Completed
 
 | #   | Description | Date | Commits | Directory |
