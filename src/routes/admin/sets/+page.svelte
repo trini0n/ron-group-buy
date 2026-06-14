@@ -135,14 +135,14 @@
       <div class="flex gap-3">
         <Input
           id="new-set-code"
-          placeholder="Set code (e.g. MKM)"
+          placeholder="Short ID (e.g. NPFOIL42)"
           bind:value={newSetCode}
-          class="w-36 font-mono uppercase"
+          class="w-40 font-mono uppercase"
           onkeydown={(e) => e.key === 'Enter' && createSet()}
         />
         <Input
           id="new-set-name"
-          placeholder="Set name (e.g. Murders at Karlov Manor)"
+          placeholder="Display name (e.g. NP Foil 42 Set (65$))"
           bind:value={newSetName}
           class="flex-1"
           onkeydown={(e) => e.key === 'Enter' && createSet()}
