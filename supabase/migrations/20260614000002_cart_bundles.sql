@@ -59,8 +59,5 @@ CREATE POLICY "order_bundle_items_user_read" ON public.order_bundle_items
 
 -- Admins can read all order bundle items
 CREATE POLICY "order_bundle_items_admin_read" ON public.order_bundle_items
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.admin_users WHERE user_id = auth.uid()
-    )
-  );
+  FOR SELECT USING (is_admin());
+
