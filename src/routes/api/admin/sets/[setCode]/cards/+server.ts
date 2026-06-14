@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, requireAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
+import { FOIL_SUBTYPES } from '$lib/utils'
 
 interface AssociateResult {
   added: number
@@ -9,8 +10,32 @@ interface AssociateResult {
   errors: Array<{ line: string; reason: string }>
 }
 
+// All valid finish values (case-insensitive aliases accepted in input)
+// Canonical values match card_type column exactly.
+const FINISH_ALIASES: Record<string, string> = {
+  normal: 'Normal',
+  holo: 'Holo',
+  foil: 'Foil',
+  galaxyfoil: 'Galaxy Foil',
+  'galaxy foil': 'Galaxy Foil',
+  galaxy: 'Galaxy Foil',
+  raisedfoil: 'Raised Foil',
+  'raised foil': 'Raised Foil',
+  raised: 'Raised Foil',
+  surgefoil: 'Surge Foil',
+  'surge foil': 'Surge Foil',
+  surge: 'Surge Foil'
+}
+
+function resolveFinish(raw: string): string | null {
+  return FINISH_ALIASES[raw.toLowerCase()] ?? null
+}
+
 // POST /api/admin/sets/[setCode]/cards
-// Body: { lines: string[] }  — each line is "setCode coll# [lang]"
+// Body: { lines: string[] }
+// Line format: "setCode coll# [lang] [finish]"
+//   lang defaults to 'en', finish defaults to ALL types (any matching card is added)
+//   finish examples: Normal, Holo, Foil, Galaxy, Raised, Surge (case-insensitive)
 export const POST: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
@@ -37,12 +62,16 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     .single()
   if (!setRow) throw error(404, 'Set not found')
 
-  // Parse each line: "setCode coll# lang" — lang optional, defaults to 'en'
+  // Parse each line: "setCode coll# [lang] [finish]"
+  // Token 3 = lang (2-letter code like 'en', 'ja', 'de') OR a finish keyword
+  // Token 4 = finish (if token 3 was lang)
+  // Heuristic: if token 3 looks like a finish keyword, treat it as finish (lang = 'en')
   interface ParsedLine {
     original: string
     set_code: string
     collector_number: string
     language: string
+    finish: string | null // null = match any finish
   }
 
   const parsed: ParsedLine[] = []
@@ -56,11 +85,42 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
       parseErrors.push({ line, reason: 'Expected at least "setCode collectorNumber"' })
       continue
     }
+
+    const token3 = parts[2]
+    const token4 = parts[3]
+
+    let language = 'en'
+    let finish: string | null = null
+
+    if (token3) {
+      // If token3 matches a finish keyword, treat it as finish (no lang specified)
+      const asFinish = resolveFinish(token3)
+      if (asFinish) {
+        finish = asFinish
+      } else {
+        // Treat as language code
+        language = token3.toLowerCase()
+        if (token4) {
+          const f = resolveFinish(token4)
+          if (f) {
+            finish = f
+          } else {
+            parseErrors.push({
+              line,
+              reason: `Unknown finish "${token4}". Valid: Normal, Holo, Foil, Galaxy, Raised, Surge`
+            })
+            continue
+          }
+        }
+      }
+    }
+
     parsed.push({
       original: line,
       set_code: parts[0]!.toUpperCase(),
       collector_number: parts[1]!,
-      language: (parts[2] ?? 'en').toLowerCase()
+      language,
+      finish
     })
   }
 
@@ -68,13 +128,13 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: parseErrors } satisfies AssociateResult)
   }
 
-  // Batch query cards matching any of the parsed (set_code, collector_number) combos
+  // Batch query cards — fetch card_type too for finish filtering
   const uniqueSetCodes = [...new Set(parsed.map((p) => p.set_code))]
   const uniqueCollNums = [...new Set(parsed.map((p) => p.collector_number))]
 
   const { data: candidates, error: dbError } = await adminClient
     .from('cards')
-    .select('id, set_code, collector_number, language')
+    .select('id, set_code, collector_number, language, card_type')
     .in('set_code', uniqueSetCodes)
     .in('collector_number', uniqueCollNums)
 
@@ -83,13 +143,36 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(500, 'Database error resolving cards')
   }
 
-  // Build lookup: "SET|collNum|lang" -> card id[]
+  // Build lookup: "SET|collNum|lang|finish" -> card id[]
+  // Also build a wildcard key "SET|collNum|lang|*" -> card id[] for finish-agnostic lines
   const lookup = new Map<string, string[]>()
+  const foilSubtypes = FOIL_SUBTYPES as readonly string[]
+
   for (const card of candidates ?? []) {
-    const key = `${(card.set_code ?? '').toUpperCase()}|${card.collector_number ?? ''}|${(card.language ?? 'en').toLowerCase()}`
-    const existing = lookup.get(key) ?? []
-    existing.push(card.id)
-    lookup.set(key, existing)
+    const sc = (card.set_code ?? '').toUpperCase()
+    const cn = card.collector_number ?? ''
+    const lang = (card.language ?? 'en').toLowerCase()
+    const ct = card.card_type ?? ''
+
+    // Exact finish key
+    const exactKey = `${sc}|${cn}|${lang}|${ct}`
+    const exactList = lookup.get(exactKey) ?? []
+    exactList.push(card.id)
+    lookup.set(exactKey, exactList)
+
+    // Wildcard key (for lines with no finish specified)
+    const wildcardKey = `${sc}|${cn}|${lang}|*`
+    const wildcardList = lookup.get(wildcardKey) ?? []
+    wildcardList.push(card.id)
+    lookup.set(wildcardKey, wildcardList)
+
+    // "Foil" as a finish family key — so specifying "Foil" matches all foil subtypes
+    if (foilSubtypes.includes(ct)) {
+      const familyKey = `${sc}|${cn}|${lang}|Foil-family`
+      const familyList = lookup.get(familyKey) ?? []
+      familyList.push(card.id)
+      lookup.set(familyKey, familyList)
+    }
   }
 
   // Resolve each parsed line to card IDs
@@ -97,10 +180,29 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   const cardIds: string[] = []
 
   for (const p of parsed) {
-    const key = `${p.set_code}|${p.collector_number}|${p.language}`
-    const ids = lookup.get(key)
+    const sc = p.set_code
+    const cn = p.collector_number
+    const lang = p.language
+
+    let ids: string[] | undefined
+
+    if (!p.finish) {
+      // No finish specified — match all finish types
+      ids = lookup.get(`${sc}|${cn}|${lang}|*`)
+    } else if (p.finish === 'Foil') {
+      // "Foil" matches all foil subtypes (Foil, Galaxy Foil, Raised Foil, Surge Foil)
+      ids = lookup.get(`${sc}|${cn}|${lang}|Foil-family`)
+    } else {
+      // Exact finish match (Normal, Holo, or specific foil subtype)
+      ids = lookup.get(`${sc}|${cn}|${lang}|${p.finish}`)
+    }
+
     if (!ids || ids.length === 0) {
-      resolveErrors.push({ line: p.original, reason: 'No matching card found in library' })
+      const finishHint = p.finish ? ` with finish "${p.finish}"` : ''
+      resolveErrors.push({
+        line: p.original,
+        reason: `No matching card found in library${finishHint}`
+      })
     } else {
       cardIds.push(...ids)
     }

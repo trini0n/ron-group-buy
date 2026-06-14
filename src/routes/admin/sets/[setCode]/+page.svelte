@@ -145,14 +145,23 @@
 
     {#if showAddSection}
       <div class="border-t p-4 space-y-3 bg-muted/20">
-        <p class="text-xs text-muted-foreground">
-          Paste one card per line in <code class="font-mono bg-muted px-1 rounded">setCode collectorNumber [lang]</code> format.
-          Language defaults to <code class="font-mono bg-muted px-1 rounded">en</code> if omitted.
+        <p class="text-xs text-muted-foreground leading-relaxed">
+          Paste one card per line:
+          <code class="font-mono bg-muted px-1 rounded">setCode collectorNumber [lang] [finish]</code>
+          — lang defaults to <code class="font-mono bg-muted px-1 rounded">en</code>, finish is optional.
+          <br />
+          Finish values: <code class="font-mono bg-muted px-1 rounded">Normal</code>
+          <code class="font-mono bg-muted px-1 rounded">Holo</code>
+          <code class="font-mono bg-muted px-1 rounded">Foil</code>
+          <code class="font-mono bg-muted px-1 rounded">Galaxy</code>
+          <code class="font-mono bg-muted px-1 rounded">Raised</code>
+          <code class="font-mono bg-muted px-1 rounded">Surge</code>
+          — omit to match all finishes.
         </p>
         <Textarea
           id="add-cards-textarea"
           bind:value={addLines}
-          placeholder={'MKM 123 en\nMKM 124\nOTJ 45 ja\nDSK 201 de'}
+          placeholder={'MKM 123\nMKM 124 en Holo\nOTJ 45 ja Foil\nDSK 201 de Galaxy\nMH3 300 en Raised'}
           rows={6}
           class="font-mono text-sm resize-y"
         />
