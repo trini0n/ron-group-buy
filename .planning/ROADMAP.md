@@ -210,9 +210,9 @@ NAV-01
 
 Plans:
 
-- [ ] 19-01 — DB migration (`cart_bundles`, `order_bundle_items`) + CartService bundle methods + cart store bundle state + bundle API routes
-- [ ] 19-02 — Cart UI bundles section + "Add to Cart" button on `/sets` listing
-- [ ] 19-03 — Checkout bundle processing + order history bundle display
+- [x] 19-01 — DB migration (`cart_bundles`, `order_bundle_items`) + CartService bundle methods + cart store bundle state + bundle API routes
+- [x] 19-02 — Cart UI bundles section + "Add to Cart" button on `/sets` listing
+- [x] 19-03 — Checkout bundle processing + order history bundle display
 
 **Success criteria:**
 1. "Add to Cart" button on `/sets` listing adds the set as a single bundle line item at `sets.price`

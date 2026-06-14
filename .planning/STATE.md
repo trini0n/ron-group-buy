@@ -7,16 +7,15 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** 19 — Set Bundle Cart + Checkout
-**Plan:** 3 plans ready — 19-01, 19-02, 19-03
-**Status:** Planned, ready to execute
-**Last activity:** 2026-06-14 — Phase 19 discussion + 3 plans written
+**Phase:** 19 — Set Bundle Cart + Checkout ✅ Complete
+**Plan:** 3/3 plans executed
+**Status:** Phase 19 verified, pushed to main
+**Last activity:** 2026-06-14 — Phase 19 executed (cart_bundles migration, CartService methods, cart UI, checkout, order history)
 
 ## Next Steps
 
-1. Apply `supabase/migrations/20260614000002_cart_bundles.sql` in Supabase Dashboard
-2. Run `npm run db:generate:remote` after migration
-3. `/execute 19` — run phases in wave order (19-01 → 19-02 → 19-03)
+1. Verify Phase 19 end-to-end in production (add set to cart → checkout → order detail shows bundle)
+2. `/execute 20` — next phase if defined, or `/complete-milestone` for v1.2
 
 ## Active Decisions
 
