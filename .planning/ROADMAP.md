@@ -206,13 +206,13 @@ NAV-01
 
 **Goal:** Allow users to add a full set as a single bundle line item to the cart at the set's price. Requires cart system changes to support a new "bundle" item type alongside individual cards.
 **Depends on:** Phase 18
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] 19-01 — Cart system: bundle line item type (set_code + price, not card_id)
-- [ ] 19-02 — "Add Set to Cart" button on `/sets` listing + cart UI for bundle items
-- [ ] 19-03 — Checkout + order system: handle bundle items
+- [ ] 19-01 — DB migration (`cart_bundles`, `order_bundle_items`) + CartService bundle methods + cart store bundle state + bundle API routes
+- [ ] 19-02 — Cart UI bundles section + "Add to Cart" button on `/sets` listing
+- [ ] 19-03 — Checkout bundle processing + order history bundle display
 
 **Success criteria:**
 1. "Add to Cart" button on `/sets` listing adds the set as a single bundle line item at `sets.price`

@@ -7,15 +7,16 @@ updated: 2026-06-14
 ## Current Position
 
 **Milestone:** v1.2 — Sets
-**Phase:** 18 — Public Sets Pages (Browse) ✅ Complete
-**Plan:** 18-01 executed
-**Status:** Phase 18 verified
-**Last activity:** 2026-06-14 — Phase 18 executed (public listing, detail pages, nav link)
+**Phase:** 19 — Set Bundle Cart + Checkout
+**Plan:** 3 plans ready — 19-01, 19-02, 19-03
+**Status:** Planned, ready to execute
+**Last activity:** 2026-06-14 — Phase 19 discussion + 3 plans written
 
 ## Next Steps
 
-1. `/gsd-plan-phase 19` or `/execute 19` — Set Bundle Cart + Checkout
-2. Discuss Phase 19 cart model before planning
+1. Apply `supabase/migrations/20260614000002_cart_bundles.sql` in Supabase Dashboard
+2. Run `npm run db:generate:remote` after migration
+3. `/execute 19` — run phases in wave order (19-01 → 19-02 → 19-03)
 
 ## Active Decisions
 
