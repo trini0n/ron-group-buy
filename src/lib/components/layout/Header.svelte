@@ -33,6 +33,9 @@
       <a href="/" class="text-sm font-medium transition-colors hover:text-primary">
         Cards
       </a>
+      <a href="/sets" class="text-sm font-medium transition-colors hover:text-primary">
+        Sets
+      </a>
       <a href="/import" class="text-sm font-medium transition-colors hover:text-primary">
         Deck Import
       </a>
@@ -117,6 +120,9 @@
         <DropdownMenu.Content sideOffset={4}>
           <DropdownMenu.Item>
             <a href="/" class="flex w-full items-center">Cards</a>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item>
+            <a href="/sets" class="flex w-full items-center">Sets</a>
           </DropdownMenu.Item>
           <DropdownMenu.Item>
             <a href="/import" class="flex w-full items-center">Deck Import</a>
