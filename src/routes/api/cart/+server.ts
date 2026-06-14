@@ -63,6 +63,7 @@ export const GET: RequestHandler = async ({ locals, cookies, setHeaders }) => {
         price_at_add: item.price_at_add,
         added_at: item.added_at
       })),
+      bundles: cart.bundles,
       version: cart.version,
       validation
     })

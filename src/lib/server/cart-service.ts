@@ -25,6 +25,16 @@ import {
 import { extractCardIdentity, findCardsByIdentity, type CardIdentity, type CardWithIdentity } from './card-identity'
 import { fetchPrices, type CardPrices } from './pricing'
 
+export interface CartBundle {
+  id: string
+  cart_id: string
+  set_code: string
+  quantity: number
+  added_at: string
+  updated_at: string
+  set: { set_code: string; set_name: string; price: number | null }
+}
+
 export class CartService {
   private _prices: CardPrices | null = null
 
@@ -102,7 +112,7 @@ export class CartService {
   /**
    * Get cart with items and full card data
    */
-  async getCartWithItems(cartId: string): Promise<Cart & { items: (CartItem & { card: Card })[] }> {
+  async getCartWithItems(cartId: string): Promise<Cart & { items: (CartItem & { card: Card })[]; bundles: CartBundle[] }> {
     const { data: cart, error: cartError } = await this.supabase
       .from('carts')
       .select(
@@ -123,16 +133,19 @@ export class CartService {
 
     if (itemsError) throw itemsError
 
+    const bundles = await this.getCartBundles(cartId)
+
     return {
       ...cart,
-      items: items || []
-    } as unknown as Cart & { items: (CartItem & { card: Card })[] }
+      items: items || [],
+      bundles
+    } as unknown as Cart & { items: (CartItem & { card: Card })[]; bundles: CartBundle[] }
   }
 
   /**
    * Get cart by user ID with items
    */
-  async getUserCart(userId: string): Promise<(Cart & { items: (CartItem & { card: Card })[] }) | null> {
+  async getUserCart(userId: string): Promise<(Cart & { items: (CartItem & { card: Card })[]; bundles: CartBundle[] }) | null> {
     const { data: cart } = await this.supabase.from('carts').select('id').eq('user_id', userId).maybeSingle()
 
     if (!cart) return null
@@ -143,7 +156,7 @@ export class CartService {
   /**
    * Get cart by guest ID with items
    */
-  async getGuestCart(guestId: string): Promise<(Cart & { items: (CartItem & { card: Card })[] }) | null> {
+  async getGuestCart(guestId: string): Promise<(Cart & { items: (CartItem & { card: Card })[]; bundles: CartBundle[] }) | null> {
     const { data: cart } = await this.supabase
       .from('carts')
       .select('id')
@@ -456,14 +469,14 @@ export class CartService {
   }
 
   /**
-   * Clear all items from cart
+   * Clear all items and bundles from cart
    */
   async clearCart(cartId: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await this.supabase.from('cart_items').delete().eq('cart_id', cartId)
+    if (error) return { success: false, error: error.message }
 
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    const { error: bundleError } = await this.supabase.from('cart_bundles').delete().eq('cart_id', cartId)
+    if (bundleError) return { success: false, error: bundleError.message }
 
     return { success: true }
   }
@@ -685,8 +698,22 @@ export class CartService {
         })
         .eq('id', guestCart.id)
 
-      // Clear guest cart items
+      // Clear guest cart items and bundles
       await this.supabase.from('cart_items').delete().eq('cart_id', guestCart.id)
+
+      // Merge guest cart bundles into user cart
+      const guestBundles = await this.getCartBundles(guestCart.id)
+      for (const guestBundle of guestBundles) {
+        await this.supabase.from('cart_bundles').upsert(
+          {
+            cart_id: userCart.id,
+            set_code: guestBundle.set_code,
+            quantity: guestBundle.quantity
+          },
+          { onConflict: 'cart_id,set_code', ignoreDuplicates: false }
+        )
+      }
+      await this.supabase.from('cart_bundles').delete().eq('cart_id', guestCart.id)
 
       // Record merge history
       await this.supabase.from('cart_merge_history').insert({
@@ -1120,5 +1147,124 @@ export class CartService {
       qty_adjusted,
       new_cart_version
     }
+  }
+
+  // ─── Bundle Methods ────────────────────────────────────────────────────────
+
+  /**
+   * Get all bundles for a cart with joined set data
+   */
+  async getCartBundles(cartId: string): Promise<CartBundle[]> {
+    const { data, error } = await this.supabase
+      .from('cart_bundles')
+      .select('id, cart_id, set_code, quantity, added_at, updated_at, set:sets(set_code, set_name, price)')
+      .eq('cart_id', cartId)
+      .order('added_at', { ascending: true })
+
+    if (error) {
+      logger.error({ error, cartId }, 'Error fetching cart bundles')
+      return []
+    }
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      cart_id: row.cart_id,
+      set_code: row.set_code,
+      quantity: row.quantity,
+      added_at: row.added_at,
+      updated_at: row.updated_at,
+      set: Array.isArray(row.set)
+        ? (row.set[0] as { set_code: string; set_name: string; price: number | null } ?? { set_code: row.set_code, set_name: row.set_code, price: null })
+        : (row.set as { set_code: string; set_name: string; price: number | null } ?? { set_code: row.set_code, set_name: row.set_code, price: null })
+    }))
+  }
+
+  /**
+   * Add a set bundle to cart (upsert — increments quantity if already present)
+   */
+  async addBundle(
+    cartId: string,
+    setCode: string,
+    quantity: number
+  ): Promise<{ success: boolean; bundles: CartBundle[]; error?: string }> {
+    // Verify set exists
+    const { data: set, error: setError } = await this.supabase
+      .from('sets')
+      .select('set_code, set_name, price')
+      .eq('set_code', setCode)
+      .single()
+
+    if (setError || !set) {
+      return { success: false, bundles: [], error: 'Set not found' }
+    }
+
+    // Check if bundle already in cart — if so increment; otherwise insert
+    const { data: existing } = await this.supabase
+      .from('cart_bundles')
+      .select('id, quantity')
+      .eq('cart_id', cartId)
+      .eq('set_code', setCode)
+      .maybeSingle()
+
+    if (existing) {
+      const { error: updateError } = await this.supabase
+        .from('cart_bundles')
+        .update({ quantity: existing.quantity + quantity })
+        .eq('id', existing.id)
+
+      if (updateError) return { success: false, bundles: [], error: updateError.message }
+    } else {
+      const { error: insertError } = await this.supabase
+        .from('cart_bundles')
+        .insert({ cart_id: cartId, set_code: setCode, quantity })
+
+      if (insertError) return { success: false, bundles: [], error: insertError.message }
+    }
+
+    const bundles = await this.getCartBundles(cartId)
+    return { success: true, bundles }
+  }
+
+  /**
+   * Update bundle quantity (quantity <= 0 removes the bundle)
+   */
+  async updateBundleQuantity(
+    cartId: string,
+    bundleId: string,
+    quantity: number
+  ): Promise<{ success: boolean; bundles: CartBundle[]; error?: string }> {
+    if (quantity <= 0) {
+      return this.removeBundleItem(cartId, bundleId)
+    }
+
+    const { error } = await this.supabase
+      .from('cart_bundles')
+      .update({ quantity })
+      .eq('id', bundleId)
+      .eq('cart_id', cartId)
+
+    if (error) return { success: false, bundles: [], error: error.message }
+
+    const bundles = await this.getCartBundles(cartId)
+    return { success: true, bundles }
+  }
+
+  /**
+   * Remove a bundle from cart
+   */
+  async removeBundleItem(
+    cartId: string,
+    bundleId: string
+  ): Promise<{ success: boolean; bundles: CartBundle[]; error?: string }> {
+    const { error } = await this.supabase
+      .from('cart_bundles')
+      .delete()
+      .eq('id', bundleId)
+      .eq('cart_id', cartId)
+
+    if (error) return { success: false, bundles: [], error: error.message }
+
+    const bundles = await this.getCartBundles(cartId)
+    return { success: true, bundles }
   }
 }

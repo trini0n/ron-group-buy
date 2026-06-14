@@ -14,6 +14,14 @@ export interface CartItem {
   added_at?: string
 }
 
+export interface CartBundle {
+  id: string
+  set_code: string
+  quantity: number
+  added_at?: string
+  set: { set_code: string; set_name: string; price: number | null }
+}
+
 export interface CartValidation {
   valid_items: Array<{
     cart_item_id: string
@@ -81,6 +89,7 @@ const LOCAL_CART_KEY = 'group-buy-cart-local'
 function createCartStore() {
   // State
   let items = $state<CartItem[]>([])
+  let bundles = $state<CartBundle[]>([])
   let cartId = $state<string | null>(null)
   let version = $state(0)
   let isLoading = $state(false)
@@ -180,6 +189,7 @@ function createCartStore() {
       }
 
       applyServerItems(data.items || [])
+      bundles = data.bundles || []
       validation = data.validation || null
       lastSyncAt = Date.now()
 
@@ -567,25 +577,108 @@ function createCartStore() {
 
   // Computed values
   function getTotal(): number {
-    return items.reduce((total, item) => {
-      // Use the server-set price snapshot — correctly handles Raised Foil, Serialized, etc.
+    const cardTotal = items.reduce((total, item) => {
       const price = item.price_at_add ?? 1.25
       return total + price * item.quantity
     }, 0)
+    const bundleTotal = bundles.reduce((total, b) => {
+      return total + (b.set.price ?? 0) * b.quantity
+    }, 0)
+    return cardTotal + bundleTotal
   }
 
   function getItemCount(): number {
-    return items.reduce((count, item) => count + item.quantity, 0)
+    const cardCount = items.reduce((count, item) => count + item.quantity, 0)
+    const bundleCount = bundles.reduce((count, b) => count + b.quantity, 0)
+    return cardCount + bundleCount
   }
 
   function isInCart(cardId: string): boolean {
     return items.some((item) => item.card.id === cardId)
   }
 
+  function isSetInCart(setCode: string): boolean {
+    return bundles.some((b) => b.set_code === setCode)
+  }
+
+  /**
+   * Add a set bundle to cart
+   */
+  async function addBundle(setCode: string, quantity: number = 1): Promise<boolean> {
+    if (!browser) return false
+    try {
+      const response = await fetch('/api/cart/bundles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set_code: setCode, quantity })
+      })
+      if (!response.ok) throw new Error('Failed to add bundle')
+      const data = await response.json()
+      bundles = data.bundles || []
+      return true
+    } catch (err) {
+      console.error('Add bundle error:', err)
+      lastError = 'Failed to add set to cart'
+      return false
+    }
+  }
+
+  /**
+   * Remove a bundle from cart
+   */
+  async function removeBundle(bundleId: string): Promise<boolean> {
+    if (!browser) return false
+    // Optimistic remove
+    const previous = [...bundles]
+    bundles = bundles.filter((b) => b.id !== bundleId)
+    try {
+      const response = await fetch(`/api/cart/bundles/${bundleId}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to remove bundle')
+      const data = await response.json()
+      bundles = data.bundles || []
+      return true
+    } catch (err) {
+      bundles = previous
+      console.error('Remove bundle error:', err)
+      lastError = 'Failed to remove set from cart'
+      return false
+    }
+  }
+
+  /**
+   * Update bundle quantity (0 removes it)
+   */
+  async function updateBundleQuantity(bundleId: string, quantity: number): Promise<boolean> {
+    if (!browser) return false
+    if (quantity <= 0) return removeBundle(bundleId)
+    // Optimistic update
+    const previous = [...bundles]
+    bundles = bundles.map((b) => b.id === bundleId ? { ...b, quantity } : b)
+    try {
+      const response = await fetch(`/api/cart/bundles/${bundleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity })
+      })
+      if (!response.ok) throw new Error('Failed to update bundle')
+      const data = await response.json()
+      bundles = data.bundles || []
+      return true
+    } catch (err) {
+      bundles = previous
+      console.error('Update bundle error:', err)
+      lastError = 'Failed to update set quantity'
+      return false
+    }
+  }
+
   return {
     // State (read-only)
     get items() {
       return items
+    },
+    get bundles() {
+      return bundles
     },
     get cartId() {
       return cartId
@@ -633,9 +726,13 @@ function createCartStore() {
     validate,
     onAuthChange,
     applyMergeResponse,
+    addBundle,
+    removeBundle,
+    updateBundleQuantity,
 
     // Helpers
-    isInCart
+    isInCart,
+    isSetInCart
   }
 }
 
