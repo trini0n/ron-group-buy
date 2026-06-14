@@ -1,8 +1,26 @@
 <script lang="ts">
   import { Badge } from '$components/ui/badge'
   import { Library, Layers } from 'lucide-svelte'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import { toast } from 'svelte-sonner'
 
   let { data } = $props()
+
+  let addingSetCode = $state<string | null>(null)
+
+  async function addSetToCart(setCode: string, setName: string) {
+    addingSetCode = setCode
+    try {
+      const ok = await cartStore.addBundle(setCode, 1)
+      if (ok) {
+        toast.success(`${setName} added to cart`)
+      } else {
+        toast.error('Failed to add set to cart')
+      }
+    } finally {
+      addingSetCode = null
+    }
+  }
 </script>
 
 <svelte:head>
@@ -38,14 +56,13 @@
     <!-- Sets grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {#each data.sets as set (set.set_code)}
-        <a
-          href="/sets/{set.set_code}"
-          class="group flex flex-col border rounded-xl p-5 bg-card hover:bg-accent/30 hover:border-primary/40 transition-all duration-200 hover:shadow-md"
-        >
-          <!-- Set name -->
-          <h2 class="font-semibold text-base leading-snug group-hover:text-primary transition-colors mb-2 flex-1">
-            {set.set_name}
-          </h2>
+        <div class="group flex flex-col border rounded-xl p-5 bg-card hover:bg-accent/30 hover:border-primary/40 transition-all duration-200 hover:shadow-md">
+          <!-- Set name (links to detail) -->
+          <a href="/sets/{set.set_code}" class="block mb-2">
+            <h2 class="font-semibold text-base leading-snug group-hover:text-primary transition-colors">
+              {set.set_name}
+            </h2>
+          </a>
 
           <!-- Code badge -->
           <div class="mb-3">
@@ -67,7 +84,17 @@
               {set.card_count} card{set.card_count !== 1 ? 's' : ''}
             </span>
           </div>
-        </a>
+
+          <!-- Add to Cart button -->
+          <button
+            id="add-set-{set.set_code}"
+            class="mt-3 w-full rounded-lg border border-primary/60 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={addingSetCode === set.set_code || set.price == null}
+            onclick={() => addSetToCart(set.set_code, set.set_name)}
+          >
+            {addingSetCode === set.set_code ? 'Adding…' : 'Add to Cart'}
+          </button>
+        </div>
       {/each}
     </div>
   {/if}

@@ -25,7 +25,8 @@
     Info,
     Package,
     X,
-    Merge
+    Merge,
+    Boxes
   } from 'lucide-svelte'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
@@ -165,14 +166,17 @@
     </div>
   {/if}
 
-  {#if cartStore.items.length === 0 && !cartStore.isSyncing}
+  {#if cartStore.items.length === 0 && cartStore.bundles.length === 0 && !cartStore.isSyncing}
     <div class="flex flex-col items-center justify-center py-16 text-center">
       <ShoppingCart class="mb-4 h-16 w-16 text-muted-foreground" />
       <h2 class="text-xl font-medium">Your cart is empty</h2>
-      <p class="mt-2 text-muted-foreground">Start browsing cards to add them to your cart.</p>
-      <Button href="/" class="mt-4">Browse Cards</Button>
+      <p class="mt-2 text-muted-foreground">Browse cards or sets to add them to your cart.</p>
+      <div class="mt-4 flex gap-3">
+        <Button href="/">Browse Cards</Button>
+        <Button href="/sets" variant="outline">Browse Sets</Button>
+      </div>
     </div>
-  {:else if cartStore.items.length === 0 && cartStore.isSyncing}
+  {:else if cartStore.items.length === 0 && cartStore.bundles.length === 0 && cartStore.isSyncing}
     <div class="flex flex-col items-center justify-center py-16 text-center">
       <Loader2 class="mb-4 h-10 w-10 animate-spin text-muted-foreground" />
       <p class="text-muted-foreground">Loading cart...</p>
@@ -220,6 +224,87 @@
       <!-- Cart Items -->
       <div class="lg:col-span-2">
         <div class="space-y-4">
+
+          <!-- Bundles section -->
+          {#if cartStore.bundles.length > 0}
+            <div class="mb-2 flex items-center gap-2">
+              <Boxes class="h-4 w-4 text-muted-foreground" />
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Sets ({cartStore.bundles.length})
+              </h2>
+            </div>
+            {#each cartStore.bundles as bundle (bundle.id)}
+              <Card.Root>
+                <Card.Content class="flex items-center gap-4 p-4">
+                  <!-- Icon -->
+                  <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <Boxes class="h-6 w-6 text-primary" />
+                  </div>
+
+                  <!-- Bundle Details -->
+                  <div class="flex flex-1 flex-col">
+                    <div class="flex items-start justify-between">
+                      <div>
+                        <a href="/sets/{bundle.set_code}" class="font-medium hover:underline">
+                          {bundle.set.set_name}
+                        </a>
+                        <div class="mt-1">
+                          <Badge variant="outline" class="font-mono text-xs">{bundle.set_code}</Badge>
+                        </div>
+                      </div>
+                      <span class="font-bold">
+                        {formatPrice((bundle.set.price ?? 0) * bundle.quantity)}
+                      </span>
+                    </div>
+
+                    <div class="mt-auto flex items-center justify-between pt-2">
+                      <!-- Quantity stepper -->
+                      <div class="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          class="h-8 w-8"
+                          onclick={() => cartStore.updateBundleQuantity(bundle.id, bundle.quantity - 1)}
+                        >
+                          <Minus class="h-3 w-3" />
+                        </Button>
+                        <span class="w-8 text-center">{bundle.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          class="h-8 w-8"
+                          onclick={() => cartStore.updateBundleQuantity(bundle.id, bundle.quantity + 1)}
+                        >
+                          <Plus class="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      <!-- Remove button -->
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        class="text-destructive hover:text-destructive"
+                        onclick={() => cartStore.removeBundle(bundle.id)}
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card.Content>
+              </Card.Root>
+            {/each}
+
+            {#if cartStore.items.length > 0}
+              <div class="flex items-center gap-2 pb-1 pt-4">
+                <Package class="h-4 w-4 text-muted-foreground" />
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Individual Cards ({cartStore.items.length})
+                </h2>
+              </div>
+            {/if}
+          {/if}
+
+          <!-- Individual card items -->
           {#each cartStore.items as item (item.id)}
             {@const price = getCardPrice(getMispriceKey(item.card))}
             {@const imageUrl = getCardImageUrl(item.card.ron_image_url, item.card.scryfall_id, 'small')}
