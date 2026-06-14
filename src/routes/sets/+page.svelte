@@ -1,12 +1,43 @@
 <script lang="ts">
-  import { Badge } from '$components/ui/badge'
-  import { Library, Layers } from 'lucide-svelte'
+  import { Library, Layers, Search, ChevronDown, ChevronRight } from 'lucide-svelte'
   import { cartStore } from '$lib/stores/cart.svelte'
   import { toast } from 'svelte-sonner'
 
   let { data } = $props()
 
   let addingSetCode = $state<string | null>(null)
+  let searchQuery = $state('')
+
+  // Collapsible state per section — all open by default
+  const TYPE_ORDER = ['Normal', 'Holo / Mixed', 'Foil'] as const
+  type SetType = (typeof TYPE_ORDER)[number]
+
+  let collapsedSections = $state<Record<string, boolean>>({
+    Normal: false,
+    'Holo / Mixed': false,
+    Foil: false
+  })
+
+  function toggleSection(type: string) {
+    collapsedSections[type] = !collapsedSections[type]
+  }
+
+  // Filter by search, then group by type
+  const filteredSets = $derived(
+    data.sets.filter((s) =>
+      searchQuery.trim() === '' ||
+      s.set_name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+    )
+  )
+
+  const sections = $derived(
+    TYPE_ORDER
+      .map((type) => ({
+        type,
+        sets: filteredSets.filter((s) => (s.set_type ?? 'Normal') === type)
+      }))
+      .filter((sec) => sec.sets.length > 0)
+  )
 
   async function addSetToCart(setCode: string, setName: string) {
     addingSetCode = setCode
@@ -53,49 +84,90 @@
       </p>
     </div>
   {:else}
-    <!-- Sets grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {#each data.sets as set (set.set_code)}
-        <div class="group flex flex-col border rounded-xl p-5 bg-card hover:bg-accent/30 hover:border-primary/40 transition-all duration-200 hover:shadow-md">
-          <!-- Set name (links to detail) -->
-          <a href="/sets/{set.set_code}" class="block mb-2">
-            <h2 class="font-semibold text-base leading-snug group-hover:text-primary transition-colors">
-              {set.set_name}
-            </h2>
-          </a>
-
-          <!-- Code badge -->
-          <div class="mb-3">
-            <Badge variant="secondary" class="font-mono text-xs">
-              {set.set_code}
-            </Badge>
-          </div>
-
-          <!-- Price + card count row -->
-          <div class="flex items-center justify-between mt-auto pt-3 border-t border-border/50">
-            {#if set.price != null}
-              <span class="text-lg font-bold text-primary">
-                ${Number(set.price).toFixed(2)}
-              </span>
-            {:else}
-              <span class="text-sm text-muted-foreground">Price TBD</span>
-            {/if}
-            <span class="text-xs text-muted-foreground">
-              {set.card_count} card{set.card_count !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          <!-- Add to Cart button -->
-          <button
-            id="add-set-{set.set_code}"
-            class="mt-3 w-full rounded-lg border border-primary/60 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={addingSetCode === set.set_code || set.price == null}
-            onclick={() => addSetToCart(set.set_code, set.set_name)}
-          >
-            {addingSetCode === set.set_code ? 'Adding…' : 'Add to Cart'}
-          </button>
-        </div>
-      {/each}
+    <!-- Search bar -->
+    <div class="relative mb-6 max-w-sm">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+      <input
+        id="sets-search"
+        type="search"
+        placeholder="Search sets…"
+        bind:value={searchQuery}
+        class="w-full rounded-lg border border-input bg-background pl-9 pr-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
     </div>
+
+    {#if sections.length === 0}
+      <div class="py-16 text-center text-muted-foreground">
+        <Search class="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <p class="text-sm">No sets match "<span class="font-medium">{searchQuery}</span>"</p>
+      </div>
+    {:else}
+      <!-- Sectioned by type -->
+      <div class="space-y-6">
+        {#each sections as section (section.type)}
+          <div class="border rounded-xl overflow-hidden">
+            <!-- Section header (collapsible toggle) -->
+            <button
+              id="section-toggle-{section.type.replace(/\s+\/\s+/g, '-').replace(/\s+/g, '-').toLowerCase()}"
+              class="w-full flex items-center justify-between px-5 py-3.5 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+              onclick={() => toggleSection(section.type)}
+              aria-expanded={!collapsedSections[section.type]}
+            >
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-sm tracking-wide">{section.type}</span>
+                <span class="text-xs text-muted-foreground bg-background border rounded-full px-2 py-0.5">
+                  {section.sets.length} set{section.sets.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {#if collapsedSections[section.type]}
+                <ChevronRight class="h-4 w-4 text-muted-foreground" />
+              {:else}
+                <ChevronDown class="h-4 w-4 text-muted-foreground" />
+              {/if}
+            </button>
+
+            <!-- Collapsible grid -->
+            {#if !collapsedSections[section.type]}
+              <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {#each section.sets as set (set.set_code)}
+                  <div class="group flex flex-col border rounded-xl p-5 bg-card hover:bg-accent/30 hover:border-primary/40 transition-all duration-200 hover:shadow-md">
+                    <!-- Set name (links to detail) -->
+                    <a href="/sets/{set.set_code}" class="block mb-3">
+                      <h2 class="font-semibold text-base leading-snug group-hover:text-primary transition-colors">
+                        {set.set_name}
+                      </h2>
+                    </a>
+
+                    <!-- Price + card count row -->
+                    <div class="flex items-center justify-between mt-auto pt-3 border-t border-border/50">
+                      {#if set.price != null}
+                        <span class="text-lg font-bold text-primary">
+                          ${Number(set.price).toFixed(2)}
+                        </span>
+                      {:else}
+                        <span class="text-sm text-muted-foreground">Price TBD</span>
+                      {/if}
+                      <span class="text-xs text-muted-foreground">
+                        {set.card_count} card{set.card_count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <!-- Add to Cart button -->
+                    <button
+                      id="add-set-{set.set_code}"
+                      class="mt-3 w-full rounded-lg border border-primary/60 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={addingSetCode === set.set_code || set.price == null}
+                      onclick={() => addSetToCart(set.set_code, set.set_name)}
+                    >
+                      {addingSetCode === set.set_code ? 'Adding…' : 'Add to Cart'}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>

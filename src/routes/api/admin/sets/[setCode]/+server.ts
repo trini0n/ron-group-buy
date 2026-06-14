@@ -7,16 +7,21 @@ import { logger } from '$lib/server/logger'
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
-  let body: { set_name?: string; sort_order?: number; price?: number | null }
+  let body: { set_name?: string; sort_order?: number; price?: number | null; set_type?: string }
   try {
     body = await request.json()
   } catch {
     throw error(400, 'Invalid JSON')
   }
+  const VALID_TYPES = ['Normal', 'Holo / Mixed', 'Foil']
   const updates: Record<string, unknown> = {}
   if (body.set_name !== undefined) updates.set_name = body.set_name.trim()
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order
   if (body.price !== undefined) updates.price = body.price ?? null
+  if (body.set_type !== undefined) {
+    if (!VALID_TYPES.includes(body.set_type)) throw error(400, 'Invalid set_type')
+    updates.set_type = body.set_type
+  }
   if (Object.keys(updates).length === 0) throw error(400, 'No updatable fields provided')
   const { data, error: dbError } = await adminClient
     .from('sets')

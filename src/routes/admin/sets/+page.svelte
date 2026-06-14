@@ -11,10 +11,12 @@
   let { data } = $props()
 
   // ── Create form ──────────────────────────────────────────────
+  const SET_TYPES = ['Normal', 'Holo / Mixed', 'Foil'] as const
   let showCreateForm = $state(false)
   let newSetCode = $state('')
   let newSetName = $state('')
   let newSetPrice = $state('')
+  let newSetType = $state<string>('Normal')
   let createLoading = $state(false)
 
   async function createSet() {
@@ -37,6 +39,7 @@
         body: JSON.stringify({
           set_code: newSetCode.trim(),
           set_name: newSetName.trim(),
+          set_type: newSetType,
           ...(price !== undefined ? { price } : {})
         })
       })
@@ -49,6 +52,7 @@
       newSetCode = ''
       newSetName = ''
       newSetPrice = ''
+      newSetType = 'Normal'
       showCreateForm = false
       await invalidateAll()
     } catch {
@@ -62,18 +66,21 @@
   let editingCode = $state<string | null>(null)
   let editName = $state('')
   let editPrice = $state('')
+  let editType = $state<string>('Normal')
   let editLoading = $state(false)
 
-  function startEdit(setCode: string, currentName: string, currentPrice: number | null) {
+  function startEdit(setCode: string, currentName: string, currentPrice: number | null, currentType: string) {
     editingCode = setCode
     editName = currentName
     editPrice = currentPrice != null ? String(currentPrice) : ''
+    editType = currentType
   }
 
   function cancelEdit() {
     editingCode = null
     editName = ''
     editPrice = ''
+    editType = 'Normal'
   }
 
   async function saveEdit(setCode: string) {
@@ -90,7 +97,7 @@
       const res = await fetch(`/api/admin/sets/${encodeURIComponent(setCode)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ set_name: editName.trim(), price: price })
+        body: JSON.stringify({ set_name: editName.trim(), price: price, set_type: editType })
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Unknown error' }))
@@ -253,10 +260,19 @@
           inputmode="decimal"
           onkeydown={(e) => e.key === 'Enter' && createSet()}
         />
+        <select
+          id="new-set-type"
+          bind:value={newSetType}
+          class="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {#each SET_TYPES as t}
+            <option value={t}>{t}</option>
+          {/each}
+        </select>
         <Button onclick={createSet} disabled={createLoading}>
           {createLoading ? 'Saving…' : 'Save'}
         </Button>
-        <Button variant="ghost" onclick={() => { showCreateForm = false; newSetCode = ''; newSetName = ''; newSetPrice = '' }}>
+        <Button variant="ghost" onclick={() => { showCreateForm = false; newSetCode = ''; newSetName = ''; newSetPrice = ''; newSetType = 'Normal' }}>
           Cancel
         </Button>
       </div>
@@ -323,6 +339,7 @@
           <Table.Row>
             <Table.Head class="w-28">Code</Table.Head>
             <Table.Head>Name</Table.Head>
+            <Table.Head class="w-28">Type</Table.Head>
             <Table.Head class="w-24 text-right">Price</Table.Head>
             <Table.Head class="w-20 text-right">Cards</Table.Head>
             <Table.Head class="w-28 text-right">Actions</Table.Head>
@@ -357,6 +374,14 @@
                         if (e.key === 'Escape') cancelEdit()
                       }}
                     />
+                    <select
+                      bind:value={editType}
+                      class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      {#each SET_TYPES as t}
+                        <option value={t}>{t}</option>
+                      {/each}
+                    </select>
                     <button
                       class="text-green-600 hover:text-green-700 disabled:opacity-50 shrink-0"
                       onclick={() => saveEdit(set.set_code)}
@@ -379,6 +404,12 @@
                   </a>
                 {/if}
               </Table.Cell>
+              <!-- Type column (only visible when not editing) -->
+              <Table.Cell class="text-sm text-muted-foreground">
+                {#if editingCode !== set.set_code}
+                  {set.set_type ?? 'Normal'}
+                {/if}
+              </Table.Cell>
               <Table.Cell class="text-right text-sm">
                 {#if editingCode !== set.set_code}
                   {set.price != null ? `$${Number(set.price).toFixed(2)}` : '—'}
@@ -391,7 +422,7 @@
                 <div class="flex items-center justify-end gap-1">
                   <button
                     class="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                    onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null)}
+                    onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null, set.set_type ?? 'Normal')}
                     aria-label="Edit {set.set_name}"
                   >
                     <Pencil class="h-3.5 w-3.5" />
