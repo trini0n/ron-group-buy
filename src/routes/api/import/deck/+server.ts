@@ -1,6 +1,5 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { parseDeckList } from '$lib/deck-utils'
 import { logger } from '$lib/server/logger'
 import { LRUCache } from 'lru-cache'
 import { createRateLimiter, getClientIp } from '$lib/server/rate-limiter'
@@ -130,7 +129,6 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
   if (!match?.[1]) throw new Error('Invalid Moxfield URL')
   const publicId = match[1]
 
-  // Step 1: fetch deck metadata (v3)
   const metaRes = await fetch(`https://api2.moxfield.com/v3/decks/all/${publicId}`, {
     headers: MOXFIELD_HEADERS
   })
@@ -144,48 +142,19 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
     )
 
   const deck: MoxfieldDeck = await metaRes.json()
-
-  // Step 2: if exportId available, fetch plain-text export and enrich with board data
-  if (deck.exportId) {
-    const exportRes = await fetch(
-      `https://api2.moxfield.com/v2/decks/all/${publicId}/export?exportId=${deck.exportId}`,
-      { headers: { ...MOXFIELD_HEADERS, Accept: 'text/plain' } }
-    )
-    logger.info({ status: exportRes.status }, '[moxfield] export response')
-
-    if (exportRes.ok) {
-      const cards = parseDeckList(await exportRes.text())
-
-      // Enrich boardType + typeLine from v3 board data
-      const boardTypeMap = new Map<string, DeckCard['boardType']>()
-      const typeLineMap = new Map<string, string>()
-      for (const boardType of BOARD_TYPES) {
-        const board = deck.boards?.[boardType]
-        for (const entry of Object.values(board?.cards ?? {})) {
-          if (!entry.card?.name) continue
-          const key = entry.card.name.toLowerCase()
-          boardTypeMap.set(key, boardType)
-          if (entry.card.type_line) typeLineMap.set(key, entry.card.type_line)
-        }
-      }
-      for (const card of cards) {
-        const key = card.name.toLowerCase()
-        const mapped = boardTypeMap.get(key)
-        if (mapped) card.boardType = mapped
-        const tl = typeLineMap.get(key)
-        if (tl) card.typeLine = tl
-      }
-
-      return { name: deck.name, cards }
-    }
-  }
-
-  // Fallback: parse boards directly from the v3 JSON
-  logger.info('[moxfield] falling back to JSON board parsing')
   const result = parseMoxfieldJsonDeck(deck)
   if (result.cards.length === 0)
     throw error(422, 'No cards found in this Moxfield deck. The deck may be private or empty.')
   return result
+}
+
+// Normalize MDFCs: take first face only ("A // B" or "A / B" → "A")
+function normalizeMdfc(name: string): string {
+  const doubleParts = name.split(' // ')
+  if (doubleParts.length > 1) return doubleParts[0].trim()
+  const singleParts = name.split(' / ')
+  if (singleParts.length > 1) return singleParts[0].trim()
+  return name.trim()
 }
 
 function parseMoxfieldJsonDeck(deck: MoxfieldDeck): { name: string; cards: DeckCard[] } {
@@ -198,7 +167,7 @@ function parseMoxfieldJsonDeck(deck: MoxfieldDeck): { name: string; cards: DeckC
       if (!entry.card) continue
       cards.push({
         quantity: entry.quantity,
-        name: entry.card.name,
+        name: normalizeMdfc(entry.card.name),
         set: entry.card.set?.toUpperCase(),
         collectorNumber: entry.card.cn,
         boardType,
