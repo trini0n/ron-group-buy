@@ -6,7 +6,8 @@ import { logger } from '$lib/server/logger'
 // DELETE /api/admin/sets/[setCode]/cards/[cardId]
 export const DELETE: RequestHandler = async ({ locals, params }) => {
   await requireAdmin(locals)
-  const adminClient = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminClient = createAdminClient() as any
 
   const { error: dbError } = await adminClient
     .from('set_cards')

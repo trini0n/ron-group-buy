@@ -6,7 +6,8 @@ import { logger } from '$lib/server/logger'
 // GET /api/admin/sets — list all sets with card count
 export const GET: RequestHandler = async ({ locals }) => {
   await requireAdmin(locals)
-  const adminClient = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminClient = createAdminClient() as any
   const { data, error: dbError } = await adminClient
     .from('sets')
     .select('set_code, set_name, sort_order, created_at, set_cards(count)')
@@ -22,7 +23,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 // POST /api/admin/sets — create a new set
 export const POST: RequestHandler = async ({ request, locals }) => {
   await requireAdmin(locals)
-  const adminClient = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminClient = createAdminClient() as any
   let body: { set_code: string; set_name: string }
   try {
     body = await request.json()

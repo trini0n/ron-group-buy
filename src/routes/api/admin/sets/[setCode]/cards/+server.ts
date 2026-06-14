@@ -29,15 +29,16 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(400, 'Maximum 2000 lines per request')
   }
 
-  // Verify the set exists
-  const { data: setRow } = await adminClient
+  // Verify the set exists — use any cast since 'sets' not in generated types yet
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: setRow } = await (adminClient as any)
     .from('sets')
     .select('set_code')
     .eq('set_code', params.setCode)
     .single()
   if (!setRow) throw error(404, 'Set not found')
 
-  // Parse each line: "setCode coll# lang" — lang is optional, defaults to 'en'
+  // Parse each line: "setCode coll# lang" — lang optional, defaults to 'en'
   interface ParsedLine {
     original: string
     set_code: string
@@ -58,8 +59,8 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     }
     parsed.push({
       original: line,
-      set_code: parts[0].toUpperCase(),
-      collector_number: parts[1],
+      set_code: parts[0]!.toUpperCase(),
+      collector_number: parts[1]!,
       language: (parts[2] ?? 'en').toLowerCase()
     })
   }
@@ -117,7 +118,8 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
   // Upsert into set_cards — ignoreDuplicates silently skips already-associated cards (ASSOC-05)
   const inserts = uniqueCardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
-  const { data: inserted, error: insertError } = await adminClient
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: inserted, error: insertError } = await (adminClient as any)
     .from('set_cards')
     .upsert(inserts, { onConflict: 'set_code,card_id', ignoreDuplicates: true })
     .select('id')
@@ -127,7 +129,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(500, 'Failed to associate cards with set')
   }
 
-  const added = inserted?.length ?? 0
+  const added = (inserted as { id: string }[] | null)?.length ?? 0
   const already_present = uniqueCardIds.length - added
 
   return json({ added, already_present, errors: allErrors } satisfies AssociateResult)

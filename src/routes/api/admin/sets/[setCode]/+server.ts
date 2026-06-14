@@ -6,7 +6,8 @@ import { logger } from '$lib/server/logger'
 // PATCH /api/admin/sets/[setCode] — update set_name or sort_order
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
-  const adminClient = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminClient = createAdminClient() as any
   let body: { set_name?: string; sort_order?: number }
   try {
     body = await request.json()
@@ -34,7 +35,8 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
 // DELETE /api/admin/sets/[setCode] — delete set (cascades set_cards)
 export const DELETE: RequestHandler = async ({ locals, params }) => {
   await requireAdmin(locals)
-  const adminClient = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminClient = createAdminClient() as any
   const { error: dbError } = await adminClient
     .from('sets')
     .delete()
