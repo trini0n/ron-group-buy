@@ -5,7 +5,8 @@
     ShoppingCart, 
     Users, 
     Package, 
-    Settings
+    Settings,
+    Library
   } from 'lucide-svelte';
   import { page } from '$app/stores';
 
@@ -16,6 +17,7 @@
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/inventory', label: 'Inventory', icon: Package },
+    { href: '/admin/sets', label: 'Sets', icon: Library },
     { href: '/admin/settings', label: 'Settings', icon: Settings }
   ];
 
