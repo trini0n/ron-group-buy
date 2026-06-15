@@ -1,27 +1,11 @@
 <script lang="ts">
-  import CardGrid from '$components/cards/CardGrid.svelte'
   import StacksView from '$components/cards/StacksView.svelte'
-  import { ArrowLeft, Layers, List, LayoutGrid, Columns } from 'lucide-svelte'
+  import { ArrowLeft, Layers, List, AlignJustify } from 'lucide-svelte'
 
   let { data } = $props()
 
-  // View toggle: 'list' = plaintext, 'grid' = enriched CardGrid, 'stacks' = expansion columns
-  let viewMode = $state<'list' | 'grid' | 'stacks'>('list')
-
-  // CardGrid requires filter + search props — use permissive defaults to show all cards
-  const noFilters = {
-    setCodes: [],
-    colorIdentity: [],
-    colorIdentityStrict: false,
-    priceCategories: ['Non-Foil', 'Foil', 'Serialized'],
-    foilSubtypes: ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'],
-    nonFoilSubtypes: ['Normal', 'Holo'],
-    cardTypes: [],
-    frameTypes: [],
-    inStockOnly: false,
-    isNew: false,
-    isMisprint: false
-  }
+  // View toggle: 'stacks' (default) | 'list'
+  let viewMode = $state<'list' | 'stacks'>('stacks')
 
   // Derive a readable name for each card
   function cardDisplayName(card: (typeof data.cards)[number]): string {
@@ -68,31 +52,22 @@
       {#if data.cards.length > 0}
         <div class="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
           <button
-            id="view-toggle-list"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
-            onclick={() => (viewMode = 'list')}
-            aria-label="Plaintext list view"
-          >
-            <List class="h-3.5 w-3.5" />
-            List
-          </button>
-          <button
-            id="view-toggle-grid"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
-            onclick={() => (viewMode = 'grid')}
-            aria-label="Card grid view"
-          >
-            <LayoutGrid class="h-3.5 w-3.5" />
-            Grid
-          </button>
-          <button
             id="view-toggle-stacks"
             class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'stacks' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
             onclick={() => (viewMode = 'stacks')}
             aria-label="Stacks view"
           >
-            <Columns class="h-3.5 w-3.5" />
+            <Layers class="h-3.5 w-3.5" />
             Stacks
+          </button>
+          <button
+            id="view-toggle-list"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            onclick={() => (viewMode = 'list')}
+            aria-label="Plaintext list view"
+          >
+            <AlignJustify class="h-3.5 w-3.5" />
+            List
           </button>
         </div>
       {/if}
@@ -121,14 +96,7 @@
         {/each}
       </ol>
     </div>
-  {:else if viewMode === 'stacks'}
-    <StacksView cards={data.cards} />
   {:else}
-    <CardGrid
-      cards={data.cards}
-      searchQuery=""
-      filters={noFilters}
-      setReleaseDates={data.setReleaseDates}
-    />
+    <StacksView cards={data.cards} />
   {/if}
 </div>
