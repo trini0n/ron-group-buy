@@ -17,13 +17,14 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Foil',
         is_foil: true,
         is_etched: false,
         language: 'en'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|123|lightning bolt|true|false|en')
+      expect(key).toBe('fdn|123|lightning bolt|foil|true|false|en')
     })
 
     it('should generate key with missing collector_number', () => {
@@ -31,13 +32,14 @@ describe('Card Identity Service', () => {
         set_code: 'ECL',
         collector_number: null,
         card_name: 'Wistfulness',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('ecl||wistfulness|false|false|en')
+      expect(key).toBe('ecl||wistfulness|normal|false|false|en')
     })
 
     it('should normalize text fields (trim and lowercase)', () => {
@@ -45,13 +47,14 @@ describe('Card Identity Service', () => {
         set_code: '  FDN  ',
         collector_number: ' 123 ',
         card_name: '  Lightning BOLT  ',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'EN'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|123|lightning bolt|false|false|en')
+      expect(key).toBe('fdn|123|lightning bolt|normal|false|false|en')
     })
 
     it('should handle etched foil cards', () => {
@@ -59,13 +62,14 @@ describe('Card Identity Service', () => {
         set_code: 'CMM',
         collector_number: '456',
         card_name: 'Sol Ring',
+        card_type: 'Foil',
         is_foil: false,
         is_etched: true,
         language: 'en'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('cmm|456|sol ring|false|true|en')
+      expect(key).toBe('cmm|456|sol ring|foil|false|true|en')
     })
 
     it('should handle non-English languages', () => {
@@ -73,13 +77,14 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '100',
         card_name: 'Rayo',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'es'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|100|rayo|false|false|es')
+      expect(key).toBe('fdn|100|rayo|normal|false|false|es')
     })
 
     it('should default language to en when missing', () => {
@@ -87,13 +92,14 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '100',
         card_name: 'Test Card',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: ''
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|100|test card|false|false|en')
+      expect(key).toBe('fdn|100|test card|normal|false|false|en')
     })
 
     it('should handle null set_code', () => {
@@ -101,13 +107,42 @@ describe('Card Identity Service', () => {
         set_code: null,
         collector_number: '100',
         card_name: 'Test Card',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('|100|test card|false|false|en')
+      expect(key).toBe('|100|test card|normal|false|false|en')
+    })
+
+    it('should generate different keys for Holo vs Foil variants', () => {
+      const holoIdentity: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: true,
+        is_etched: false,
+        language: 'en'
+      }
+
+      const foilIdentity: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Foil',
+        is_foil: true,
+        is_etched: false,
+        language: 'en'
+      }
+
+      const holoKey = generateCardIdentityKey(holoIdentity)
+      const foilKey = generateCardIdentityKey(foilIdentity)
+      expect(holoKey).not.toBe(foilKey)
+      expect(holoKey).toBe('fdn|123|lightning bolt|holo|true|false|en')
+      expect(foilKey).toBe('fdn|123|lightning bolt|foil|true|false|en')
     })
   })
 
@@ -119,6 +154,7 @@ describe('Card Identity Service', () => {
         card_name: 'Wistfulness',
         set_code: 'ECL',
         collector_number: '123',
+        card_type: 'Holo',
         is_foil: true,
         is_etched: false,
         language: 'en',
@@ -130,6 +166,7 @@ describe('Card Identity Service', () => {
         set_code: 'ECL',
         collector_number: '123',
         card_name: 'Wistfulness',
+        card_type: 'Holo',
         is_foil: true,
         is_etched: false,
         language: 'en'
@@ -147,6 +184,7 @@ describe('Card Identity Service', () => {
         set_code: 'TST',
         collector_number: null,
         card_name: 'Test',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
@@ -160,6 +198,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Foil',
         is_foil: true,
         is_etched: false,
         language: 'en'
@@ -169,6 +208,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Foil',
         is_foil: true,
         is_etched: false,
         language: 'en'
@@ -182,6 +222,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Foil',
         is_foil: true,
         is_etched: false,
         language: 'en'
@@ -191,6 +232,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
@@ -204,6 +246,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
@@ -213,6 +256,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '456',
         card_name: 'Lightning Bolt',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
@@ -226,6 +270,7 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'Lightning Bolt',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
@@ -235,12 +280,39 @@ describe('Card Identity Service', () => {
         set_code: 'FDN',
         collector_number: '123',
         card_name: 'LIGHTNING BOLT',
+        card_type: 'Normal',
         is_foil: false,
         is_etched: false,
         language: 'en'
       }
 
       expect(isSameIdentity(card1, card2)).toBe(true)
+    })
+
+    it('should return false for Holo vs Foil (same name/set/collector, both is_foil=true)', () => {
+      // Regression test: this was the original bug — Holo + Foil of same card
+      // shared is_foil=true and collapsed into the same key, marking one as OOS.
+      const holo: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: true,
+        is_etched: false,
+        language: 'en'
+      }
+
+      const foil: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Foil',
+        is_foil: true,
+        is_etched: false,
+        language: 'en'
+      }
+
+      expect(isSameIdentity(holo, foil)).toBe(false)
     })
   })
 
@@ -253,6 +325,7 @@ describe('Card Identity Service', () => {
           card_name: 'Card A',
           set_code: 'SET1',
           collector_number: '1',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -264,6 +337,7 @@ describe('Card Identity Service', () => {
           card_name: 'Card B',
           set_code: 'SET1',
           collector_number: '2',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -283,6 +357,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -294,6 +369,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -315,6 +391,7 @@ describe('Card Identity Service', () => {
           card_name: 'Sol Ring',
           set_code: 'CMM',
           collector_number: '456',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -326,6 +403,7 @@ describe('Card Identity Service', () => {
           card_name: 'Sol Ring',
           set_code: 'CMM',
           collector_number: '456',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -337,6 +415,7 @@ describe('Card Identity Service', () => {
           card_name: 'Sol Ring',
           set_code: 'CMM',
           collector_number: '456',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -358,6 +437,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -369,6 +449,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Foil',
           is_foil: true,
           is_etched: false,
           language: 'en',
@@ -377,6 +458,42 @@ describe('Card Identity Service', () => {
       ]
 
       const duplicates = detectDuplicatesInBatch(cards)
+      expect(duplicates).toEqual([])
+    })
+
+    it('should NOT treat Holo and Foil variants as duplicates (regression: foil-holo-oos-on-import)', () => {
+      // Before the fix: both H-1000 (Holo) and F-500 (Foil) had is_foil=true
+      // → same identity key → F-500 marked OOS by duplicate detection.
+      // After the fix: card_type is part of the key so Holo ≠ Foil.
+      const cards: CardWithIdentity[] = [
+        {
+          id: 'uuid-1',
+          serial: 'H-1000',
+          card_name: 'Lightning Bolt',
+          set_code: 'FDN',
+          collector_number: '123',
+          card_type: 'Holo',
+          is_foil: true,
+          is_etched: false,
+          language: 'en',
+          is_in_stock: true
+        },
+        {
+          id: 'uuid-2',
+          serial: 'F-500',
+          card_name: 'Lightning Bolt',
+          set_code: 'FDN',
+          collector_number: '123',
+          card_type: 'Foil',
+          is_foil: true,
+          is_etched: false,
+          language: 'en',
+          is_in_stock: true
+        }
+      ]
+
+      const duplicates = detectDuplicatesInBatch(cards)
+      // Should be zero — Holo and Foil are distinct cards, NOT duplicates.
       expect(duplicates).toEqual([])
     })
 
@@ -389,6 +506,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -400,6 +518,7 @@ describe('Card Identity Service', () => {
           card_name: 'Lightning Bolt',
           set_code: 'FDN',
           collector_number: '123',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -412,6 +531,7 @@ describe('Card Identity Service', () => {
           card_name: 'Sol Ring',
           set_code: 'CMM',
           collector_number: '456',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -423,6 +543,7 @@ describe('Card Identity Service', () => {
           card_name: 'Sol Ring',
           set_code: 'CMM',
           collector_number: '456',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -442,6 +563,7 @@ describe('Card Identity Service', () => {
           card_name: 'Promo Card',
           set_code: 'PROMO',
           collector_number: null,
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -453,6 +575,7 @@ describe('Card Identity Service', () => {
           card_name: 'Promo Card',
           set_code: 'PROMO',
           collector_number: null,
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -473,6 +596,7 @@ describe('Card Identity Service', () => {
           card_name: 'Test Card',
           set_code: 'TST',
           collector_number: '100',
+          card_type: 'Normal',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -484,6 +608,7 @@ describe('Card Identity Service', () => {
           card_name: 'Test Card',
           set_code: 'TST',
           collector_number: '100',
+          card_type: 'Normal',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -495,6 +620,7 @@ describe('Card Identity Service', () => {
           card_name: 'Another Card',
           set_code: 'TST',
           collector_number: '200',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',
@@ -506,6 +632,7 @@ describe('Card Identity Service', () => {
           card_name: 'Another Card',
           set_code: 'TST',
           collector_number: '200',
+          card_type: 'Holo',
           is_foil: false,
           is_etched: false,
           language: 'en',

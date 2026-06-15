@@ -6,13 +6,17 @@ import { logger } from '$lib/server/logger'
 
 /**
  * Card identity fields used for matching across inventory resyncs
- * Priority: (set_code, collector_number, card_name, is_foil, is_etched, language)
- * Fallback: (set_code, card_name, is_foil, language) when collector_number is missing
+ * Priority: (set_code, collector_number, card_name, card_type, is_foil, is_etched, language)
+ * Fallback: (set_code, card_name, card_type, is_foil, language) when collector_number is missing
+ *
+ * card_type ('Normal' | 'Holo' | 'Foil') is included so that a Holo and a Foil
+ * variant of the same card are never treated as duplicates of each other.
  */
 export interface CardIdentity {
   set_code: string | null
   collector_number: string | null
   card_name: string
+  card_type: string
   is_foil: boolean
   is_etched: boolean
   language: string
@@ -27,11 +31,11 @@ export interface CardWithIdentity {
   card_name: string
   set_code: string | null
   collector_number: string | null
+  card_type: string
   is_foil: boolean
   is_etched: boolean
   language: string
   is_in_stock: boolean
-  card_type?: string
 }
 
 /**
@@ -46,12 +50,14 @@ export interface DuplicateGroup {
 
 /**
  * Generate a normalized identity key for a card
- * Format: set_code|collector_number|card_name|is_foil|is_etched|language
+ * Format: set_code|collector_number|card_name|card_type|is_foil|is_etched|language
  *
  * Rules:
  * - All text fields are trimmed and lowercased
  * - Boolean fields are converted to "true" or "false"
  * - null collector_number becomes empty string in key
+ * - card_type distinguishes 'Normal' / 'Holo' / 'Foil' so that a Holo and a Foil
+ *   variant of the same card are never collapsed into the same identity.
  */
 export function generateCardIdentityKey(identity: CardIdentity): string {
   const normalize = (str: string | null): string => {
@@ -62,11 +68,12 @@ export function generateCardIdentityKey(identity: CardIdentity): string {
   const setCode = normalize(identity.set_code)
   const collectorNumber = normalize(identity.collector_number)
   const cardName = normalize(identity.card_name)
+  const cardType = normalize(identity.card_type) || 'normal'
   const isFoil = identity.is_foil ? 'true' : 'false'
   const isEtched = identity.is_etched ? 'true' : 'false'
   const language = normalize(identity.language) || 'en'
 
-  return `${setCode}|${collectorNumber}|${cardName}|${isFoil}|${isEtched}|${language}`
+  return `${setCode}|${collectorNumber}|${cardName}|${cardType}|${isFoil}|${isEtched}|${language}`
 }
 
 /**
@@ -77,6 +84,7 @@ export function extractCardIdentity(card: Partial<CardWithIdentity>): CardIdenti
     set_code: card.set_code || null,
     collector_number: card.collector_number || null,
     card_name: card.card_name || '',
+    card_type: card.card_type || 'Normal',
     is_foil: card.is_foil || false,
     is_etched: card.is_etched || false,
     language: card.language || 'en'

@@ -257,6 +257,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       card_name: card.card_name,
       set_code: card.set_code,
       collector_number: card.collector_number,
+      card_type: card.card_type, // Included so Holo vs Foil variants are distinct identities
       is_foil: card.is_foil,
       is_etched: card.is_etched,
       language: card.language,
