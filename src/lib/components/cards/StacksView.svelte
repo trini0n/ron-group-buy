@@ -125,6 +125,54 @@
   // Using a plain $state object (not Set) so property assignment triggers reactivity.
   let symbolErrors = $state<Record<string, true>>({})
 
+  // ── Fixed column layout ──────────────────────────────────────────────────
+  //
+  // CSS `columns` layout rebalances column heights whenever any group grows
+  // (e.g. on hover expand), causing groups to jump between columns and breaking
+  // the expanded hover state.
+  //
+  // Fix: pre-assign each column group to a fixed layout column using a greedy
+  // bin-packing algorithm (assign each group to the shortest column). Once
+  // assigned, groups never move — hover animations cannot trigger reflow.
+  //
+  // numCols mirrors the Tailwind responsive breakpoints:
+  //   default → 2 cols   (< 640px)
+  //   sm      → 3 cols   (≥ 640px)
+  //   lg      → 4 cols   (≥ 1024px)
+  //   xl      → 5 cols   (≥ 1280px)
+  //
+  let numCols = $state(2)
+
+  $effect(() => {
+    function update() {
+      if (window.innerWidth >= 1280)      numCols = 5
+      else if (window.innerWidth >= 1024) numCols = 4
+      else if (window.innerWidth >= 640)  numCols = 3
+      else                                numCols = 2
+    }
+    update()
+    window.addEventListener('resize', update, { passive: true })
+    return () => window.removeEventListener('resize', update)
+  })
+
+  // Distribute column groups into numCols fixed layout columns.
+  // Each group goes to whichever layout column has the fewest cards so far
+  // (greedy shortest-column-first). Re-runs only when the data or numCols
+  // changes — NOT on hover state changes.
+  const distributedCols = $derived.by<Column[][]>(() => {
+    const result: Column[][] = Array.from({ length: numCols }, () => [])
+    const heights = new Array<number>(numCols).fill(0)
+    for (const col of columns) {
+      let minIdx = 0
+      for (let i = 1; i < numCols; i++) {
+        if (heights[i] < heights[minIdx]) minIdx = i
+      }
+      result[minIdx].push(col)
+      heights[minIdx] += col.rows.length
+    }
+    return result
+  })
+
   function onEnter(setCode: string, idx: number) {
     // Cancel any in-flight timer (user moved to a new card before 500ms elapsed)
     if (hoverTimer !== null) {
@@ -192,19 +240,21 @@
 <!--
   Stacks View — Archidekt-style physical card deck layout
   ────────────────────────────────────────────────────────
-  LAYOUT: CSS multi-column masonry (`columns-N` + `break-inside-avoid`).
-  Groups flow top→bottom in each CSS column; shorter groups let new groups
-  begin below them — the dynamic staggered layout from the reference screenshots.
+  LAYOUT: JS-assigned fixed flex columns.
+  Groups are distributed into N layout columns via greedy bin-packing
+  (shortest-column-first by card count) at render time, then locked.
+  Hover animations expand card stacks within a column but can never
+  trigger a layout reflow that moves groups to another column.
+  numCols mirrors Tailwind sm/lg/xl breakpoints via a resize listener.
 
   STACKING:
     Normal     → all cards overlap with margin-top: -121.8%, showing only
                  the top 13% (name strip) of each card as a peek strip.
-    Hover      → after a 500ms debounce delay, the card immediately below
+    Hover      → after a 75ms debounce, the card immediately below
                  (idx = hoveredIdx+1) switches margin-top: -121.8% → 0 via
                  CSS transition (250ms ease). This physically slides ALL lower
                  cards down, progressively revealing the hovered card.
-                 No z-index pop: the cards slide fully away, revealing the
-                 hovered card through natural DOM stacking order (z = i+1).
+                 No z-index pop: the cards slide fully away.
     Un-hover   → immediately clears hoveredInfo, transition reverses (250ms).
     Box-shadow → pure CSS :hover (no JS delay — immediate feedback).
 -->
@@ -225,9 +275,17 @@
   }
 </style>
 
-<div class="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-x-4 gap-y-0">
-  {#each columns as col (col.setCode)}
-    <div class="break-inside-avoid mb-6 w-full">
+<!--
+  Outer wrapper: a fixed flex row of numCols layout columns.
+  Each layout column is a flex-col that holds its pre-assigned set groups.
+  Because groups are statically assigned (not flowed), hover-induced height
+  changes in one column cannot displace groups in other columns.
+-->
+<div class="flex gap-x-4 items-start">
+  {#each distributedCols as colGroup, _colIdx}
+    <div class="flex flex-col gap-y-6 flex-1 min-w-0">
+      {#each colGroup as col (col.setCode)}
+        <div class="w-full">
 
       <!-- ── Column header ── -->
       <div class="flex items-start gap-1.5 mb-2 px-0.5">
@@ -340,6 +398,8 @@
         {/each}
       </div>
 
+        </div>
+      {/each}
     </div>
   {/each}
 </div>
