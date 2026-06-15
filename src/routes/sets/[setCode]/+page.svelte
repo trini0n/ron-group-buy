@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Badge } from '$components/ui/badge'
   import CardGrid from '$components/cards/CardGrid.svelte'
-  import { ArrowLeft, Layers, List, LayoutGrid } from 'lucide-svelte'
+  import StacksView from '$components/cards/StacksView.svelte'
+  import { ArrowLeft, Layers, List, LayoutGrid, Columns } from 'lucide-svelte'
 
   let { data } = $props()
 
-  // View toggle: 'grid' = enriched CardGrid, 'list' = plaintext
-  let viewMode = $state<'grid' | 'list'>('list')
+  // View toggle: 'list' = plaintext, 'grid' = enriched CardGrid, 'stacks' = expansion columns
+  let viewMode = $state<'list' | 'grid' | 'stacks'>('list')
 
   // CardGrid requires filter + search props — use permissive defaults to show all cards
   const noFilters = {
@@ -85,6 +85,15 @@
             <LayoutGrid class="h-3.5 w-3.5" />
             Grid
           </button>
+          <button
+            id="view-toggle-stacks"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'stacks' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            onclick={() => (viewMode = 'stacks')}
+            aria-label="Stacks view"
+          >
+            <Columns class="h-3.5 w-3.5" />
+            Stacks
+          </button>
         </div>
       {/if}
     </div>
@@ -112,6 +121,8 @@
         {/each}
       </ol>
     </div>
+  {:else if viewMode === 'stacks'}
+    <StacksView cards={data.cards} />
   {:else}
     <CardGrid
       cards={data.cards}
