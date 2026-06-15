@@ -30,11 +30,35 @@
     )
   )
 
+  // Natural (numeric-aware) sort — "NP Foil 5" before "NP Foil 42"
+  function naturalSort(a: string, b: string): number {
+    const re = /(\d+)|(\D+)/g
+    const tokensA = a.match(re) ?? []
+    const tokensB = b.match(re) ?? []
+    const len = Math.max(tokensA.length, tokensB.length)
+    for (let i = 0; i < len; i++) {
+      const ta = tokensA[i] ?? ''
+      const tb = tokensB[i] ?? ''
+      const na = parseInt(ta, 10)
+      const nb = parseInt(tb, 10)
+      if (!isNaN(na) && !isNaN(nb)) {
+        if (na !== nb) return na - nb
+      } else {
+        const cmp = ta.localeCompare(tb)
+        if (cmp !== 0) return cmp
+      }
+    }
+    return 0
+  }
+
   const sections = $derived(
     TYPE_ORDER
       .map((type) => ({
         type,
-        sets: filteredSets.filter((s) => (s.set_type ?? 'Normal') === type)
+        sets: filteredSets
+          .filter((s) => (s.set_type ?? 'Normal') === type)
+          .slice()
+          .sort((a, b) => naturalSort(a.set_name, b.set_name))
       }))
       .filter((sec) => sec.sets.length > 0)
   )

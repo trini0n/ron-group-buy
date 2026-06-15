@@ -204,7 +204,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         reason: `No matching card found in library${finishHint}`
       })
     } else {
-      cardIds.push(...ids)
+      cardIds.push(...ids) // duplicates intentionally kept
     }
   }
 
@@ -214,14 +214,11 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: allErrors } satisfies AssociateResult)
   }
 
-  // Deduplicate card IDs
-  const uniqueCardIds = [...new Set(cardIds)]
-
-  // Upsert into set_cards — ignoreDuplicates silently skips already-associated cards
-  const inserts = uniqueCardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
+  // Insert all resolved card IDs (duplicates allowed — unique constraint was dropped)
+  const inserts = cardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
   const { data: inserted, error: insertError } = await adminClient
     .from('set_cards')
-    .upsert(inserts, { onConflict: 'set_code,card_id', ignoreDuplicates: true })
+    .insert(inserts)
     .select('id')
 
   if (insertError) {
@@ -230,7 +227,6 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   }
 
   const added = inserted?.length ?? 0
-  const already_present = uniqueCardIds.length - added
 
-  return json({ added, already_present, errors: allErrors } satisfies AssociateResult)
+  return json({ added, already_present: 0, errors: allErrors } satisfies AssociateResult)
 }
