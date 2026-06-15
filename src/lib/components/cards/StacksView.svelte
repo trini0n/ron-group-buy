@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Card } from '$lib/server/types'
   import { getRonImageUrl, getScryfallImageUrl, getCardUrl } from '$lib/utils'
-  import { ChevronDown } from 'lucide-svelte'
 
   interface Props {
     cards: Card[]
@@ -9,93 +8,75 @@
 
   let { cards }: Props = $props()
 
-  // ─── Data pipeline ────────────────────────────────────────────────────────
+  // ── Layout constants ────────────────────────────────────────────────────
+  // Fixed column width drives all pixel math for the stacking effect.
+  const COL_W = 220          // px — each column is this wide
+  const CARD_H = Math.round(COL_W * 3.5 / 2.5) // 308px at 2.5:3.5 aspect ratio
+  const PEEK_PX = 52         // px of each card's bottom strip that shows behind the card above
+  const MAX_COLS = 5
+
+  // ── Data pipeline ───────────────────────────────────────────────────────
 
   interface Row {
-    key: string    // card_name + '|' + card_type (dedup key)
-    card: Card     // representative card (first occurrence)
-    count: number  // number of copies with same name + finish
+    key: string      // dedup key: card_name + '|' + card_type
+    card: Card       // representative card (first occurrence)
+    count: number    // copies with same name + finish
   }
 
   interface Column {
-    setCode: string   // lowercase, for Scryfall SVG URL
-    setName: string   // display name
+    setCode: string   // lowercase — used for Scryfall SVG icon
+    setName: string   // display label
     totalCount: number
-    rows: Row[]
+    rows: Row[]       // sorted by collector_number asc; row[0] = top of stack (fully visible)
   }
 
-  /** Numeric-aware sort on collector_number */
-  function collectorNumberSort(a: string | null, b: string | null): number {
-    const na = parseInt(a ?? '', 10)
-    const nb = parseInt(b ?? '', 10)
-    if (!isNaN(na) && !isNaN(nb)) return na - nb
-    return (a ?? '').localeCompare(b ?? '')
-  }
-
-  /** Natural sort on arbitrary strings (handles e.g. "Set 5" vs "Set 42") */
   function naturalSort(a: string, b: string): number {
     const re = /(\d+)|(\D+)/g
-    const tokensA = a.match(re) ?? []
-    const tokensB = b.match(re) ?? []
-    const len = Math.max(tokensA.length, tokensB.length)
+    const ta = a.match(re) ?? [], tb = b.match(re) ?? []
+    const len = Math.max(ta.length, tb.length)
     for (let i = 0; i < len; i++) {
-      const ta = tokensA[i] ?? ''
-      const tb = tokensB[i] ?? ''
-      const na = parseInt(ta, 10)
-      const nb = parseInt(tb, 10)
-      if (!isNaN(na) && !isNaN(nb)) {
-        if (na !== nb) return na - nb
-      } else {
-        const cmp = ta.localeCompare(tb)
-        if (cmp !== 0) return cmp
-      }
+      const sa = ta[i] ?? '', sb = tb[i] ?? ''
+      const na = parseInt(sa, 10), nb = parseInt(sb, 10)
+      if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb
+      const c = sa.localeCompare(sb)
+      if (c) return c
     }
     return 0
   }
 
-  /** Build columns from card list */
+  function collNumSort(a: string | null, b: string | null): number {
+    const na = parseInt(a ?? '', 10), nb = parseInt(b ?? '', 10)
+    if (!isNaN(na) && !isNaN(nb)) return na - nb
+    return (a ?? '').localeCompare(b ?? '')
+  }
+
   const columns = $derived.by<Column[]>(() => {
-    // 1. Group cards by expansion set_code
-    const groupMap = new Map<string, { setCode: string; setName: string; cards: Card[] }>()
-
-    for (const card of cards) {
-      const sc = (card.set_code ?? '').toLowerCase() || 'unknown'
-      const sn = card.set_name ?? (sc === 'unknown' ? 'Unknown Set' : sc.toUpperCase())
-      if (!groupMap.has(sc)) {
-        groupMap.set(sc, { setCode: sc, setName: sn, cards: [] })
-      }
-      groupMap.get(sc)!.cards.push(card)
+    // 1. Group by MTG expansion (set_code on the card)
+    const map = new Map<string, { setCode: string; setName: string; cards: Card[] }>()
+    for (const c of cards) {
+      const sc = (c.set_code ?? '').toLowerCase() || 'unknown'
+      const sn = c.set_name ?? (sc === 'unknown' ? 'Unknown Set' : sc.toUpperCase())
+      if (!map.has(sc)) map.set(sc, { setCode: sc, setName: sn, cards: [] })
+      map.get(sc)!.cards.push(c)
     }
 
-    // 2. For each group: deduplicate, sort rows
+    // 2. Deduplicate within each group + sort rows
     const cols: Column[] = []
-    for (const [, group] of groupMap) {
-      const dedupMap = new Map<string, Row>()
-
-      for (const card of group.cards) {
-        const key = `${card.card_name ?? ''}|${card.card_type ?? ''}`
-        const existing = dedupMap.get(key)
-        if (existing) {
-          existing.count++
-        } else {
-          dedupMap.set(key, { key, card, count: 1 })
-        }
+    for (const [, g] of map) {
+      const dedup = new Map<string, Row>()
+      for (const c of g.cards) {
+        const key = `${c.card_name ?? ''}|${c.card_type ?? ''}`
+        const ex = dedup.get(key)
+        if (ex) ex.count++
+        else dedup.set(key, { key, card: c, count: 1 })
       }
-
-      // Sort rows by collector_number (numeric-aware)
-      const rows = [...dedupMap.values()].sort((a, b) =>
-        collectorNumberSort(a.card.collector_number, b.card.collector_number)
+      const rows = [...dedup.values()].sort((a, b) =>
+        collNumSort(a.card.collector_number, b.card.collector_number)
       )
-
-      cols.push({
-        setCode: group.setCode,
-        setName: group.setName,
-        totalCount: group.cards.length,
-        rows
-      })
+      cols.push({ setCode: g.setCode, setName: g.setName, totalCount: g.cards.length, rows })
     }
 
-    // 3. Sort columns: Unknown Set last, rest by setName (natural sort)
+    // 3. Sort columns: unknown last, rest by setName (natural sort)
     cols.sort((a, b) => {
       if (a.setCode === 'unknown') return 1
       if (b.setCode === 'unknown') return -1
@@ -105,156 +86,173 @@
     return cols
   })
 
-  // ─── Per-column state ──────────────────────────────────────────────────────
+  // ── Hover state (per column) ────────────────────────────────────────────
+  // hoveredKey tracks which row is "expanded" (brought to front) per column.
+  // null = no card hovered = row[0] is the naturally visible top card.
+  let hoveredKey = $state<Map<string, string | null>>(new Map())
 
-  interface ColState {
-    expandedKey: string | null  // which row image is expanded
-    collapsed: boolean          // mobile accordion collapsed
+  function getHov(sc: string): string | null {
+    return hoveredKey.get(sc) ?? null
   }
 
-  let colStates = $state<Map<string, ColState>>(new Map())
-
-  /** Get or initialise state for a column */
-  function getColState(setCode: string): ColState {
-    if (!colStates.has(setCode)) {
-      colStates.set(setCode, { expandedKey: null, collapsed: false })
-    }
-    return colStates.get(setCode)!
+  function setHov(sc: string, key: string | null) {
+    const m = new Map(hoveredKey)
+    m.set(sc, key)
+    hoveredKey = m
   }
 
-  function toggleExpand(setCode: string, key: string) {
-    const state = getColState(setCode)
-    state.expandedKey = state.expandedKey === key ? null : key
-    colStates = new Map(colStates) // trigger reactivity
-  }
+  // ── Image resolution ────────────────────────────────────────────────────
+  let ronFailed = $state<Set<string>>(new Set())
 
-  function toggleCollapse(setCode: string) {
-    const state = getColState(setCode)
-    state.collapsed = !state.collapsed
-    colStates = new Map(colStates)
-  }
-
-  // ─── Image resolution ─────────────────────────────────────────────────────
-
-  // Track cards whose ron image has failed (keyed by card id)
-  let ronImageFailed = $state<Set<string>>(new Set())
-
-  function resolveImage(card: Card): string {
-    const ron = getRonImageUrl(card.ron_image_url)
-    if (ron && !ronImageFailed.has(card.id)) return ron
-    if (card.scryfall_id) return getScryfallImageUrl(card.scryfall_id, 'normal')
+  function resolveImg(c: Card): string {
+    const ron = getRonImageUrl(c.ron_image_url)
+    if (ron && !ronFailed.has(c.id)) return ron
+    if (c.scryfall_id) return getScryfallImageUrl(c.scryfall_id, 'normal')
     return '/images/card-placeholder.png'
   }
 
-  function handleRonError(card: Card) {
-    ronImageFailed = new Set([...ronImageFailed, card.id])
+  function markFailed(id: string) {
+    ronFailed = new Set([...ronFailed, id])
+  }
+
+  // ── Z-index logic ───────────────────────────────────────────────────────
+  // row[0] = top of the physical stack (highest z-index, fully visible).
+  // row[N-1] = bottom of the stack (lowest z-index, mostly covered).
+  // On hover: the hovered row gets z = rows.length + 50 (pops to front).
+  function zIndex(col: Column, i: number): number {
+    const hovKey = getHov(col.setCode)
+    const isHov = hovKey !== null && hovKey === col.rows[i]?.key
+    return isHov ? col.rows.length + 50 : col.rows.length - i
+  }
+
+  // ── Container height per column ─────────────────────────────────────────
+  // = CARD_H (for the fully-visible top card) + (N-1) × PEEK_PX (one strip per additional card)
+  function stackHeight(col: Column): number {
+    return CARD_H + (col.rows.length - 1) * PEEK_PX
   }
 </script>
 
 <!--
-  StacksView — Archidekt-style column layout
-  Desktop: horizontal scrollable columns side-by-side
-  Mobile:  vertical accordion (each column header toggles its card list)
+  Stacks View — Archidekt-style physical card deck layout
+  ───────────────────────────────────────────────────────
+  Each column = one MTG expansion.
+  Cards are absolutely positioned in a "stack":
+    • row[0] sits at top=0, z-index=highest → fully visible at all times
+    • row[i] sits at top = i×PEEK_PX, z-index = rows.length-i
+      → only its bottom PEEK_PX strip is visible (peek underneath the card above)
+  On hover → z-index jumps to rows.length+50 → card "pops out" to full view.
+  Name gradient overlay ensures card name is readable in the peek strip.
 -->
 
-<!-- Outer scroll wrapper (desktop horizontal, mobile vertical) -->
 <div
-  class="flex flex-col gap-3 sm:flex-row sm:gap-0 sm:overflow-x-auto
-         sm:border sm:rounded-xl sm:overflow-hidden"
+  class="grid gap-5 justify-center overflow-x-auto pb-4"
+  style="grid-template-columns: repeat({Math.min(columns.length, MAX_COLS)}, {COL_W}px)"
 >
   {#each columns as col (col.setCode)}
-    {@const state = getColState(col.setCode)}
+    <!-- Column -->
+    <div style="width: {COL_W}px">
 
-    <!-- Column wrapper -->
-    <div
-      class="flex flex-col border rounded-xl overflow-hidden
-             sm:rounded-none sm:border-y-0 sm:border-l-0 sm:border-r
-             sm:last:border-r-0 sm:w-[240px] sm:min-w-[200px] sm:max-w-[280px] sm:shrink-0"
-    >
-      <!-- Column header — doubles as accordion toggle on mobile -->
-      <button
-        class="w-full flex items-center gap-2 px-3 py-2.5 bg-muted/40 hover:bg-muted/60
-               transition-colors text-left border-b sm:cursor-default"
-        onclick={() => toggleCollapse(col.setCode)}
-        aria-expanded={!state.collapsed}
-        aria-controls="stack-col-{col.setCode}"
-      >
-        <!-- Scryfall set icon (hidden on error) -->
+      <!-- ── Column header ── -->
+      <div class="flex items-start gap-2 mb-3 px-0.5">
         {#if col.setCode !== 'unknown'}
           <img
             src="https://svgs.scryfall.io/card-symbols/{col.setCode}.svg"
             alt=""
-            class="h-4 w-4 shrink-0"
+            class="h-5 w-5 mt-0.5 shrink-0 opacity-90"
             aria-hidden="true"
-            onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+            onerror={(e) => {
+              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+            }}
           />
         {/if}
-
-        <!-- Set name -->
-        <span class="font-semibold text-sm truncate flex-1 text-left">{col.setName}</span>
-
-        <!-- Card count pill -->
-        <span
-          class="shrink-0 text-xs text-muted-foreground bg-background border
-                 rounded-full px-2 py-0.5 tabular-nums"
-        >
-          {col.totalCount}
-        </span>
-
-        <!-- Chevron — visible only on mobile -->
-        <ChevronDown
-          class="h-4 w-4 text-muted-foreground sm:hidden transition-transform duration-200
-                 {state.collapsed ? '-rotate-90' : ''}"
-        />
-      </button>
-
-      <!-- Card list — accordion-aware on mobile, always visible on desktop -->
-      <div
-        id="stack-col-{col.setCode}"
-        class="{state.collapsed ? 'hidden' : 'block'} sm:block sm:flex-1 sm:overflow-y-auto"
-      >
-        {#each col.rows as row (row.key)}
-          {@const isExpanded = state.expandedKey === row.key}
-
-          <!-- Compact card row -->
-          <button
-            class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-b last:border-b-0
-                   hover:bg-accent/40 transition-colors
-                   {isExpanded ? 'bg-accent/50' : ''}"
-            onclick={() => toggleExpand(col.setCode, row.key)}
-            aria-expanded={isExpanded}
-          >
-            <span class="flex-1 truncate leading-snug">{row.card.card_name ?? 'Unknown'}</span>
-            {#if row.count > 1}
-              <span
-                class="shrink-0 text-xs font-mono text-muted-foreground
-                       bg-muted px-1.5 py-0.5 rounded tabular-nums"
-              >
-                ×{row.count}
-              </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-bold leading-tight truncate">{col.setName}</p>
+          <p class="text-xs text-muted-foreground tabular-nums">
+            {col.totalCount} card{col.totalCount !== 1 ? 's' : ''}
+            {#if col.rows.length !== col.totalCount}
+              · {col.rows.length} unique
             {/if}
-          </button>
+          </p>
+        </div>
+      </div>
 
-          <!-- Inline image expand -->
-          {#if isExpanded}
-            <div class="px-3 py-2.5 border-b bg-card">
-              <a
-                href={getCardUrl(row.card)}
-                class="block"
-                aria-label="View {row.card.card_name ?? 'card'} detail"
+      <!-- ── Card stack ── -->
+      <div
+        class="relative"
+        style="height: {stackHeight(col)}px"
+        aria-label="{col.setName} stack"
+      >
+        {#each col.rows as row, i (row.key)}
+          {@const isHov = getHov(col.setCode) === row.key}
+          {@const zi = zIndex(col, i)}
+
+          <!--
+            Each card is absolutely positioned in the stack.
+            top = i × PEEK_PX  → cards fan downward, each peeking below the one above.
+            z-index = rows.length - i  → row[0] has highest z (on top), row[N] lowest.
+            On hover: z-index = rows.length+50 → pops to front.
+          -->
+          <a
+            href={getCardUrl(row.card)}
+            class="absolute block transition-all duration-150 rounded-xl overflow-hidden"
+            style="
+              width: {COL_W}px;
+              height: {CARD_H}px;
+              top: {i * PEEK_PX}px;
+              z-index: {zi};
+              box-shadow: {isHov
+                ? '0 20px 40px rgba(0,0,0,0.5), 0 0 0 2px hsl(var(--primary))'
+                : '0 4px 12px rgba(0,0,0,0.35)'};
+              transform: {isHov ? 'scale(1.02)' : 'scale(1)'};
+            "
+            aria-label="{row.card.card_name ?? 'Card'}{row.count > 1 ? ` ×${row.count}` : ''}"
+            onmouseenter={() => setHov(col.setCode, row.key)}
+            onmouseleave={() => setHov(col.setCode, null)}
+            onfocus={() => setHov(col.setCode, row.key)}
+            onblur={() => setHov(col.setCode, null)}
+          >
+            <!-- Card art -->
+            <img
+              src={resolveImg(row.card)}
+              alt={row.card.card_name ?? 'Card'}
+              width={COL_W}
+              height={CARD_H}
+              class="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              draggable="false"
+              onerror={() => markFailed(row.card.id)}
+            />
+
+            <!--
+              Name overlay — always rendered at the BOTTOM of every card.
+              When the card is in "peek" mode (not hovered), only the bottom
+              PEEK_PX strip is visible — this overlay sits right in that strip.
+              When the card is hovered (fully visible), the overlay also shows
+              at the bottom of the full card, acting as a caption.
+            -->
+            <div class="absolute bottom-0 inset-x-0 pointer-events-none">
+              <div
+                class="px-2 pb-1.5 pt-6
+                       bg-gradient-to-t from-black/85 via-black/50 to-transparent"
               >
-                <img
-                  src={resolveImage(row.card)}
-                  alt={row.card.card_name ?? 'Card'}
-                  class="w-full rounded-lg shadow-md object-cover
-                         aspect-[2.5/3.5] hover:opacity-90 transition-opacity"
-                  loading="lazy"
-                  referrerpolicy="no-referrer"
-                  onerror={() => handleRonError(row.card)}
-                />
-              </a>
+                <p class="text-white text-[11px] font-semibold truncate leading-snug drop-shadow-sm">
+                  {row.card.card_name ?? 'Unknown'}
+                </p>
+                {#if row.count > 1}
+                  <span class="text-white/70 text-[10px] tabular-nums font-mono">×{row.count}</span>
+                {/if}
+              </div>
             </div>
-          {/if}
+
+            <!-- Hover ring (visible glow on active card) -->
+            {#if isHov}
+              <div
+                class="absolute inset-0 rounded-xl pointer-events-none
+                       ring-2 ring-primary/80 ring-inset"
+              ></div>
+            {/if}
+          </a>
         {/each}
       </div>
     </div>
