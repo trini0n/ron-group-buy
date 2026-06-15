@@ -182,18 +182,6 @@
     if (c.scryfall_id) return getScryfallImageUrl(c.scryfall_id, 'normal')
     return '/images/card-placeholder.png'
   }
-
-  // ── Set symbol filter ───────────────────────────────────────────────────
-  // Scryfall set symbol SVGs are black on transparent background.
-  // This filter chain converts black → #f59105 (amber):
-  //   brightness(0)     → force pure black (ensure no grey stray pixels)
-  //   invert(1)         → black becomes white
-  //   sepia(1)          → white becomes warm near-yellow (255,255,239)
-  //   saturate(3000%)   → push saturation to pure yellow (255,255,0)
-  //   hue-rotate(335deg)→ rotate yellow(60°) by -25° → orange (35°) ≈ (255,149,0)
-  //   brightness(0.96)  → slight dim → (245,143,0) ≈ #f58f00 ≈ #f59105
-  const SET_SYMBOL_FILTER =
-    'brightness(0) invert(1) sepia(1) saturate(3000%) hue-rotate(335deg) brightness(0.96)'
 </script>
 
 <!--
@@ -241,15 +229,15 @@
         {#if col.setCode !== 'unknown'}
           <!--
             Set symbol: Scryfall serves at /sets/{code}.svg (NOT /card-symbols/).
-            CSS filter chain tints the default black SVG to amber #f59105 for
-            visibility on both light and dark backgrounds.
+            dark:invert — light mode keeps the original black SVG; dark mode
+            applies filter:invert(1) turning it white so it’s visible on dark
+            backgrounds. Simple, accurate, no CSS filter math required.
           -->
           <img
             src="https://svgs.scryfall.io/sets/{col.setCode}.svg"
             alt=""
-            class="h-4 w-4 mt-0.5 shrink-0"
+            class="h-4 w-4 mt-0.5 shrink-0 dark:invert"
             aria-hidden="true"
-            style="filter: {SET_SYMBOL_FILTER};"
             onerror={(e) => {
               ;(e.currentTarget as HTMLImageElement).style.display = 'none'
             }}
