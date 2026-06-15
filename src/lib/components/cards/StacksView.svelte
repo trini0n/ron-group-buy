@@ -112,19 +112,47 @@
   // Using idx (not key) so we can check idx === hoveredIdx + 1 cheaply —
   // that card gets its margin-top changed to produce the slide-down animation.
   //
+  // The 500ms debounce (hoverTimer) prevents the animation from firing when
+  // a user quickly sweeps over many cards. The timer is cancelled immediately
+  // on mouseleave so the animation never queues up multiple times.
+  // The box-shadow / glow is handled by pure CSS :hover (no JS delay).
+  //
   let hoveredInfo = $state<{ setCode: string; idx: number } | null>(null)
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
-  function isHov(setCode: string, idx: number): boolean {
-    return (
-      hoveredInfo !== null &&
-      hoveredInfo.setCode === setCode &&
-      hoveredInfo.idx === idx
-    )
+  function onEnter(setCode: string, idx: number) {
+    // Cancel any in-flight timer (user moved to a new card before 500ms elapsed)
+    if (hoverTimer !== null) {
+      clearTimeout(hoverTimer)
+      hoverTimer = null
+    }
+    // Wait 500ms before activating the slide-down — avoids animation queue overload
+    hoverTimer = setTimeout(() => {
+      hoveredInfo = { setCode, idx }
+      hoverTimer = null
+    }, 500)
   }
 
+  function onLeave() {
+    // Immediately cancel any pending activation
+    if (hoverTimer !== null) {
+      clearTimeout(hoverTimer)
+      hoverTimer = null
+    }
+    // Immediately reverse the animation (no delay on exit)
+    hoveredInfo = null
+  }
+
+  // Clean up the timer if the component is destroyed while a hover is pending
+  $effect(() => {
+    return () => {
+      if (hoverTimer !== null) clearTimeout(hoverTimer)
+    }
+  })
+
   // The card immediately BELOW the hovered card (i === hoveredIdx + 1) gets
-  // margin-top = 0 instead of -OVERLAP, which physically pushes it (and all
-  // cards after it) downward — exposing the full hovered card above.
+  // margin-top = 0 instead of -OVERLAP, physically pushing it (and all cards
+  // below it) downward to expose the full hovered card above.
   function isPushedDown(setCode: string, idx: number): boolean {
     return (
       hoveredInfo !== null &&
@@ -133,25 +161,15 @@
     )
   }
 
-  // ── Z-index logic ───────────────────────────────────────────────────────
-  //
-  // Stacking model (matching Archidekt / physical deck metaphor):
-  //   row[0]   = BACK  of deck, z=1  (only its top strip visible in normal state)
-  //   row[N-1] = FRONT of deck, z=N  (fully visible at bottom of the layout)
-  //
-  // Hovered card: z = N+50 (renders above all others while it's fully exposed
-  // by the slide-down of the card immediately below it).
-  //
-  function zIdx(col: Column, i: number): number {
-    return isHov(col.setCode, i) ? col.rows.length + 50 : i + 1
-  }
-
   // ── Margin-top per card ─────────────────────────────────────────────────
   //
-  // Normal:      i=0 → '0',  i>0 → '-121.8%'  (standard overlap)
-  // Slide-down:  i=hoveredIdx+1 → '0'           (full gap, exposes hovered card)
+  // Normal:     i=0  → '0'         (first card, no overlap needed)
+  //             i>0  → '-121.8%'   (standard overlap, peek strip only visible)
+  // Slide-down: i=hoveredIdx+1 → '0'  (gap opens, exposes full card above)
   //
-  // CSS transition on margin-top in the template animates this change.
+  // The CSS `transition: margin-top` on every card animates this change.
+  // No z-index manipulation needed: the cards below physically move away
+  // and the hovered card is revealed through the natural DOM stack order.
   //
   function marginTop(col: Column, i: number): string {
     if (i === 0) return '0'
@@ -186,15 +204,33 @@
   begin below them — the dynamic staggered layout from the reference screenshots.
 
   STACKING:
-    Normal state  → all cards overlap with negative margin-top (-121.8%)
-                    showing only the top 13% (name strip) of each card.
-    Hover state   → hovered card z = N+50 (pops to front).
-                    The card immediately below (idx = hovered+1) switches
-                    margin-top from -121.8% to 0 via CSS transition (250ms).
-                    This physically slides ALL lower cards down by one full
-                    OVERLAP height, exposing the hovered card completely.
-                    Un-hover reverses the animation smoothly.
+    Normal     → all cards overlap with margin-top: -121.8%, showing only
+                 the top 13% (name strip) of each card as a peek strip.
+    Hover      → after a 500ms debounce delay, the card immediately below
+                 (idx = hoveredIdx+1) switches margin-top: -121.8% → 0 via
+                 CSS transition (250ms ease). This physically slides ALL lower
+                 cards down, progressively revealing the hovered card.
+                 No z-index pop: the cards slide fully away, revealing the
+                 hovered card through natural DOM stacking order (z = i+1).
+    Un-hover   → immediately clears hoveredInfo, transition reverses (250ms).
+    Box-shadow → pure CSS :hover (no JS delay — immediate feedback).
 -->
+
+<style>
+  /*
+    Immediate visual feedback on hover (no 500ms delay).
+    Amber outline (#f59105) matches the set symbol / badge color.
+    The slide-down animation is JS-debounced; this glow is CSS-native.
+  */
+  .stack-card {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  }
+  .stack-card:hover {
+    box-shadow:
+      0 16px 36px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(245, 145, 5, 0.8);
+  }
+</style>
 
 <div class="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-x-4 gap-y-0">
   {#each columns as col (col.setCode)}
@@ -245,28 +281,22 @@
       -->
       <div class="relative">
         {#each col.rows as row, i (row.key)}
-          {@const hov = isHov(col.setCode, i)}
-          {@const zi  = zIdx(col, i)}
-          {@const mt  = marginTop(col, i)}
+          {@const mt = marginTop(col, i)}
 
           <a
             href={getCardUrl(row.card)}
-            class="relative block w-full rounded-[10px] overflow-hidden"
+            class="stack-card relative block w-full rounded-[10px] overflow-hidden"
             style="
               aspect-ratio: 2.5/3.5;
               margin-top: {mt};
-              z-index: {zi};
-              transition: margin-top 250ms cubic-bezier(0.4, 0, 0.2, 1),
-                          box-shadow 180ms ease;
-              box-shadow: {hov
-                ? '0 20px 40px rgba(0,0,0,0.65), 0 0 0 2px hsl(var(--primary) / 0.85)'
-                : '0 3px 8px rgba(0,0,0,0.45)'};
+              z-index: {i + 1};
+              transition: margin-top 250ms cubic-bezier(0.4, 0, 0.2, 1);
             "
             aria-label="{row.card.card_name ?? 'Card'}{row.count > 1 ? ` ×${row.count}` : ''}"
-            onmouseenter={() => { hoveredInfo = { setCode: col.setCode, idx: i } }}
-            onmouseleave={() => { hoveredInfo = null }}
-            onfocus={() => { hoveredInfo = { setCode: col.setCode, idx: i } }}
-            onblur={() => { hoveredInfo = null }}
+            onmouseenter={() => onEnter(col.setCode, i)}
+            onmouseleave={onLeave}
+            onfocus={() => onEnter(col.setCode, i)}
+            onblur={onLeave}
           >
             <!-- Scryfall card image -->
             <img
