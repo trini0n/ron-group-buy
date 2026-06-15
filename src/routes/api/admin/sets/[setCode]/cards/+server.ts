@@ -134,7 +134,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
   const { data: candidates, error: dbError } = await adminClient
     .from('cards')
-    .select('id, set_code, collector_number, language, card_type')
+    .select('id, set_code, collector_number, language, card_type, serial')
     .in('set_code', uniqueSetCodes)
     .in('collector_number', uniqueCollNums)
 
@@ -143,34 +143,64 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     throw error(500, 'Database error resolving cards')
   }
 
-  // Build lookup: "SET|collNum|lang|finish" -> card id[]
-  // Also build a wildcard key "SET|collNum|lang|*" -> card id[] for finish-agnostic lines
-  const lookup = new Map<string, string[]>()
-  const foilSubtypes = FOIL_SUBTYPES as readonly string[]
+  // Deduplicate candidates: for each exact (set_code|collector_number|language|card_type)
+  // group, keep only the card with the highest serial number.
+  // "Highest serial" = largest numeric value; non-numeric serials sort lexicographically
+  // after numeric ones are compared, so pure-numeric serials always win over nulls.
+  const bestByKey = new Map<string, { id: string; serial: string | null }>()
 
   for (const card of candidates ?? []) {
     const sc = (card.set_code ?? '').toUpperCase()
     const cn = card.collector_number ?? ''
     const lang = (card.language ?? 'en').toLowerCase()
     const ct = card.card_type ?? ''
-
-    // Exact finish key
     const exactKey = `${sc}|${cn}|${lang}|${ct}`
+
+    const existing = bestByKey.get(exactKey)
+    if (!existing) {
+      bestByKey.set(exactKey, { id: card.id, serial: card.serial ?? null })
+    } else {
+      // Compare serials: prefer the higher value.
+      // Parse as numbers first; if both numeric, compare numerically.
+      // Otherwise fall back to string comparison (higher string = kept).
+      const existingSerial = existing.serial ?? ''
+      const newSerial = card.serial ?? ''
+      const existingNum = parseFloat(existingSerial)
+      const newNum = parseFloat(newSerial)
+      const newIsHigher =
+        !isNaN(existingNum) && !isNaN(newNum)
+          ? newNum > existingNum
+          : newSerial > existingSerial
+      if (newIsHigher) {
+        bestByKey.set(exactKey, { id: card.id, serial: newSerial })
+      }
+    }
+  }
+
+  // Build lookup using only the winning (highest-serial) card per exact key.
+  // Wildcard and foil-family keys are derived from these winners only.
+  const lookup = new Map<string, string[]>()
+  const foilSubtypes = FOIL_SUBTYPES as readonly string[]
+
+  for (const [exactKey, winner] of bestByKey) {
+    const [sc, cn, lang, ct] = exactKey.split('|')
+
+    // Exact finish key → single winner
     const exactList = lookup.get(exactKey) ?? []
-    exactList.push(card.id)
+    exactList.push(winner.id)
     lookup.set(exactKey, exactList)
 
-    // Wildcard key (for lines with no finish specified)
+    // Wildcard key (no finish specified)
     const wildcardKey = `${sc}|${cn}|${lang}|*`
     const wildcardList = lookup.get(wildcardKey) ?? []
-    wildcardList.push(card.id)
+    wildcardList.push(winner.id)
     lookup.set(wildcardKey, wildcardList)
 
-    // "Foil" as a finish family key — so specifying "Foil" matches all foil subtypes
-    if (foilSubtypes.includes(ct)) {
+    // Foil-family key ("Foil" input matches all foil subtypes)
+    if (foilSubtypes.includes(ct!)) {
       const familyKey = `${sc}|${cn}|${lang}|Foil-family`
       const familyList = lookup.get(familyKey) ?? []
-      familyList.push(card.id)
+      familyList.push(winner.id)
       lookup.set(familyKey, familyList)
     }
   }
@@ -214,7 +244,10 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: allErrors } satisfies AssociateResult)
   }
 
-  // Insert all resolved card IDs (duplicates allowed — unique constraint was dropped)
+  // Insert all resolved card IDs.
+  // Each exact-match group was already deduplicated to its highest-serial winner,
+  // so at most one card per (setCode|collNum|lang|finish) is added.
+  // Multiple intentional duplicates (same card line repeated) are still allowed.
   const inserts = cardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
   const { data: inserted, error: insertError } = await adminClient
     .from('set_cards')
