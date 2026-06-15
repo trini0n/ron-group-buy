@@ -130,7 +130,7 @@
     hoverTimer = setTimeout(() => {
       hoveredInfo = { setCode, idx }
       hoverTimer = null
-    }, 500)
+    }, 75)
   }
 
   function onLeave() {
