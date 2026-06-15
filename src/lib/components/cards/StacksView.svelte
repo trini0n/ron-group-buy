@@ -120,6 +120,11 @@
   let hoveredInfo = $state<{ setCode: string; idx: number } | null>(null)
   let hoverTimer: ReturnType<typeof setTimeout> | null = null
 
+  // Tracks which set codes returned a 404 for their symbol image.
+  // On error, the img is swapped for an inline SVG fallback.
+  // Using a plain $state object (not Set) so property assignment triggers reactivity.
+  let symbolErrors = $state<Record<string, true>>({})
+
   function onEnter(setCode: string, idx: number) {
     // Cancel any in-flight timer (user moved to a new card before 500ms elapsed)
     if (hoverTimer !== null) {
@@ -232,16 +237,31 @@
             dark:invert — light mode keeps the original black SVG; dark mode
             applies filter:invert(1) turning it white so it’s visible on dark
             backgrounds. Simple, accurate, no CSS filter math required.
+            On 404 (e.g. SLD and promotional sets), swap to the inline
+            shooting-star fallback SVG. fill="currentColor" lets it inherit
+            the text colour naturally in both light and dark mode.
           -->
-          <img
-            src="https://svgs.scryfall.io/sets/{col.setCode}.svg"
-            alt=""
-            class="h-4 w-4 mt-0.5 shrink-0 dark:invert"
-            aria-hidden="true"
-            onerror={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-            }}
-          />
+          {#if symbolErrors[col.setCode]}
+            <!-- Shooting-star fallback (shown when Scryfall set symbol 404s) -->
+            <svg
+              viewBox="0 0 1024 1024"
+              class="h-4 w-4 mt-0.5 shrink-0"
+              aria-hidden="true"
+              fill="currentColor"
+            >
+              <path d="M279.151 423.97s124.892-65.304 281.136-65.304c210.033 0 425.863 116.408 462.788 312.323 0 0-110.775-283.943-451.499-283.943-153.271 0-241.3 65.304-241.3 65.304l124.892 2.889-167.472 39.67 102.229 107.885-130.609-73.788 31.208 147.637-68.134-124.892-90.856 164.707 53.932-184.542L.924 574.414l173.169-85.139-110.691-96.596 133.436 56.842-17.007-113.601 53.932 107.947L307.53 307.54l-28.38 116.429z" />
+            </svg>
+          {:else}
+            <img
+              src="https://svgs.scryfall.io/sets/{col.setCode}.svg"
+              alt=""
+              class="h-4 w-4 mt-0.5 shrink-0 dark:invert"
+              aria-hidden="true"
+              onerror={() => {
+                symbolErrors[col.setCode] = true
+              }}
+            />
+          {/if}
         {/if}
         <div class="min-w-0 flex-1">
           <!-- break-words: long set names wrap instead of truncating -->
