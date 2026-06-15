@@ -60,16 +60,28 @@ Cards are uniquely identified by `set_code + collector_number + card_type`.
 
 ---
 
-## Current Milestone: v1.2 Sets
+## Completed Milestone: v1.2 Sets
 
-**Goal:** Promote Sets to a first-class entity — admin CRUD for set management, admin card-association UI (`setCode coll# lang` textarea input), and public `/sets` listing + `/sets/[setCode]` detail pages.
+**Goal:** Promote Sets to a first-class entity — admin CRUD for set management, admin card-association UI, public `/sets` listing + `/sets/[setCode]` detail pages, bundle cart + checkout.
+
+**Shipped phases:** 17, 18, 19
+
+*Completed: 2026-06-14*
+
+---
+
+## Current Milestone: v1.3 Sets Stacks View
+
+**Goal:** Add a Stacks view mode to the set detail page (`/sets/[setCode]`) that replicates the Archidekt stacks UI — cards grouped by MTG expansion into vertical scrollable columns, with Scryfall set icons, inline image expand on click, and mobile accordion layout.
 
 **Target features:**
 
-- `sets` table (`set_code` PK, `set_name`, `sort_order`) + `set_cards` join table
-- Admin: create / edit / delete / reorder sets
-- Admin: paste `setCode coll# lang` lines to associate cards with a set; error report for unresolvable lines
-- Public `/sets` page: lists all sets (sorted by `sort_order` then `set_name`), card count per set
-- Public `/sets/[setCode]` page: shows curated card list (sorted by release date → collector number), links to card detail pages
+- New `StacksView.svelte` component — column-per-expansion layout
+- Columns grouped by `set_code`/`set_name` on cards, sorted by expansion name (natural sort)
+- Column headers: Scryfall SVG set icon + expansion name + card count
+- Compact rows: card name + `×N` duplicate badge
+- Inline image expand per row; clicking image → card detail page
+- Mobile: accordion (each column collapsible)
+- View toggle extended: List | Grid | **Stacks**
 
-*Last updated: 2026-06-14*
+*Started: 2026-06-15*
