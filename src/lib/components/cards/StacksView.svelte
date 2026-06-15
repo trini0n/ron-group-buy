@@ -11,33 +11,32 @@
   // ── Stacking constants ──────────────────────────────────────────────────
   //
   // PEEK_FRACTION: how much of the card height is visible as the "peek strip".
-  // Scryfall card name banner occupies ~12–13% of the card height from the top.
-  // We set 12.5% so the name area is just visible.
+  // Scryfall card name banner occupies ~12–13% from the top. 13% keeps the full
+  // name bar visible at any column width.
   //
-  // OVERLAP_MARGIN: the negative margin-top (as % of containing block WIDTH)
-  //   that creates the overlap. Derived from:
-  //     card_height = 1.4 × card_width  (from 2.5:3.5 aspect ratio)
-  //     peek_height = PEEK_FRACTION × card_height = PEEK_FRACTION × 1.4 × W
-  //     overlap     = card_height - peek_height = (1 - PEEK_FRACTION) × 1.4 × W
-  //     margin %    = overlap / W = (1 - PEEK_FRACTION) × 1.4 × 100
+  // OVERLAP_MARGIN: negative margin-top as % of containing block WIDTH.
+  //   card_height  = 1.4 × W  (2.5:3.5 aspect ratio)
+  //   peek_height  = PEEK_FRACTION × 1.4 × W
+  //   overlap      = (1 - PEEK_FRACTION) × 1.4 × W
+  //   margin %     = overlap / W = (1 - PEEK_FRACTION) × 140
   //
-  // At PEEK_FRACTION = 0.125:
-  //   margin = (1 - 0.125) × 1.4 × 100 = 0.875 × 140 = 122.5%
-  const OVERLAP_MARGIN = '122.5%'
+  // At PEEK_FRACTION = 0.13:
+  //   margin = (1 - 0.13) × 140 = 0.87 × 140 = 121.8% ≈ 121.8%
+  const OVERLAP_MARGIN = '121.8%'
 
   // ── Data pipeline ───────────────────────────────────────────────────────
 
   interface Row {
     // Exact-match dedup key: set_code|collector_number|language|card_type (finish).
-    // Cards are only deduplicated if ALL FOUR attributes are identical.
+    // Cards share an entry ONLY when all four attributes are identical.
     key: string
     card: Card
     count: number
   }
 
   interface Column {
-    setCode: string   // lowercase expansion code (e.g. "mh3")
-    setName: string   // display name (e.g. "Modern Horizons 3")
+    setCode: string
+    setName: string
     totalCount: number
     rows: Row[]
   }
@@ -87,14 +86,14 @@
         if (ex) ex.count++
         else dedup.set(key, { key, card: c, count: 1 })
       }
-      // Sort rows by collector_number (numeric-aware)
+      // Sort by collector_number ascending (numeric-aware natural sort)
       const rows = [...dedup.values()].sort((a, b) =>
         collNumSort(a.card.collector_number, b.card.collector_number)
       )
       cols.push({ setCode: g.setCode, setName: g.setName, totalCount: g.cards.length, rows })
     }
 
-    // 3. Sort columns: unknown last, rest by setName (natural sort)
+    // 3. Sort columns: unknown last, rest alphabetically by setName (natural sort)
     cols.sort((a, b) => {
       if (a.setCode === 'unknown') return 1
       if (b.setCode === 'unknown') return -1
@@ -105,35 +104,40 @@
   })
 
   // ── Hover state ─────────────────────────────────────────────────────────
-  // Per-column: which row key is currently hovered (null = none).
-  let hoveredKey = $state<Map<string, string | null>>(new Map())
+  //
+  // Single string state: "setCode::rowKey" when a card is hovered, null otherwise.
+  //
+  // This replaces the previous Map-based approach which caused a Svelte 5 runtime
+  // error ("can't access property 'prev', C is undefined") when switching between
+  // view modes. The Map mutation was creating stale reactive signal references
+  // that Svelte's signal graph couldn't resolve after component remount.
+  //
+  let hoveredCard = $state<string | null>(null)
 
-  function getHov(sc: string): string | null {
-    return hoveredKey.get(sc) ?? null
+  function isHov(setCode: string, rowKey: string): boolean {
+    return hoveredCard === `${setCode}::${rowKey}`
   }
 
-  function setHov(sc: string, key: string | null) {
-    hoveredKey = new Map(hoveredKey).set(sc, key)
+  function onEnter(setCode: string, rowKey: string) {
+    hoveredCard = `${setCode}::${rowKey}`
+  }
+
+  function onLeave() {
+    hoveredCard = null
   }
 
   // ── Z-index logic ───────────────────────────────────────────────────────
   //
-  // Card stacking z-index model:
-  //   row[0]   = BOTTOM of physical stack (z=1, lowest) — only its top strip is visible
-  //   row[N-1] = TOP of physical stack (z=N, highest) — fully visible at the bottom of the layout
-  //
-  // This matches screenshot 1: each card shows its TOP strip (card name area),
-  // and the LAST card in the list is fully visible beneath all others.
-  //
-  // On hover: z-index jumps to N+50 → card pops to front, full art visible.
+  // row[0]   = BACK of physical stack (z=1) — only its top strip visible
+  // row[N-1] = FRONT of physical stack (z=N) — fully visible at the bottom
+  // On hover: z jumps to N+50, card pops to full view.
   //
   function zIdx(col: Column, i: number, row: Row): number {
-    const isHov = getHov(col.setCode) === row.key
-    return isHov ? col.rows.length + 50 : i + 1
+    return isHov(col.setCode, row.key) ? col.rows.length + 50 : i + 1
   }
 
   // ── Image resolution ────────────────────────────────────────────────────
-  // Stacks view uses Scryfall images only (vendor/Ron images not used here).
+  // Stacks view uses Scryfall images only.
   function resolveImg(c: Card): string {
     if (c.scryfall_id) return getScryfallImageUrl(c.scryfall_id, 'normal')
     return '/images/card-placeholder.png'
@@ -143,36 +147,35 @@
 <!--
   Stacks View — Archidekt-style physical card deck layout
   ────────────────────────────────────────────────────────
-  LAYOUT: CSS multi-column masonry (Tailwind `columns-N`).
-  Each expansion group is a `break-inside-avoid` block that flows top→bottom
-  within each CSS column. Shorter groups allow new groups to appear below them
-  in the same column, replicating the dynamic staggered layout from the reference.
+  LAYOUT: CSS multi-column masonry (Tailwind `columns-N` with `break-inside-avoid`).
+  Groups flow top→bottom within each CSS column. Shorter groups allow new groups
+  to start below them in the same column — the dynamic Archidekt-style layout.
 
-  STACKING MECHANIC:
-  Cards use `position: relative` with `margin-top: -122.5%` (negative overlap).
-  This creates overlapping card images in normal CSS flow (no absolute positioning).
-  z-index increases with DOM order: row[0] = z:1 (back), row[N-1] = z:N (front/visible).
-  Hover raises z-index to N+50, popping any card to full view.
-
-  The 122.5% overlap margin is derived from the 2.5:3.5 card aspect ratio and
-  a 12.5% peek fraction, ensuring the card name at the top of each Scryfall
-  image remains visible in the peek strip at any column width.
+  STACKING MECHANIC: Normal CSS flow with negative margin-top creates the overlap.
+    • row[0] (DOM first)  → z=1  (back  — top strip only visible)
+    • row[N-1] (DOM last) → z=N  (front — fully visible at bottom of layout)
+    • Hover on any card   → z=N+50, full card art pops to front
+  The 121.8% margin is derived from aspect ratio 2.5:3.5 and PEEK_FRACTION=0.13,
+  keeping the card name area (top ~13% of Scryfall images) visible at any width.
 -->
 
 <div class="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-x-4 gap-y-0">
   {#each columns as col (col.setCode)}
     <!--
-      Each expansion group is a self-contained masonry block.
-      `break-inside-avoid` prevents the group from being split across CSS columns.
-      `mb-6` adds space between groups stacked in the same CSS column.
+      Each expansion group is a masonry block.
+      `break-inside-avoid` prevents splitting across CSS columns.
     -->
     <div class="break-inside-avoid mb-6 w-full">
 
       <!-- ── Column header ── -->
       <div class="flex items-start gap-1.5 mb-2 px-0.5">
         {#if col.setCode !== 'unknown'}
+          <!--
+            Set symbol: Scryfall serves SVGs at /sets/{code}.svg
+            (NOT /card-symbols/ — that path is for mana/tap symbols)
+          -->
           <img
-            src="https://svgs.scryfall.io/card-symbols/{col.setCode}.svg"
+            src="https://svgs.scryfall.io/sets/{col.setCode}.svg"
             alt=""
             class="h-4 w-4 mt-0.5 shrink-0 opacity-80"
             aria-hidden="true"
@@ -182,7 +185,8 @@
           />
         {/if}
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-bold uppercase tracking-wide truncate leading-tight">
+          <!-- break-words instead of truncate: long set names wrap instead of clip -->
+          <p class="text-xs font-bold uppercase tracking-wide break-words leading-tight">
             {col.setName}
           </p>
           <p class="text-[10px] text-muted-foreground tabular-nums">
@@ -192,36 +196,39 @@
       </div>
 
       <!-- ── Card stack ── -->
-      <!--
-        Normal-flow stack using negative margin-top.
-        row[0] is first in DOM (bottom of physical stack, z=1).
-        row[N-1] is last in DOM (top of physical stack, z=N, fully visible).
-        Each card's top strip (card name area ≈ 12.5% of card height) is visible
-        beneath the card above it.
-      -->
       <div class="relative">
         {#each col.rows as row, i (row.key)}
-          {@const isHov = getHov(col.setCode) === row.key}
+          {@const hov = isHov(col.setCode, row.key)}
+          {@const zi = zIdx(col, i, row)}
 
+          <!--
+            Each card is a stacking entry. margin-top creates the overlap;
+            z-index determines paint order.
+
+            BADGE POSITION NOTE:
+            The count badge is at top-1 left-1 (4px from corner), which lands
+            within the card's decorative frame border — the dark area at the very
+            top of Scryfall card images BEFORE the card name text starts (~13% in).
+            At any column width, this keeps the badge out of the name text area.
+          -->
           <a
             href={getCardUrl(row.card)}
-            class="relative block w-full transition-all duration-150 rounded-[10px] overflow-hidden"
+            class="relative block w-full rounded-[10px] overflow-hidden transition-shadow duration-150"
             style="
               aspect-ratio: 2.5/3.5;
-              position: relative;
               margin-top: {i === 0 ? '0' : `-${OVERLAP_MARGIN}`};
-              z-index: {zIdx(col, i, row)};
-              box-shadow: {isHov
-                ? '0 16px 32px rgba(0,0,0,0.55), 0 0 0 2px hsl(var(--primary) / 0.8)'
-                : '0 3px 8px rgba(0,0,0,0.4)'};
+              z-index: {zi};
+              box-shadow: {hov
+                ? '0 16px 36px rgba(0,0,0,0.6), 0 0 0 2px hsl(var(--primary) / 0.85)'
+                : '0 3px 8px rgba(0,0,0,0.45)'};
             "
             aria-label="{row.card.card_name ?? 'Card'}{row.count > 1 ? ` ×${row.count}` : ''}"
-            onmouseenter={() => setHov(col.setCode, row.key)}
-            onmouseleave={() => setHov(col.setCode, null)}
-            onfocus={() => setHov(col.setCode, row.key)}
-            onblur={() => setHov(col.setCode, null)}
+            onmouseenter={() => onEnter(col.setCode, row.key)}
+            onmouseleave={onLeave}
+            onfocus={() => onEnter(col.setCode, row.key)}
+            onblur={onLeave}
           >
-            <!-- Scryfall card image -->
+            <!-- Scryfall card image fills the entire card -->
             <img
               src={resolveImg(row.card)}
               alt={row.card.card_name ?? 'Card'}
@@ -231,16 +238,21 @@
             />
 
             <!--
-              Count badge — top-left corner, only when >1 exact duplicate
-              (same set_code + collector_number + language + card_type/finish).
+              Count badge: only shown when there are 2+ EXACT duplicates
+              (identical set_code + collector_number + language + finish).
+
+              Positioned at top-1 left-1 (4px) = within the card frame border
+              area, below the card's decorative top frame but above where the
+              actual name text begins (≥13% from top on Scryfall images).
+              overflow:hidden on the parent <a> clips it to the rounded corner.
             -->
             {#if row.count > 1}
               <div
-                class="absolute top-[5%] left-[4%] z-10
-                       bg-black/80 text-white text-[10px] font-bold leading-none
-                       min-w-[18px] h-[18px] rounded-full
-                       flex items-center justify-center px-1
-                       shadow tabular-nums"
+                class="absolute top-1 left-1 z-10
+                       bg-black/85 text-white text-[9px] font-bold leading-none
+                       w-[15px] h-[15px] rounded-full
+                       flex items-center justify-center
+                       shadow-md tabular-nums border border-white/25"
               >
                 {row.count}
               </div>

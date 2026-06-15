@@ -1,15 +1,20 @@
 <script lang="ts">
   import StacksView from '$components/cards/StacksView.svelte'
-  import { ArrowLeft, Layers, List, AlignJustify } from 'lucide-svelte'
+  import { ArrowLeft, Layers, List } from 'lucide-svelte'
 
   let { data } = $props()
 
   // View toggle: 'stacks' (default) | 'list'
   let viewMode = $state<'list' | 'stacks'>('stacks')
 
-  // Derive a readable name for each card
-  function cardDisplayName(card: (typeof data.cards)[number]): string {
-    return card.card_name ?? 'Unknown Card'
+  // Build the metadata suffix for list view: e.g. "PF25 #1" or "PF25 #1 · ja"
+  function cardMeta(card: (typeof data.cards)[number]): string {
+    const parts: string[] = []
+    if (card.set_code) parts.push(card.set_code.toUpperCase())
+    if (card.collector_number) parts.push(`#${card.collector_number}`)
+    const lang = card.language?.toLowerCase()
+    if (lang && lang !== 'en') parts.push(`[${lang}]`)
+    return parts.join(' ')
   }
 </script>
 
@@ -66,7 +71,7 @@
             onclick={() => (viewMode = 'list')}
             aria-label="Plaintext list view"
           >
-            <AlignJustify class="h-3.5 w-3.5" />
+            <List class="h-3.5 w-3.5" />
             List
           </button>
         </div>
@@ -90,8 +95,13 @@
       <ol class="divide-y divide-border">
         {#each data.cards as card, i (card.id ?? i)}
           <li class="flex items-baseline gap-3 px-4 py-2 text-sm hover:bg-muted/20 transition-colors">
-            <span class="text-muted-foreground text-xs w-6 shrink-0 text-right">{i + 1}</span>
-            <span class="font-medium">{cardDisplayName(card)}</span>
+            <span class="text-muted-foreground text-xs w-6 shrink-0 text-right tabular-nums">{i + 1}</span>
+            <span class="font-medium flex-1">{card.card_name ?? 'Unknown Card'}</span>
+            {#if cardMeta(card)}
+              <span class="text-muted-foreground text-xs shrink-0 tabular-nums font-mono">
+                {cardMeta(card)}
+              </span>
+            {/if}
           </li>
         {/each}
       </ol>
