@@ -99,6 +99,12 @@ function createCartStore() {
   let pendingMerge = $state<MergeStatus | null>(null)
   let lastSyncAt = $state(0) // unix ms, updated after every successful syncFromServer
 
+  // Monotonically-increasing generation counter for syncFromServer().
+  // Prevents a stale in-flight fetch from writing to $state signals after
+  // SvelteKit's invalidateAll() has torn down and rebuilt the reactive graph,
+  // which causes the "can't access property 'prev', C is undefined" Svelte 5 crash.
+  let syncGeneration = 0
+
   // Track item IDs whose removal has been optimistically applied but not yet
   // confirmed by the server. Prevents server responses from reinstating items
   // the user has already removed (CART-02).
@@ -163,22 +169,35 @@ function createCartStore() {
   }
 
   /**
-   * Fetch cart from server and sync local state
+   * Fetch cart from server and sync local state.
+   *
+   * Uses a generation counter so that if a newer syncFromServer() call starts
+   * before this one completes (e.g. triggered by invalidateAll()), the stale
+   * response is silently discarded instead of writing to $state signals that
+   * may be in an inconsistent state — preventing the Svelte 5 signal crash:
+   * "can't access property 'prev', C is undefined"
    */
   async function syncFromServer(): Promise<void> {
     if (!browser) return
 
+    const myGeneration = ++syncGeneration
     isSyncing = true
     lastError = null
 
     try {
       const response = await fetch('/api/cart', { cache: 'no-store' })
 
+      // A newer sync has already started — drop this stale response
+      if (myGeneration !== syncGeneration) return
+
       if (!response.ok) {
         throw new Error('Failed to fetch cart')
       }
 
       const data = await response.json()
+
+      // Check generation again after the second await
+      if (myGeneration !== syncGeneration) return
 
       if (data.cart) {
         cartId = data.cart.id
@@ -195,10 +214,14 @@ function createCartStore() {
 
       persistLocal()
     } catch (err) {
+      if (myGeneration !== syncGeneration) return
       console.error('Cart sync error:', err)
       lastError = 'Failed to sync cart'
     } finally {
-      isSyncing = false
+      // Only clear isSyncing if we're still the active generation
+      if (myGeneration === syncGeneration) {
+        isSyncing = false
+      }
     }
   }
 

@@ -244,14 +244,15 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: allErrors } satisfies AssociateResult)
   }
 
-  // Insert all resolved card IDs.
-  // Each exact-match group was already deduplicated to its highest-serial winner,
-  // so at most one card per (setCode|collNum|lang|finish) is added.
-  // Multiple intentional duplicates (same card line repeated) are still allowed.
-  const inserts = cardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
+  // Upsert all resolved card IDs.
+  // Per-key deduplication already picked the highest-serial winner, so at most
+  // one card per (setCode|collNum|lang|finish) is in inserts.
+  // ignoreDuplicates silently skips rows that are already in the set —
+  // avoids PostgreSQL 23505 unique-constraint errors when re-adding existing cards.
+  const uniqueInserts = [...new Map(cardIds.map((id) => [id, { set_code: params.setCode, card_id: id }])).values()]
   const { data: inserted, error: insertError } = await adminClient
     .from('set_cards')
-    .insert(inserts)
+    .upsert(uniqueInserts, { onConflict: 'set_code,card_id', ignoreDuplicates: true })
     .select('id')
 
   if (insertError) {
@@ -260,6 +261,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   }
 
   const added = inserted?.length ?? 0
+  const already_present = uniqueInserts.length - added
 
-  return json({ added, already_present: 0, errors: allErrors } satisfies AssociateResult)
+  return json({ added, already_present, errors: allErrors } satisfies AssociateResult)
 }
