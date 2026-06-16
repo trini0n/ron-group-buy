@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
   // Fetch the set
   const { data: set, error: setError } = await adminClient
     .from('sets')
-    .select('set_code, set_name, sort_order')
+    .select('set_code, set_name, sort_order, card_list_text')
     .eq('set_code', params.setCode)
     .single()
 

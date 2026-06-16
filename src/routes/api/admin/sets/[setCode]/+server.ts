@@ -3,11 +3,11 @@ import { json, error } from '@sveltejs/kit'
 import { createAdminClient, requireAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
 
-// PATCH /api/admin/sets/[setCode] — update set_name or sort_order
+// PATCH /api/admin/sets/[setCode] — update set fields
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
-  let body: { set_name?: string; sort_order?: number; price?: number | null; set_type?: string }
+  let body: { set_name?: string; sort_order?: number; price?: number | null; set_type?: string; card_list_text?: string | null }
   try {
     body = await request.json()
   } catch {
@@ -22,7 +22,9 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
     if (!VALID_TYPES.includes(body.set_type)) throw error(400, 'Invalid set_type')
     updates.set_type = body.set_type
   }
+  if (body.card_list_text !== undefined) updates.card_list_text = body.card_list_text ?? null
   if (Object.keys(updates).length === 0) throw error(400, 'No updatable fields provided')
+
   const { data, error: dbError } = await adminClient
     .from('sets')
     .update(updates)

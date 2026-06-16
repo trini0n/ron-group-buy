@@ -5,9 +5,12 @@
   import * as Table from '$components/ui/table'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
-  import { ArrowLeft, Trash2, Plus, Minus, Library, AlertCircle } from 'lucide-svelte'
+  import { ArrowLeft, Trash2, Plus, Minus, Library, AlertCircle, FileText, Import } from 'lucide-svelte'
 
   let { data } = $props()
+
+  // ── Tabs ───────────────────────────────────────────────────────
+  let activeTab = $state<'import' | 'text-list'>('import')
 
   // ── Add cards ─────────────────────────────────────────────────
   let addLines = $state('')
@@ -129,6 +132,37 @@
       adjustingId = null
     }
   }
+  // ── Plain text list ────────────────────────────────────────────
+  let cardListText = $state(data.set.card_list_text ?? '')
+  let textListSaving = $state(false)
+  // Track saved value to show unsaved-changes indicator
+  let savedCardListText = $state(data.set.card_list_text ?? '')
+  const textListDirty = $derived(cardListText !== savedCardListText)
+
+  async function saveCardListText() {
+    textListSaving = true
+    try {
+      const res = await fetch(
+        `/api/admin/sets/${encodeURIComponent(data.set.set_code)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ card_list_text: cardListText.trim() || null })
+        }
+      )
+      if (!res.ok) {
+        toast.error('Failed to save plain text list')
+        return
+      }
+      savedCardListText = cardListText.trim() || ''
+      cardListText = savedCardListText
+      toast.success('Plain text list saved')
+    } catch {
+      toast.error('Network error saving text list')
+    } finally {
+      textListSaving = false
+    }
+  }
 </script>
 
 <svelte:head>
@@ -159,7 +193,40 @@
     </div>
   </div>
 
-  <!-- Add Cards section -->
+  <!-- Tab switcher -->
+  <div class="flex gap-0 border-b">
+    <button
+      id="tab-import"
+      class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors
+             {activeTab === 'import'
+               ? 'border-primary text-foreground'
+               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}"
+      onclick={() => (activeTab = 'import')}
+    >
+      <Import class="h-3.5 w-3.5" />
+      Import Cards
+    </button>
+    <button
+      id="tab-text-list"
+      class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors
+             {activeTab === 'text-list'
+               ? 'border-primary text-foreground'
+               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}"
+      onclick={() => (activeTab = 'text-list')}
+    >
+      <FileText class="h-3.5 w-3.5" />
+      Plain Text List
+      {#if textListDirty}
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500" title="Unsaved changes"></span>
+      {/if}
+      {#if savedCardListText}
+        <span class="text-[10px] font-normal text-muted-foreground">(saved)</span>
+      {/if}
+    </button>
+  </div>
+
+  {#if activeTab === 'import'}
+  <!-- ── Import Cards tab ─────────────────────────────────────── -->
   <div class="border rounded-lg overflow-hidden">
     <button
       class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
@@ -233,6 +300,48 @@
       </div>
     {/if}
   </div>
+
+  {:else}
+  <!-- ── Plain Text List tab ─────────────────────────────────────── -->
+  <div class="border rounded-lg overflow-hidden">
+    <div class="p-4 space-y-3 bg-muted/20">
+      <p class="text-xs text-muted-foreground leading-relaxed">
+        Paste a freeform list of cards — one per line, any format you like. This list is shown
+        publicly on the set detail page <strong>only when no cards have been imported</strong>.
+        Plain text, card names, quantities, notes — whatever is most useful for your customers.
+      </p>
+      <Textarea
+        id="card-list-text-textarea"
+        bind:value={cardListText}
+        placeholder={`1x Charizard ex (SV3pt5 054/066)\n2x Pikachu ex (SV3pt5 035/066)\n1x Iono (SV3pt5 069/066) - Secret Rare`}
+        rows={14}
+        class="font-mono text-sm resize-y"
+      />
+      <div class="flex items-center gap-2">
+        <Button
+          onclick={saveCardListText}
+          disabled={textListSaving || !textListDirty}
+        >
+          {#if textListSaving}
+            Saving…
+          {:else}
+            Save List
+          {/if}
+        </Button>
+        <Button
+          variant="ghost"
+          onclick={() => { cardListText = savedCardListText }}
+          disabled={textListSaving || !textListDirty}
+        >
+          Discard
+        </Button>
+        <span class="text-xs text-muted-foreground ml-auto tabular-nums">
+          {cardListText.split('\n').filter((l) => l.trim()).length} line{cardListText.split('\n').filter((l) => l.trim()).length !== 1 ? 's' : ''}
+        </span>
+      </div>
+    </div>
+  </div>
+  {/if}
 
   <!-- Cards table -->
   <div class="space-y-2">

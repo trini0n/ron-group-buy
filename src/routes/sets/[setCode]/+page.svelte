@@ -1,6 +1,6 @@
 <script lang="ts">
   import StacksView from '$components/cards/StacksView.svelte'
-  import { ArrowLeft, Layers, List } from 'lucide-svelte'
+  import { ArrowLeft, Layers, List, FileText } from 'lucide-svelte'
 
   let { data } = $props()
 
@@ -83,11 +83,27 @@
   </div>
 
   <!-- Content -->
-  {#if data.cardEntries.length === 0}
+  {#if data.cardEntries.length === 0 && !data.set.card_list_text}
     <div class="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
       <Layers class="h-16 w-16 opacity-20 mb-4" />
       <h2 class="text-xl font-semibold mb-2">No cards in this set yet</h2>
       <p class="max-w-sm">Cards will appear here once the vendor associates them with this set.</p>
+    </div>
+  {:else if data.cardEntries.length === 0 && data.set.card_list_text}
+    <!-- Plain text list fallback: no imported cards, but a text list is saved -->
+    <div class="border rounded-xl overflow-hidden">
+      <div class="px-4 py-2 bg-muted/40 border-b text-xs text-muted-foreground font-medium flex items-center gap-2">
+        <FileText class="h-3.5 w-3.5" />
+        {data.set.card_list_text.split('\n').filter((l) => l.trim()).length} cards
+      </div>
+      <ol class="divide-y divide-border">
+        {#each data.set.card_list_text.split('\n').filter((l) => l.trim()) as line, i}
+          <li class="flex items-baseline gap-3 px-4 py-2 hover:bg-muted/20 transition-colors">
+            <span class="text-muted-foreground text-xs w-6 shrink-0 text-right tabular-nums select-none">{i + 1}</span>
+            <span class="font-mono text-sm flex-1">{line}</span>
+          </li>
+        {/each}
+      </ol>
     </div>
   {:else if viewMode === 'list'}
     <!-- Plaintext list: one row per unique card, quantity shown inline -->

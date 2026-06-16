@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
   // Fetch the set (404 if not found)
   const { data: set, error: setError } = await locals.supabase
     .from('sets')
-    .select('set_code, set_name, price')
+    .select('set_code, set_name, price, card_list_text')
     .eq('set_code', params.setCode)
     .single()
 
@@ -85,7 +85,8 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
     set: {
       set_code: set.set_code,
       set_name: set.set_name,
-      price: set.price ?? null
+      price: set.price ?? null,
+      card_list_text: set.card_list_text ?? null
     },
     cards,
     // Also pass unique entries for list view (shows quantity inline)
