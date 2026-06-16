@@ -5,7 +5,7 @@
   import * as Table from '$components/ui/table'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
-  import { ArrowLeft, Trash2, Plus, Library, AlertCircle } from 'lucide-svelte'
+  import { ArrowLeft, Trash2, Plus, Minus, Library, AlertCircle } from 'lucide-svelte'
 
   let { data } = $props()
 
@@ -77,26 +77,56 @@
     }
   }
 
-  // ── Remove card ───────────────────────────────────────────────
-  let removingId = $state<string | null>(null)
+  // ── Quantity / remove ──────────────────────────────────────────
+  let adjustingId = $state<string | null>(null)
 
+  async function adjustQuantity(cardId: string, cardName: string, delta: -1 | 1) {
+    adjustingId = cardId
+    try {
+      if (delta === -1) {
+        // DELETE decrements quantity; if qty reaches 0 the row is removed
+        const res = await fetch(
+          `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards/${encodeURIComponent(cardId)}`,
+          { method: 'DELETE' }
+        )
+        if (!res.ok) { toast.error(`Failed to update ${cardName}`); return }
+        // 204 = fully removed, 200 = qty decremented
+        if (res.status === 204) toast.success(`Removed ${cardName} from set`)
+      } else {
+        // POST a single line to increment quantity by 1
+        const res = await fetch(
+          `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lines: [`${cardName}`] })
+          }
+        )
+        if (!res.ok) { toast.error(`Failed to update ${cardName}`); return }
+      }
+      await invalidateAll()
+    } catch {
+      toast.error('Network error')
+    } finally {
+      adjustingId = null
+    }
+  }
+
+  // Keep removeCard as a shorthand (trash icon = decrement to 0 / remove)
   async function removeCard(cardId: string, cardName: string) {
-    removingId = cardId
+    adjustingId = cardId
     try {
       const res = await fetch(
         `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards/${encodeURIComponent(cardId)}`,
         { method: 'DELETE' }
       )
-      if (!res.ok) {
-        toast.error(`Failed to remove ${cardName}`)
-        return
-      }
+      if (!res.ok) { toast.error(`Failed to remove ${cardName}`); return }
       toast.success(`Removed ${cardName} from set`)
       await invalidateAll()
     } catch {
       toast.error('Network error removing card')
     } finally {
-      removingId = null
+      adjustingId = null
     }
   }
 </script>
@@ -227,11 +257,11 @@
               <Table.Head>Card Name</Table.Head>
               <Table.Head class="w-24">Type</Table.Head>
               <Table.Head class="w-24">Serial</Table.Head>
-              <Table.Head class="w-16 text-right">Remove</Table.Head>
+              <Table.Head class="w-32 text-center">Qty</Table.Head>
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {#each data.cards as card (card.card_id)}
+          {#each data.cards as card (card.card_id)}
               <Table.Row>
                 <Table.Cell>
                   <Badge variant="outline" class="font-mono text-xs">{card.set_code}</Badge>
@@ -258,15 +288,33 @@
                 <Table.Cell class="font-mono text-xs text-muted-foreground">
                   {card.serial}
                 </Table.Cell>
-                <Table.Cell class="text-right">
-                  <button
-                    class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40 transition-colors"
-                    onclick={() => removeCard(card.card_id, card.card_name)}
-                    disabled={removingId === card.card_id}
-                    aria-label="Remove {card.card_name} from set"
-                  >
-                    <Trash2 class="h-3.5 w-3.5" />
-                  </button>
+                <!-- Quantity stepper -->
+                <Table.Cell class="text-center">
+                  <div class="inline-flex items-center gap-1">
+                    <button
+                      class="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40 transition-colors"
+                      onclick={() => removeCard(card.card_id, card.card_name)}
+                      disabled={adjustingId === card.card_id}
+                      aria-label="Remove one {card.card_name}"
+                    >
+                      {#if card.quantity === 1}
+                        <Trash2 class="h-3.5 w-3.5" />
+                      {:else}
+                        <Minus class="h-3.5 w-3.5" />
+                      {/if}
+                    </button>
+                    <span class="w-6 text-center text-sm font-mono tabular-nums select-none">
+                      {card.quantity}
+                    </span>
+                    <button
+                      class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary disabled:opacity-40 transition-colors"
+                      onclick={() => adjustQuantity(card.card_id, card.card_name, 1)}
+                      disabled={adjustingId === card.card_id}
+                      aria-label="Add one more {card.card_name}"
+                    >
+                      <Plus class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </Table.Cell>
               </Table.Row>
             {/each}

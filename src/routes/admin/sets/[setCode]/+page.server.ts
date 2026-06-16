@@ -16,11 +16,11 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 
   if (setError || !set) throw error(404, 'Set not found')
 
-  // Fetch set_cards joined to card data
+  // Fetch set_cards joined to card data (includes quantity)
   const { data: setCards, error: cardsError } = await adminClient
     .from('set_cards')
     .select(
-      'id, card_id, cards(id, card_name, set_code, collector_number, language, card_type, serial)'
+      'id, card_id, quantity, cards(id, card_name, set_code, collector_number, language, card_type, serial)'
     )
     .eq('set_code', params.setCode)
     .order('created_at', { ascending: true })
@@ -45,6 +45,7 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
       return {
         set_card_id: sc.id,
         card_id: sc.card_id,
+        quantity: (sc.quantity as number) ?? 1,
         card_name: card?.card_name ?? '—',
         set_code: card?.set_code ?? '—',
         collector_number: card?.collector_number ?? '—',
@@ -55,3 +56,4 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
     })
   }
 }
+

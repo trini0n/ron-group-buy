@@ -50,31 +50,36 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
 
   if (setError || !set) throw error(404, 'Set not found')
 
-  // Fetch set_cards joined to full card data
+  // Fetch set_cards with quantity, joined to full card data
   const { data: setCards, error: cardsError } = await locals.supabase
     .from('set_cards')
-    .select('card_id, cards(*)')
+    .select('quantity, cards(*)')
     .eq('set_code', params.setCode)
 
   if (cardsError) {
     logger.error({ error: cardsError }, 'Error fetching set cards for public detail page')
   }
 
-  // Extract card rows from join result
-  const rawCards = (setCards ?? [])
-    .map((sc) => sc.cards as Card | null)
-    .filter((c): c is Card => c !== null)
-
   // Fetch Scryfall release dates for sorting
   const releaseDates = await fetchScryfallDates()
 
-  // Sort: primary = set release date ASC, secondary = collector_number ASC (numeric)
-  const cards = rawCards.slice().sort((a, b) => {
-    const dateA = releaseDates[(a.set_code ?? '').toLowerCase()] ?? '9999-99-99'
-    const dateB = releaseDates[(b.set_code ?? '').toLowerCase()] ?? '9999-99-99'
-    if (dateA !== dateB) return dateA.localeCompare(dateB)
-    return collectorNumberSort(a.collector_number ?? '', b.collector_number ?? '')
-  })
+  // Build card entries: one entry per unique set_cards row, carrying quantity.
+  // Sort by release date then collector number.
+  const cardEntries = (setCards ?? [])
+    .map((sc) => ({ card: sc.cards as Card | null, quantity: (sc.quantity as number) ?? 1 }))
+    .filter((e): e is { card: Card; quantity: number } => e.card !== null)
+    .sort((a, b) => {
+      const dateA = releaseDates[(a.card.set_code ?? '').toLowerCase()] ?? '9999-99-99'
+      const dateB = releaseDates[(b.card.set_code ?? '').toLowerCase()] ?? '9999-99-99'
+      if (dateA !== dateB) return dateA.localeCompare(dateB)
+      return collectorNumberSort(a.card.collector_number ?? '', b.card.collector_number ?? '')
+    })
+
+  // Expand by quantity so StacksView's count badge works (it counts duplicate
+  // card objects). E.g. quantity:3 → card appears 3 times in the array.
+  const cards = cardEntries.flatMap(({ card, quantity }) =>
+    Array.from({ length: quantity }, () => card)
+  )
 
   return {
     set: {
@@ -83,6 +88,9 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
       price: set.price ?? null
     },
     cards,
+    // Also pass unique entries for list view (shows quantity inline)
+    cardEntries,
     setReleaseDates: releaseDates
   }
 }
+

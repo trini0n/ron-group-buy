@@ -234,7 +234,7 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
         reason: `No matching card found in library${finishHint}`
       })
     } else {
-      cardIds.push(...ids) // duplicates intentionally kept
+      cardIds.push(...ids)
     }
   }
 
@@ -244,23 +244,47 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: allErrors } satisfies AssociateResult)
   }
 
-  // The unique constraint on (set_code, card_id) was dropped to allow multiple
-  // copies of the same card in a set (migration 20260615000001).
-  // Deduplicate within this batch only — same card line submitted twice in one
-  // request inserts one row, not two.
-  const uniqueCardIds = [...new Set(cardIds)]
-  const inserts = uniqueCardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
-  const { data: inserted, error: insertError } = await adminClient
+  // Count how many times each card_id appears in this batch.
+  // Pasting "MKM 123" three times → quantity: 3 for that card.
+  const batchCounts = new Map<string, number>()
+  for (const id of cardIds) {
+    batchCounts.set(id, (batchCounts.get(id) ?? 0) + 1)
+  }
+
+  // Upsert: new cards are inserted with their batch quantity; cards already
+  // in the set have their quantity incremented by the batch count.
+  // quantity = COALESCE(excluded.quantity, 0) + set_cards.quantity via raw expression.
+  // We achieve the increment by fetching existing quantities first, then upserting.
+  const uniqueCardIds = [...batchCounts.keys()]
+
+  // Fetch any rows that already exist for these cards
+  const { data: existing } = await adminClient
     .from('set_cards')
-    .insert(inserts)
+    .select('card_id, quantity')
+    .eq('set_code', params.setCode)
+    .in('card_id', uniqueCardIds)
+
+  const existingQty = new Map(existing?.map((r) => [r.card_id, r.quantity as number]) ?? [])
+
+  const upserts = uniqueCardIds.map((card_id) => ({
+    set_code: params.setCode,
+    card_id,
+    quantity: (existingQty.get(card_id) ?? 0) + (batchCounts.get(card_id) ?? 1)
+  }))
+
+  const { data: upserted, error: insertError } = await adminClient
+    .from('set_cards')
+    .upsert(upserts, { onConflict: 'set_code,card_id', ignoreDuplicates: false })
     .select('id')
 
   if (insertError) {
-    logger.error({ error: insertError }, `Error inserting set_cards: ${insertError.message}`)
+    logger.error({ error: insertError }, `Error upserting set_cards: ${insertError.message}`)
     throw error(500, `Failed to associate cards with set: ${insertError.message}`)
   }
 
-  const added = inserted?.length ?? 0
+  const added = upserts.filter((u) => !existingQty.has(u.card_id)).length
+  const already_present = upserts.filter((u) => existingQty.has(u.card_id)).length
 
-  return json({ added, already_present: 0, errors: allErrors } satisfies AssociateResult)
+  return json({ added, already_present, errors: allErrors } satisfies AssociateResult)
 }
+
