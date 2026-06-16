@@ -244,24 +244,23 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     return json({ added: 0, already_present: 0, errors: allErrors } satisfies AssociateResult)
   }
 
-  // Upsert all resolved card IDs.
-  // Per-key deduplication already picked the highest-serial winner, so at most
-  // one card per (setCode|collNum|lang|finish) is in inserts.
-  // ignoreDuplicates silently skips rows that are already in the set —
-  // avoids PostgreSQL 23505 unique-constraint errors when re-adding existing cards.
-  const uniqueInserts = [...new Map(cardIds.map((id) => [id, { set_code: params.setCode, card_id: id }])).values()]
+  // The unique constraint on (set_code, card_id) was dropped to allow multiple
+  // copies of the same card in a set (migration 20260615000001).
+  // Deduplicate within this batch only — same card line submitted twice in one
+  // request inserts one row, not two.
+  const uniqueCardIds = [...new Set(cardIds)]
+  const inserts = uniqueCardIds.map((card_id) => ({ set_code: params.setCode, card_id }))
   const { data: inserted, error: insertError } = await adminClient
     .from('set_cards')
-    .upsert(uniqueInserts, { onConflict: 'set_code,card_id', ignoreDuplicates: true })
+    .insert(inserts)
     .select('id')
 
   if (insertError) {
-    logger.error({ error: insertError }, 'Error inserting set_cards')
-    throw error(500, 'Failed to associate cards with set')
+    logger.error({ error: insertError }, `Error inserting set_cards: ${insertError.message}`)
+    throw error(500, `Failed to associate cards with set: ${insertError.message}`)
   }
 
   const added = inserted?.length ?? 0
-  const already_present = uniqueInserts.length - added
 
-  return json({ added, already_present, errors: allErrors } satisfies AssociateResult)
+  return json({ added, already_present: 0, errors: allErrors } satisfies AssociateResult)
 }
