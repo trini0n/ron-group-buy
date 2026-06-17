@@ -108,17 +108,76 @@
 
   // ── Hover state ─────────────────────────────────────────────────────────
   //
-  // Tracks the currently hovered card by { setCode, idx }.
-  // Using idx (not key) so we can check idx === hoveredIdx + 1 cheaply —
-  // that card gets its margin-top changed to produce the slide-down animation.
+  // Two timers manage the animation:
   //
-  // The 500ms debounce (hoverTimer) prevents the animation from firing when
-  // a user quickly sweeps over many cards. The timer is cancelled immediately
-  // on mouseleave so the animation never queues up multiple times.
-  // The box-shadow / glow is handled by pure CSS :hover (no JS delay).
+  //   enterTimer  — 75ms debounce before activating a new hover target.
+  //                 Prevents triggering when quickly sweeping over many cards.
+  //
+  //   leaveTimer  — 50ms grace period before clearing hoveredInfo on mouse-leave.
+  //                 Purpose: eliminate the snap when moving top→bottom within a
+  //                 stack. Without it, onLeave clears hoveredInfo immediately,
+  //                 causing a frame where everything collapses before the next
+  //                 onEnter fires on the adjacent card.
+  //
+  // Same-stack grace period (Option A):
+  //   onLeave  → starts 50ms leaveTimer (does NOT clear hoveredInfo immediately)
+  //   onEnter (same setCode) → cancels leaveTimer; hoveredInfo is preserved
+  //              → enterTimer fires at 75ms → hoveredInfo goes directly from
+  //                {idx:i} to {idx:i+1} with no null intermediate
+  //              → card[i+1] slides back up while card[i+2] slides down (smooth)
+  //
+  //   onEnter (different setCode) → cancels leaveTimer AND immediately clears
+  //              hoveredInfo (old stack collapses at once, no grace period)
+  //
+  //   No onEnter within 50ms → leaveTimer fires → hoveredInfo = null (normal collapse)
   //
   let hoveredInfo = $state<{ setCode: string; idx: number } | null>(null)
-  let hoverTimer: ReturnType<typeof setTimeout> | null = null
+  let enterTimer: ReturnType<typeof setTimeout> | null = null
+  let leaveTimer: ReturnType<typeof setTimeout> | null = null
+
+  function onEnter(setCode: string, idx: number) {
+    // Cancel any pending enter debounce (moved to a new card before it activated)
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+
+    // Handle any pending leave timer
+    if (leaveTimer !== null) {
+      clearTimeout(leaveTimer)
+      leaveTimer = null
+      if (setCode !== hoveredInfo?.setCode) {
+        // Entering a DIFFERENT stack — collapse the old one immediately (no grace)
+        hoveredInfo = null
+      }
+      // Entering the SAME stack — keep hoveredInfo alive (grace period applies)
+    }
+
+    // Start enter debounce
+    enterTimer = setTimeout(() => {
+      hoveredInfo = { setCode, idx }
+      enterTimer = null
+    }, 75)
+  }
+
+  function onLeave() {
+    // Cancel any pending enter debounce (left before it could activate)
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+
+    // Start leave grace period. If onEnter fires for the same stack before this
+    // clears, it will be cancelled and hoveredInfo preserved (smooth transition).
+    // If no card is entered within 50ms, hoveredInfo is cleared and stack collapses.
+    leaveTimer = setTimeout(() => {
+      hoveredInfo = null
+      leaveTimer = null
+    }, 50)
+  }
+
+  // Clean up both timers if the component is destroyed while hover is pending
+  $effect(() => {
+    return () => {
+      if (enterTimer !== null) clearTimeout(enterTimer)
+      if (leaveTimer !== null) clearTimeout(leaveTimer)
+    }
+  })
+
 
   // Tracks which set codes returned a 404 for their symbol image.
   // On error, the img is swapped for an inline SVG fallback.
@@ -163,11 +222,6 @@
   //   header + first card (full height) + (N-1) peek strips + inter-group gap
   //   ≈ 1.82W + (N-1) × 0.182W
   //
-  // Using raw rows.length caused large stacks to be over-weighted (e.g. a
-  // 14-card stack was treated as 14× a single card, but visually it's only
-  // ~2.4×). This left big-stack columns very short while small-group columns
-  // overflowed.
-  //
   // Constants derived from the OVERLAP geometry already used in the template:
   //   card_height  = 1.4W  (aspect ratio 2.5:3.5)
   //   peek_strip   = 0.13 × 1.4W = 0.182W   (13% of card height)
@@ -178,7 +232,6 @@
     const result: Column[][] = Array.from({ length: numCols }, () => [])
     const heights = new Array<number>(numCols).fill(0)
     for (const col of columns) {
-      // Visual height of this group in units of W (column width)
       const visualH = 1.82 + (col.rows.length - 1) * 0.182
       let minIdx = 0
       for (let i = 1; i < numCols; i++) {
@@ -190,37 +243,7 @@
     return result
   })
 
-  function onEnter(setCode: string, idx: number) {
-    // Cancel any in-flight timer (user moved to a new card before 500ms elapsed)
-    if (hoverTimer !== null) {
-      clearTimeout(hoverTimer)
-      hoverTimer = null
-    }
-    // Wait 500ms before activating the slide-down — avoids animation queue overload
-    hoverTimer = setTimeout(() => {
-      hoveredInfo = { setCode, idx }
-      hoverTimer = null
-    }, 75)
-  }
 
-  function onLeave() {
-    // Immediately cancel any pending activation
-    if (hoverTimer !== null) {
-      clearTimeout(hoverTimer)
-      hoverTimer = null
-    }
-    // Immediately reverse the animation (no delay on exit)
-    hoveredInfo = null
-  }
-
-  // Clean up the timer if the component is destroyed while a hover is pending
-  $effect(() => {
-    return () => {
-      if (hoverTimer !== null) clearTimeout(hoverTimer)
-    }
-  })
-
-  // The card immediately BELOW the hovered card (i === hoveredIdx + 1) gets
   // margin-top = 0 instead of -OVERLAP, physically pushing it (and all cards
   // below it) downward to expose the full hovered card above.
   function isPushedDown(setCode: string, idx: number): boolean {
