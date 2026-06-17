@@ -156,19 +156,36 @@
   })
 
   // Distribute column groups into numCols fixed layout columns.
-  // Each group goes to whichever layout column has the fewest cards so far
-  // (greedy shortest-column-first). Re-runs only when the data or numCols
-  // changes — NOT on hover state changes.
+  // Each group goes to whichever layout column currently has the least
+  // visual height (greedy shortest-column-first).
+  //
+  // Height metric = actual rendered stack height (in units of column width W):
+  //   header + first card (full height) + (N-1) peek strips + inter-group gap
+  //   ≈ 1.82W + (N-1) × 0.182W
+  //
+  // Using raw rows.length caused large stacks to be over-weighted (e.g. a
+  // 14-card stack was treated as 14× a single card, but visually it's only
+  // ~2.4×). This left big-stack columns very short while small-group columns
+  // overflowed.
+  //
+  // Constants derived from the OVERLAP geometry already used in the template:
+  //   card_height  = 1.4W  (aspect ratio 2.5:3.5)
+  //   peek_strip   = 0.13 × 1.4W = 0.182W   (13% of card height)
+  //   header+gap   ≈ 0.42W  (header ~0.27W + gap-y-6 ~0.15W)
+  //   first_card   = 1.4W
+  //   total fixed  = 1.82W
   const distributedCols = $derived.by<Column[][]>(() => {
     const result: Column[][] = Array.from({ length: numCols }, () => [])
     const heights = new Array<number>(numCols).fill(0)
     for (const col of columns) {
+      // Visual height of this group in units of W (column width)
+      const visualH = 1.82 + (col.rows.length - 1) * 0.182
       let minIdx = 0
       for (let i = 1; i < numCols; i++) {
         if (heights[i] < heights[minIdx]) minIdx = i
       }
       result[minIdx].push(col)
-      heights[minIdx] += col.rows.length
+      heights[minIdx] += visualH
     }
     return result
   })
