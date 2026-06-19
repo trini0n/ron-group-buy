@@ -420,7 +420,7 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
       '—',                               // Flavor Name
       '—',                               // Card Frame
       'Set',                             // Finish
-      bundle.set_code.toUpperCase(),     // Set Code
+      '—',                               // Set Code
       '—',                               // Collector Number
       '',                                // Language
       bundle.quantity || 1               // Quantity
