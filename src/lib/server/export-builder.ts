@@ -48,12 +48,21 @@ interface Card {
   flavor_name: string | null
 }
 
+interface OrderBundleItem {
+  id: string
+  set_code: string
+  set_name: string
+  quantity: number
+  price_at_purchase: number
+}
+
 interface OrderExportData extends Order {
   user: {
     email: string
     paypal_email: string | null
   } | null
   items: OrderItemExportData[]
+  bundle_items: OrderBundleItem[]
 }
 
 interface OrderItemExportData extends OrderItem {
@@ -127,6 +136,13 @@ async function fetchOrderData(orderId: string): Promise<OrderExportData> {
           language,
           flavor_name
         )
+      ),
+      bundle_items:order_bundle_items(
+        id,
+        set_code,
+        set_name,
+        quantity,
+        price_at_purchase
       )
     `
     )
@@ -167,6 +183,13 @@ async function fetchGroupBuyOrders(groupBuyId: string): Promise<OrderExportData[
           language,
           flavor_name
         )
+      ),
+      bundle_items:order_bundle_items(
+        id,
+        set_code,
+        set_name,
+        quantity,
+        price_at_purchase
       )
     `
     )
@@ -388,6 +411,34 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
 
   // Line items data - sort by serial number (Normal < Holo < Foil, ascending numeric)
   const sortedItems = [...(order.items || [])].sort((a, b) => compareSerials(a.card_serial, b.card_serial))
+
+  // Bundle rows first (Set Bundles appear before individual cards)
+  for (const bundle of (order.bundle_items || [])) {
+    const bundleRow = [
+      '—',                               // Card Serial
+      `${bundle.set_name} (Set Bundle)`, // Card Name
+      '—',                               // Flavor Name
+      '—',                               // Card Frame
+      'Bundle',                          // Finish
+      bundle.set_code.toUpperCase(),     // Set Code
+      '—',                               // Collector Number
+      '',                                // Language
+      bundle.quantity || 1               // Quantity
+    ]
+    bundleRow.forEach((value, index) => {
+      const cell = worksheet.getCell(currentRow, index + 1)
+      cell.value = value
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } }
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    })
+    currentRow++
+  }
+
   for (const item of sortedItems) {
     const rowData = buildLineItemRow(item)
 
@@ -452,9 +503,15 @@ function buildLineItemRow(item: OrderItemExportData): (string | number)[] {
  * Calculate order totals (subtotal, shipping, tariff, grand total)
  */
 function calculateOrderTotals(order: OrderExportData) {
-  const subtotal = (order.items || []).reduce((sum, item) => {
+  const cardSubtotal = (order.items || []).reduce((sum, item) => {
     return sum + (item.quantity || 0) * Number(item.unit_price || 0)
   }, 0)
+
+  const bundleSubtotal = (order.bundle_items || []).reduce((sum, b) => {
+    return sum + (b.quantity || 1) * Number(b.price_at_purchase || 0)
+  }, 0)
+
+  const subtotal = cardSubtotal + bundleSubtotal
 
   // Determine if US shipping
   const country = order.shipping_country?.toUpperCase() || ''
