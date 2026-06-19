@@ -18,6 +18,13 @@ export const load: PageServerLoad = async ({ locals }) => {
         card_type,
         quantity,
         unit_price
+      ),
+      order_bundle_items (
+        id,
+        set_code,
+        set_name,
+        quantity,
+        price_at_purchase
       )
     `)
     .eq('user_id', locals.user.id)

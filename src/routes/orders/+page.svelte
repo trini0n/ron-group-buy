@@ -18,8 +18,12 @@
     cancelled: 'bg-red-500'
   };
 
-  function calculateOrderTotal(items: any[]): number {
-    return items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  function calculateOrderTotal(order: any): number {
+    const cardTotal = order.order_items.reduce((sum: number, item: any) => sum + item.unit_price * item.quantity, 0);
+    const bundleTotal = (order.order_bundle_items ?? []).reduce(
+      (sum: number, b: any) => sum + Number(b.price_at_purchase) * (b.quantity ?? 1), 0
+    );
+    return cardTotal + bundleTotal;
   }
 </script>
 
@@ -42,7 +46,7 @@
   {:else}
     <div class="space-y-4">
       {#each data.orders as order (order.id)}
-        {@const total = calculateOrderTotal(order.order_items)}
+        {@const total = calculateOrderTotal(order)}
 
         <Card.Root>
           <Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -78,14 +82,17 @@
           </Card.Header>
 
           <Card.Content class="pt-0">
+            {@const bundles = (order.order_bundle_items ?? [])}
+            {@const totalCount = order.order_items.length + bundles.length}
+            {@const allNames = [
+              ...bundles.map((b: any) => b.set_name),
+              ...order.order_items.map((i: { card_name: string }) => i.card_name)
+            ]}
             <p class="text-sm text-muted-foreground">
-              {order.order_items.length} item{order.order_items.length !== 1 ? 's' : ''}:
-              {order.order_items
-                .slice(0, 3)
-                .map((i: { card_name: string }) => i.card_name)
-                .join(', ')}
-              {#if order.order_items.length > 3}
-                and {order.order_items.length - 3} more
+              {totalCount} item{totalCount !== 1 ? 's' : ''}:
+              {allNames.slice(0, 3).join(', ')}
+              {#if allNames.length > 3}
+                and {allNames.length - 3} more
               {/if}
             </p>
           </Card.Content>

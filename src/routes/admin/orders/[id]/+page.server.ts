@@ -33,6 +33,13 @@ export const load = async ({ params }: { params: { id: string } }) => {
           is_borderless,
           is_etched
         )
+      ),
+      bundle_items:order_bundle_items(
+        id,
+        set_code,
+        set_name,
+        quantity,
+        price_at_purchase
       )
     `
     )
@@ -55,14 +62,28 @@ export const load = async ({ params }: { params: { id: string } }) => {
     .eq('order_id', params.id)
     .order('created_at', { ascending: false })
 
-  // Calculate order totals
-  const subtotal =
+  // Calculate order totals (cards + bundles)
+  const cardSubtotal =
     order.items?.reduce((sum: number, item: { quantity: number | null; unit_price: number | string | null }) => {
       return sum + (item.quantity || 0) * Number(item.unit_price || 0)
     }, 0) || 0
 
-  const itemCount =
+  const bundleSubtotal =
+    (order.bundle_items ?? []).reduce(
+      (sum: number, b: { quantity: number | null; price_at_purchase: number | string | null }) =>
+        sum + (b.quantity ?? 1) * Number(b.price_at_purchase || 0),
+      0
+    )
+
+  const subtotal = cardSubtotal + bundleSubtotal
+
+  const cardCount =
     order.items?.reduce((sum: number, item: { quantity: number | null }) => sum + (item.quantity || 0), 0) || 0
+
+  const bundleCount =
+    (order.bundle_items ?? []).reduce((sum: number, b: { quantity: number | null }) => sum + (b.quantity || 1), 0)
+
+  const itemCount = cardCount + bundleCount
 
   // Fetch all group buys for selection dropdown
   const { data: groupBuys } = await adminClient

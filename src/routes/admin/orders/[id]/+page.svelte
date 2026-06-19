@@ -30,7 +30,8 @@
     Bell,
     Send,
     Download,
-    Folder
+    Folder,
+    Boxes
   } from 'lucide-svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -315,6 +316,28 @@
               </Table.Row>
             </Table.Header>
             <Table.Body>
+              <!-- Bundle rows -->
+              {#each (order.bundle_items ?? []) as bundle (bundle.id)}
+                <Table.Row>
+                  <Table.Cell>
+                    <div class="flex items-center gap-2">
+                      <Boxes class="h-4 w-4 text-primary shrink-0" />
+                      <div>
+                        <a href="/sets/{bundle.set_code}" class="font-medium hover:underline">{bundle.set_name}</a>
+                        <p class="text-xs text-muted-foreground">Set Bundle · {bundle.set_code}</p>
+                      </div>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell class="text-muted-foreground text-sm">—</Table.Cell>
+                  <Table.Cell><Badge variant="outline">Bundle</Badge></Table.Cell>
+                  <Table.Cell class="text-right">{bundle.quantity ?? 1}</Table.Cell>
+                  <Table.Cell class="text-right">{formatPrice(Number(bundle.price_at_purchase))}</Table.Cell>
+                  <Table.Cell class="text-right font-medium">
+                    {formatPrice((bundle.quantity ?? 1) * Number(bundle.price_at_purchase))}
+                  </Table.Cell>
+                </Table.Row>
+              {/each}
+              <!-- Card rows -->
               {#each order.items as item}
                 {@const frameEffect = getFrameEffectLabel(item.card)}
                 {@const finishLabel = getFinishLabel(item.card || { card_type: item.card_type })}
@@ -356,7 +379,12 @@
           <div class="flex justify-end">
             <div class="w-64 space-y-2">
               <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">Subtotal ({order.itemCount} cards)</span>
+              <span class="text-muted-foreground">
+                  Subtotal ({order.itemCount - (order.bundle_items ?? []).reduce((s: number, b: any) => s + (b.quantity ?? 1), 0)} card{(order.itemCount - (order.bundle_items ?? []).reduce((s: number, b: any) => s + (b.quantity ?? 1), 0)) !== 1 ? 's' : ''}
+                  {#if (order.bundle_items ?? []).length > 0}
+                    + {(order.bundle_items ?? []).length} set{(order.bundle_items ?? []).length !== 1 ? 's' : ''}
+                  {/if})
+                </span>
                 <span>{formatPrice(order.subtotal)}</span>
               </div>
               <div class="flex justify-between text-sm">
