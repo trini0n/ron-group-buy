@@ -370,6 +370,40 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw error(500, 'Failed to replace order')
     }
     const replaceResult = rpcResult as { order_id: string; order_number: string }
+
+    // Insert bundle items for the newly-replaced order
+    if (bundles && bundles.length > 0) {
+      const replaceCodes = bundles.map((b: { setCode: string; quantity: number }) => b.setCode)
+      const { data: replaceSetRows } = await locals.supabase
+        .from('sets')
+        .select('set_code, set_name, price')
+        .in('set_code', replaceCodes)
+      const replaceSetMap = new Map(
+        replaceSetRows?.map((s: { set_code: string; set_name: string; price: number | null }) => [s.set_code, s]) ?? []
+      )
+      const replaceBundleRows = bundles.map((b: { setCode: string; quantity: number }) => {
+        const set = replaceSetMap.get(b.setCode)
+        return {
+          order_id: replaceResult.order_id,
+          set_code: b.setCode,
+          set_name: set?.set_name ?? b.setCode,
+          quantity: b.quantity,
+          price_at_purchase: set?.price != null ? Number(set.price) : 0
+        }
+      })
+      if (replaceBundleRows.length > 0) {
+        const { error: replaceBundleErr } = await locals.supabase
+          .from('order_bundle_items')
+          .insert(replaceBundleRows)
+        if (replaceBundleErr) {
+          logger.error(
+            { error: replaceBundleErr, orderId: replaceResult.order_id },
+            'Failed to insert order_bundle_items for replaced order'
+          )
+        }
+      }
+    }
+
     return json({ orderId: replaceResult.order_id, orderNumber: replaceResult.order_number })
   }
 
@@ -410,16 +444,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const bundleRows = bundles
       .map((b: { setCode: string; quantity: number }) => {
         const set = setMap.get(b.setCode)
-        if (!set || set.price == null) return null
+        // Include even if set has no price (price_at_purchase = 0);
+        // do NOT drop bundles just because a price hasn't been configured yet.
         return {
           order_id: createResult.order_id,
           set_code: b.setCode,
-          set_name: set.set_name,
+          set_name: set?.set_name ?? b.setCode,
           quantity: b.quantity,
-          price_at_purchase: Number(set.price)
+          price_at_purchase: set?.price != null ? Number(set.price) : 0
         }
       })
-      .filter((row): row is NonNullable<typeof row> => row !== null)
 
     if (bundleRows.length > 0) {
       const { error: bundleInsertErr } = await locals.supabase.from('order_bundle_items').insert(bundleRows)
