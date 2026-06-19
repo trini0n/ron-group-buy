@@ -415,11 +415,11 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
   // Bundle rows first (Set Bundles appear before individual cards)
   for (const bundle of (order.bundle_items || [])) {
     const bundleRow = [
-      '—',                               // Card Serial
+      bundle.set_code.toUpperCase(),     // Card Serial  ← set code
       `${bundle.set_name} (Set Bundle)`, // Card Name
       '—',                               // Flavor Name
       '—',                               // Card Frame
-      'Bundle',                          // Finish
+      'Set',                             // Finish
       bundle.set_code.toUpperCase(),     // Set Code
       '—',                               // Collector Number
       '',                                // Language
