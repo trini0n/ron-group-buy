@@ -71,7 +71,7 @@
   let prevFilters = {
     setCodes: '',
     colorIdentity: '',
-    colorIdentityStrict: false,
+    colorIdentityStrict: true,
     priceCategories: '',
     foilSubtypes: '',
     nonFoilSubtypes: '',
@@ -94,7 +94,8 @@
     if (searchQuery) params.set('q', searchQuery)
     if (filters.setCodes.length > 0) params.set('sets', filters.setCodes.join(','))
     if (filters.colorIdentity.length > 0) params.set('colors', filters.colorIdentity.join(','))
-    if (filters.colorIdentityStrict) params.set('strict', '1')
+    // Write strict=0 only when 'Any of' (loose) mode is active and colors are selected — 'Only' is the default
+    if (filters.colorIdentity.length > 0 && !filters.colorIdentityStrict) params.set('strict', '0')
     // Skip price param when all 3 top-level categories are selected (default state)
     if (
       filters.priceCategories.length > 0 &&

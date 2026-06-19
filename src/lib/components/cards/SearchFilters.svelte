@@ -167,7 +167,7 @@
   function clearFilters() {
     filters.setCodes = []
     filters.colorIdentity = []
-    filters.colorIdentityStrict = false
+    filters.colorIdentityStrict = true
     filters.priceCategories = ['Non-Foil', 'Foil', 'Serialized']
     filters.foilSubtypes = FOIL_SUBTYPES.map((s) => s.value)
     filters.nonFoilSubtypes = NON_FOIL_SUBTYPES.map((s) => s.value)
@@ -336,7 +336,7 @@
     <!-- Color Identity Filter -->
     <div class="space-y-2">
       <Label>Color Identity</Label>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex gap-2">
         {#each colors as color}
           <button
             type="button"
@@ -351,13 +351,26 @@
         {/each}
       </div>
       {#if filters.colorIdentity.length > 0}
-        <label class="flex cursor-pointer items-center space-x-2 pt-1">
-          <Checkbox
-            checked={filters.colorIdentityStrict}
-            onCheckedChange={(v) => (filters.colorIdentityStrict = !!v)}
-          />
-          <span class="text-sm">Strict (excludes other colors)</span>
-        </label>
+        <div class="mt-2 flex overflow-hidden rounded-md border border-border text-sm">
+          <button
+            type="button"
+            class="flex-1 px-3 py-1.5 transition-colors {filters.colorIdentityStrict
+              ? 'bg-foreground text-background font-medium'
+              : 'bg-transparent text-muted-foreground hover:text-foreground'}"
+            onclick={() => (filters.colorIdentityStrict = true)}
+          >
+            Only
+          </button>
+          <button
+            type="button"
+            class="flex-1 border-l border-border px-3 py-1.5 transition-colors {!filters.colorIdentityStrict
+              ? 'bg-foreground text-background font-medium'
+              : 'bg-transparent text-muted-foreground hover:text-foreground'}"
+            onclick={() => (filters.colorIdentityStrict = false)}
+          >
+            Any of
+          </button>
+        </div>
       {/if}
     </div>
 

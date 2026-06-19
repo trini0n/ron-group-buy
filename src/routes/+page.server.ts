@@ -152,7 +152,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
         .filter(Boolean)
         .map((s) => s.toLowerCase()) || [],
     colorIdentity: url.searchParams.get('colors')?.split(',').filter(Boolean) || [],
-    colorIdentityStrict: url.searchParams.get('strict') === '1',
+    colorIdentityStrict: url.searchParams.get('strict') !== '0',
     priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil', 'Serialized'],
     // Foil subtype filter (only relevant when 'Foil' is in priceCategories)
     foilSubtypes: url.searchParams.get('foilsubs')?.split(',').filter(Boolean) || [
