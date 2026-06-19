@@ -201,7 +201,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     // Handle actions
     if (action === 'merge') {
-      return await mergeIntoExistingOrder(existingOrder, items, locals)
+      return await mergeIntoExistingOrder(existingOrder, items, bundles, locals)
     }
 
     if (action === 'replace') {
@@ -473,6 +473,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 async function mergeIntoExistingOrder(
   existingOrder: { id: string; order_number: string },
   newItems: OrderItem[],
+  newBundles: Array<{ setCode: string; quantity: number }>,
   locals: App.Locals
 ) {
   // Resolve prices server-side for new items (security: never trust client-supplied unitPrice)
@@ -577,6 +578,62 @@ async function mergeIntoExistingOrder(
     if (insertError) {
       logger.error({ error: insertError }, 'Error inserting new items')
       throw error(500, 'Failed to add new items to order')
+    }
+  }
+
+  // Merge bundle items — upsert by (order_id, set_code): increment qty if already present
+  if (newBundles && newBundles.length > 0) {
+    const mergeCodes = newBundles.map((b) => b.setCode)
+    // Fetch set metadata for snapshotting
+    const { data: mergeSetRows } = await locals.supabase
+      .from('sets')
+      .select('set_code, set_name, price')
+      .in('set_code', mergeCodes)
+    const mergeSetMap = new Map(
+      mergeSetRows?.map((s: { set_code: string; set_name: string; price: number | null }) => [s.set_code, s]) ?? []
+    )
+    // Fetch any existing bundle rows for this order
+    const { data: existingBundleRows } = await locals.supabase
+      .from('order_bundle_items')
+      .select('id, set_code, quantity')
+      .eq('order_id', existingOrder.id)
+    const existingBundleMap = new Map(
+      existingBundleRows?.map((b: { id: string; set_code: string; quantity: number }) => [b.set_code, b]) ?? []
+    )
+
+    const bundlesToInsert: Array<{
+      order_id: string; set_code: string; set_name: string; quantity: number; price_at_purchase: number
+    }> = []
+    const bundlesToUpdate: Array<{ id: string; quantity: number }> = []
+
+    for (const nb of newBundles) {
+      const existing = existingBundleMap.get(nb.setCode)
+      if (existing) {
+        bundlesToUpdate.push({ id: existing.id, quantity: existing.quantity + nb.quantity })
+      } else {
+        const set = mergeSetMap.get(nb.setCode)
+        bundlesToInsert.push({
+          order_id: existingOrder.id,
+          set_code: nb.setCode,
+          set_name: set?.set_name ?? nb.setCode,
+          quantity: nb.quantity,
+          price_at_purchase: set?.price != null ? Number(set.price) : 0
+        })
+      }
+    }
+
+    if (bundlesToUpdate.length > 0) {
+      await Promise.all(
+        bundlesToUpdate.map((u) =>
+          locals.supabase.from('order_bundle_items').update({ quantity: u.quantity }).eq('id', u.id)
+        )
+      )
+    }
+    if (bundlesToInsert.length > 0) {
+      const { error: bundleMergeErr } = await locals.supabase.from('order_bundle_items').insert(bundlesToInsert)
+      if (bundleMergeErr) {
+        logger.error({ error: bundleMergeErr, orderId: existingOrder.id }, 'Failed to merge order_bundle_items')
+      }
     }
   }
 
