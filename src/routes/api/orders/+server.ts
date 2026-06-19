@@ -6,6 +6,7 @@ import { ensureUserRow } from '$lib/server/user-profile'
 import { logger } from '$lib/server/logger'
 import { z } from 'zod'
 import { CartService } from '$lib/server/cart-service'
+import { createAdminClient } from '$lib/server/admin'
 
 const AddressSchema = z.object({
   name: z.string().min(1),
@@ -392,7 +393,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
       })
       if (replaceBundleRows.length > 0) {
-        const { error: replaceBundleErr } = await locals.supabase
+        const adminClient = createAdminClient()
+        const { error: replaceBundleErr } = await adminClient
           .from('order_bundle_items')
           .insert(replaceBundleRows)
         if (replaceBundleErr) {
@@ -456,7 +458,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       })
 
     if (bundleRows.length > 0) {
-      const { error: bundleInsertErr } = await locals.supabase.from('order_bundle_items').insert(bundleRows)
+      const adminClient = createAdminClient()
+      const { error: bundleInsertErr } = await adminClient.from('order_bundle_items').insert(bundleRows)
       if (bundleInsertErr) {
         logger.error({ error: bundleInsertErr, orderId: createResult.order_id }, 'Failed to insert order_bundle_items')
       }
@@ -622,17 +625,20 @@ async function mergeIntoExistingOrder(
       }
     }
 
-    if (bundlesToUpdate.length > 0) {
-      await Promise.all(
-        bundlesToUpdate.map((u) =>
-          locals.supabase.from('order_bundle_items').update({ quantity: u.quantity }).eq('id', u.id)
+    if (bundlesToUpdate.length > 0 || bundlesToInsert.length > 0) {
+      const adminClient = createAdminClient()
+      if (bundlesToUpdate.length > 0) {
+        await Promise.all(
+          bundlesToUpdate.map((u) =>
+            adminClient.from('order_bundle_items').update({ quantity: u.quantity }).eq('id', u.id)
+          )
         )
-      )
-    }
-    if (bundlesToInsert.length > 0) {
-      const { error: bundleMergeErr } = await locals.supabase.from('order_bundle_items').insert(bundlesToInsert)
-      if (bundleMergeErr) {
-        logger.error({ error: bundleMergeErr, orderId: existingOrder.id }, 'Failed to merge order_bundle_items')
+      }
+      if (bundlesToInsert.length > 0) {
+        const { error: bundleMergeErr } = await adminClient.from('order_bundle_items').insert(bundlesToInsert)
+        if (bundleMergeErr) {
+          logger.error({ error: bundleMergeErr, orderId: existingOrder.id }, 'Failed to merge order_bundle_items')
+        }
       }
     }
   }
