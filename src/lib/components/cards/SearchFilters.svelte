@@ -351,10 +351,10 @@
         {/each}
       </div>
       {#if filters.colorIdentity.length > 0}
-        <div class="mt-2 flex overflow-hidden rounded-md border border-border text-sm">
+        <div class="mt-3 flex overflow-hidden rounded-md border border-border text-sm">
           <button
             type="button"
-            class="flex-1 px-3 py-1.5 transition-colors {filters.colorIdentityStrict
+            class="flex-1 px-3 py-1 transition-colors {filters.colorIdentityStrict
               ? 'bg-foreground text-background font-medium'
               : 'bg-transparent text-muted-foreground hover:text-foreground'}"
             onclick={() => (filters.colorIdentityStrict = true)}
@@ -363,7 +363,7 @@
           </button>
           <button
             type="button"
-            class="flex-1 border-l border-border px-3 py-1.5 transition-colors {!filters.colorIdentityStrict
+            class="flex-1 border-l border-border px-3 py-1 transition-colors {!filters.colorIdentityStrict
               ? 'bg-foreground text-background font-medium'
               : 'bg-transparent text-muted-foreground hover:text-foreground'}"
             onclick={() => (filters.colorIdentityStrict = false)}
