@@ -48,13 +48,13 @@ interface CardRecord {
   set_code: string | null
   collector_number: string | null
   card_type: 'Normal' | 'Holo' | 'Foil'
+  foil_type: string | null
   is_retro: boolean
   is_extended: boolean
   is_showcase: boolean
   is_borderless: boolean
   is_etched: boolean
   is_foil: boolean
-  foil_type: string | null
   language: string
   flavor_name: string | null
   scryfall_link: string | null
@@ -69,6 +69,9 @@ interface CardRecord {
   is_new: boolean
   is_misprint: boolean
 }
+
+// All mutable columns fetched from the DB for skip-unchanged comparison.
+type ExistingCard = Omit<CardRecord, 'serial'>
 
 function parseBoolean(value: string): boolean {
   return value?.toUpperCase() === 'TRUE'
@@ -154,6 +157,47 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
     }))
 }
 
+/**
+ * Produces a lightweight fingerprint of all mutable card fields so we can
+ * skip cards that haven't changed since the last sync.
+ *
+ * Note: ron_image_url and is_in_stock are intentionally excluded from the
+ * fingerprint — the SQL function handles their preservation rules
+ * (lh3 URL retention, OOS priority) server-side.  Including them here
+ * would cause unnecessary skips when the DB already holds a converted URL
+ * or a manually-set OOS flag.
+ */
+function cardFingerprint(card: Omit<CardRecord, 'serial' | 'ron_image_url' | 'is_in_stock'>): string {
+  return [
+    card.naming,
+    card.card_name,
+    card.set_name,
+    card.set_code,
+    card.collector_number,
+    card.card_type,
+    card.foil_type,
+    card.is_retro,
+    card.is_extended,
+    card.is_showcase,
+    card.is_borderless,
+    card.is_etched,
+    card.is_foil,
+    card.language,
+    card.flavor_name,
+    card.scryfall_link,
+    card.scryfall_id,
+    card.moxfield_syntax,
+    card.color,
+    card.color_identity,
+    card.type_line,
+    card.mana_cost,
+    card.is_new,
+    card.is_misprint
+  ]
+    .map((v) => String(v ?? ''))
+    .join('|')
+}
+
 // Helper to verify admin access
 async function verifyAdmin(locals: App.Locals) {
   const user = locals.user
@@ -175,7 +219,7 @@ export const POST: RequestHandler = async ({ locals }) => {
   const { adminClient } = await verifyAdmin(locals)
 
   try {
-    // Fetch CSV from Google Sheets
+    // ── Step 1: Fetch CSV from Google Sheets (single HTTP round-trip) ─────────
     console.log('📥 Fetching Library from Google Sheets...')
     const response = await fetch(LIBRARY_CSV_URL)
 
@@ -192,7 +236,7 @@ export const POST: RequestHandler = async ({ locals }) => {
       throw error(400, 'No cards found in Google Sheet. Check if CSV is published correctly.')
     }
 
-    // Deduplicate by serial (keep first occurrence)
+    // ── Step 2: Deduplicate by serial (keep first occurrence) ─────────────────
     const seenSerials = new Set<string>()
     const uniqueCards = cards.filter((card) => {
       if (seenSerials.has(card.serial)) {
@@ -204,11 +248,13 @@ export const POST: RequestHandler = async ({ locals }) => {
 
     console.log(`📊 Parsed ${uniqueCards.length} unique cards from sheet`)
 
-    // Single fetch: get serial, ron_image_url, and is_in_stock for all existing cards.
-    // This replaces two separate filtered fetches and also tells us which serials already
-    // exist (so we can INSERT new ones and UPDATE existing ones separately — bypassing the
-    // unreliable upsert() ON CONFLICT behaviour for non-PK unique columns).
-    type ExistingCard = { ron_image_url: string | null; is_in_stock: boolean | null }
+    // ── Step 3: Fetch all existing cards from DB ──────────────────────────────
+    // We read all mutable columns so we can:
+    //   a) Build a fingerprint to skip cards that haven't changed.
+    //   b) Know which serials already exist (for duplicate detection counts).
+    //
+    // ron_image_url and is_in_stock are read but excluded from the fingerprint
+    // because the SQL function applies preservation rules for them server-side.
     const existingDbCards = new Map<string, ExistingCard>()
     let offset = 0
     const fetchBatchSize = 1000
@@ -217,15 +263,18 @@ export const POST: RequestHandler = async ({ locals }) => {
     while (hasMore) {
       const { data: dbBatch } = await adminClient
         .from('cards')
-        .select('serial, ron_image_url, is_in_stock')
+        .select(
+          'serial, naming, card_name, set_name, set_code, collector_number, card_type, foil_type, ' +
+          'is_retro, is_extended, is_showcase, is_borderless, is_etched, is_foil, language, ' +
+          'flavor_name, scryfall_link, scryfall_id, moxfield_syntax, color, color_identity, ' +
+          'type_line, mana_cost, ron_image_url, is_in_stock, is_new, is_misprint'
+        )
         .range(offset, offset + fetchBatchSize - 1)
 
       if (dbBatch && dbBatch.length > 0) {
         dbBatch.forEach((card) => {
-          existingDbCards.set(card.serial, {
-            ron_image_url: card.ron_image_url,
-            is_in_stock: card.is_in_stock
-          })
+          const { serial, ...rest } = card
+          existingDbCards.set(serial, rest as ExistingCard)
         })
         offset += fetchBatchSize
         hasMore = dbBatch.length === fetchBatchSize
@@ -236,22 +285,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 
     console.log(`📋 Found ${existingDbCards.size} existing cards in DB`)
 
-    // Preserve converted Google Photos URLs and apply OOS priority (DB OOS=TRUE wins)
-    const cardsToUpsert = uniqueCards.map((card) => {
-      const existing = existingDbCards.get(card.serial)
-      // Preserve converted URL if DB already holds a lh3.googleusercontent.com URL
-      const existingUrl = existing?.ron_image_url
-      const ron_image_url =
-        existingUrl && existingUrl.startsWith('https://lh3.googleusercontent.com/') ? existingUrl : card.ron_image_url
-      // OOS priority: if DB already marks this serial OOS, keep it OOS even if sheet says in-stock.
-      // Sheet OOS=TRUE always wins too (card.is_in_stock will already be false in that case).
-      const is_in_stock = existing && !existing.is_in_stock ? false : card.is_in_stock
-      return { ...card, ron_image_url, is_in_stock }
-    })
-
-    // Detect duplicate card identities before upserting
-    console.log('🔍 Detecting duplicate card identities...')
-    const cardsWithIdentity: CardWithIdentity[] = cardsToUpsert.map((card) => ({
+    // ── Step 4: Duplicate-identity detection ──────────────────────────────────
+    const cardsWithIdentity: CardWithIdentity[] = uniqueCards.map((card) => ({
       id: '', // Will be assigned by DB
       serial: card.serial,
       card_name: card.card_name,
@@ -269,76 +304,66 @@ export const POST: RequestHandler = async ({ locals }) => {
     let duplicatesResolved = 0
     let alertsCreated = 0
 
+    // Mark lower serials as OOS before the upsert
+    const oosSerials = new Set<string>()
     if (duplicateGroups.length > 0) {
       console.log(`⚠️  Found ${duplicateGroups.length} duplicate identity groups`)
-
-      // Update cards array to mark lower serials as OOS
-      const oosSerials = new Set<string>()
       duplicateGroups.forEach((group) => {
         group.markedOosSerials.forEach((serial) => oosSerials.add(serial))
       })
-
-      // Mark duplicates as out of stock in the cards to upsert
-      cardsToUpsert.forEach((card) => {
-        if (oosSerials.has(card.serial)) {
-          card.is_in_stock = false
-        }
-      })
-
       duplicatesResolved = oosSerials.size
       console.log(`📝 Marked ${duplicatesResolved} duplicate serials as out of stock`)
     }
 
-    // Separate new cards (INSERT) from existing ones (UPDATE).
-    // We avoid upsert() here because Supabase's ON CONFLICT DO UPDATE for non-PK unique
-    // columns (serial) does not reliably update existing rows — existing records silently
-    // remain unchanged. Explicit INSERT + UPDATE guarantees sheet data overwrites DB.
-    const toInsert = cardsToUpsert.filter((c) => !existingDbCards.has(c.serial))
-    const toUpdate = cardsToUpsert.filter((c) => existingDbCards.has(c.serial))
+    // ── Step 5: Skip-unchanged filtering ─────────────────────────────────────
+    // Only send cards that are new or whose mutable fields have changed.
+    // ron_image_url and is_in_stock are excluded from the fingerprint —
+    // preservation rules for both are enforced server-side in sync_cards_bulk.
+    const cardsToSync = uniqueCards
+      .map((card) => ({
+        ...card,
+        // Apply OOS override for duplicates before comparing/sending
+        is_in_stock: oosSerials.has(card.serial) ? false : card.is_in_stock
+      }))
+      .filter((card) => {
+        const existing = existingDbCards.get(card.serial)
+        if (!existing) return true // New card — always include
 
-    console.log(`➕ Inserting ${toInsert.length} new cards, ✏️  updating ${toUpdate.length} existing cards...`)
+        const incomingFp = cardFingerprint(card)
+        const existingFp = cardFingerprint(existing)
+        return incomingFp !== existingFp
+      })
 
-    const batchSize = 100
-    let successCount = 0
+    const skipped = uniqueCards.length - cardsToSync.length
+    console.log(
+      `🔍 ${cardsToSync.length} cards changed (${skipped} skipped — unchanged since last sync)`
+    )
+
+    let inserted = 0
+    let updated = 0
     let errorCount = 0
 
-    // INSERT new cards in batches
-    for (let i = 0; i < toInsert.length; i += batchSize) {
-      const batch = toInsert.slice(i, i + batchSize)
-      const { error: insertError } = await adminClient.from('cards').insert(batch)
-      if (insertError) {
-        logger.error(
-          { error: insertError.message, batch: Math.floor(i / batchSize) + 1 },
-          'Error inserting new cards batch'
-        )
-        errorCount += batch.length
-      } else {
-        successCount += batch.length
-      }
-    }
+    if (cardsToSync.length > 0) {
+      // ── Step 6: Single bulk upsert via RPC ───────────────────────────────────
+      // sync_cards_bulk() runs one INSERT … ON CONFLICT DO UPDATE in Postgres,
+      // replacing the previous pattern of hundreds of individual UPDATE queries.
+      console.log(`🚀 Calling sync_cards_bulk with ${cardsToSync.length} cards...`)
 
-    // UPDATE existing cards in parallel batches (sheet is source of truth for all fields)
-    const updateConcurrency = 50
-    for (let i = 0; i < toUpdate.length; i += updateConcurrency) {
-      const batch = toUpdate.slice(i, i + updateConcurrency)
-      const results = await Promise.all(
-        batch.map(({ serial, ...data }) => adminClient.from('cards').update(data).eq('serial', serial))
-      )
-      results.forEach((result, idx) => {
-        if (result.error) {
-          const batchItem = batch[idx]
-          logger.error({ error: result.error.message, serial: batchItem?.serial }, 'Error updating existing card')
-          errorCount++
-        } else {
-          successCount++
-        }
+      const { data: rpcResult, error: rpcError } = await adminClient.rpc('sync_cards_bulk', {
+        p_cards: cardsToSync
       })
+
+      if (rpcError) {
+        logger.error({ error: rpcError.message }, 'sync_cards_bulk RPC failed')
+        throw new Error(`Bulk sync failed: ${rpcError.message}`)
+      }
+
+      inserted = Number((rpcResult as { inserted: number; updated: number })?.inserted ?? 0)
+      updated = Number((rpcResult as { inserted: number; updated: number })?.updated ?? 0)
+      errorCount = cardsToSync.length - inserted - updated
     }
 
-    // Get final count
-    const { count } = await adminClient.from('cards').select('*', { count: 'exact', head: true })
-
-    // Create admin alerts for duplicates after successful upsert
+    // ── Step 7: Create admin alerts for duplicates ────────────────────────────
     if (duplicateGroups.length > 0) {
       console.log(`🚨 Creating ${duplicateGroups.length} admin alerts for duplicates...`)
       const result = await resolveDuplicates(adminClient, duplicateGroups)
@@ -351,7 +376,13 @@ export const POST: RequestHandler = async ({ locals }) => {
       }
     }
 
-    console.log(`🎉 Sync complete! Success: ${successCount}, Errors: ${errorCount}, Total: ${count}`)
+    // Get final count
+    const { count } = await adminClient.from('cards').select('*', { count: 'exact', head: true })
+
+    const successCount = inserted + updated
+    console.log(
+      `🎉 Sync complete! Inserted: ${inserted}, Updated: ${updated}, Skipped: ${skipped}, Errors: ${errorCount}, Total: ${count}`
+    )
     console.log(`   Duplicates resolved: ${duplicatesResolved}, Alerts created: ${alertsCreated}`)
 
     return json({
@@ -359,7 +390,11 @@ export const POST: RequestHandler = async ({ locals }) => {
       errors: errorCount,
       total: count || 0,
       duplicates_resolved: duplicatesResolved,
-      alerts_created: alertsCreated
+      alerts_created: alertsCreated,
+      // Extra detail for the admin UI
+      inserted,
+      updated,
+      skipped
     })
   } catch (err) {
     logger.error({ error: err }, 'Sync failed')
