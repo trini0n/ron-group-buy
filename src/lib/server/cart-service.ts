@@ -657,6 +657,8 @@ export class CartService {
         if (!options.dry_run) {
           itemsToUpdate.push({ id: existingUserItem.id, quantity: newQuantity })
         }
+        // Fix: update in-memory map so subsequent iterations for the same card accumulate correctly
+        userItemsByCard.set(guestItem.card_id, { ...existingUserItem, quantity: newQuantity })
       } else {
         items_added.push({
           card_name: card.card_name,
@@ -683,12 +685,15 @@ export class CartService {
         await this.supabase.from('cart_items').insert(itemsToInsert)
       }
       if (itemsToUpdate.length > 0) {
-        const updates = itemsToUpdate.map((u) => ({
-          id: u.id,
-          quantity: u.quantity,
-          updated_at: new Date().toISOString()
-        }))
-        await this.supabase.from('cart_items').upsert(updates, { onConflict: 'id' })
+        // Fix: use targeted UPDATE instead of upsert to avoid partial-column replacement
+        await Promise.all(
+          itemsToUpdate.map((u) =>
+            this.supabase
+              .from('cart_items')
+              .update({ quantity: u.quantity, updated_at: new Date().toISOString() })
+              .eq('id', u.id)
+          )
+        )
       }
       await this.supabase
         .from('carts')
@@ -980,6 +985,7 @@ export class CartService {
           set_code: orderItem.set_code || null,
           collector_number: orderItem.collector_number || null,
           card_name: orderItem.card_name,
+          card_type: orderItem.card_type || 'Normal',
           is_foil: orderItem.is_foil || false,
           is_etched: orderItem.is_etched || false,
           language: orderItem.language || 'en'
@@ -1085,6 +1091,8 @@ export class CartService {
         if (!options.dry_run) {
           itemsToUpdate.push({ id: existingCartItem.id, quantity: newQuantity })
         }
+        // Fix: update in-memory map so subsequent iterations for the same card accumulate correctly
+        cartItemsByCardId.set(currentCard.id, { ...existingCartItem, quantity: newQuantity })
       } else {
         items_added.push({
           card_name: currentCard.card_name,
@@ -1111,12 +1119,15 @@ export class CartService {
         await this.supabase.from('cart_items').insert(itemsToInsert)
       }
       if (itemsToUpdate.length > 0) {
-        const updates = itemsToUpdate.map((u) => ({
-          id: u.id,
-          quantity: u.quantity,
-          updated_at: new Date().toISOString()
-        }))
-        await this.supabase.from('cart_items').upsert(updates, { onConflict: 'id' })
+        // Fix: use targeted UPDATE instead of upsert to avoid partial-column replacement
+        await Promise.all(
+          itemsToUpdate.map((u) =>
+            this.supabase
+              .from('cart_items')
+              .update({ quantity: u.quantity, updated_at: new Date().toISOString() })
+              .eq('id', u.id)
+          )
+        )
       }
     }
 
