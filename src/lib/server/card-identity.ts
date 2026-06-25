@@ -254,7 +254,7 @@ export async function findCardsByIdentity(
   // Build query based on whether collector_number exists
   let query = supabase
     .from('cards')
-    .select('id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock')
+    .select('id, serial, card_name, set_code, collector_number, card_type, is_foil, is_etched, language, is_in_stock')
     .eq('card_name', identity.card_name)
     .eq('is_foil', identity.is_foil)
     .eq('is_etched', identity.is_etched)

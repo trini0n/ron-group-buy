@@ -6,6 +6,7 @@
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
   import { ArrowLeft, Trash2, Plus, Minus, Library, AlertCircle, FileText, Import } from 'lucide-svelte'
+  import { untrack } from 'svelte'
 
   let { data } = $props()
 
@@ -133,10 +134,12 @@
     }
   }
   // ── Plain text list ────────────────────────────────────────────
-  let cardListText = $state(data.set.card_list_text ?? '')
+  // untrack: intentionally capture only the initial server value — form manages its own state
+  const initialCardListText = untrack(() => data.set.card_list_text ?? '')
+  let cardListText = $state(initialCardListText)
   let textListSaving = $state(false)
   // Track saved value to show unsaved-changes indicator
-  let savedCardListText = $state(data.set.card_list_text ?? '')
+  let savedCardListText = $state(initialCardListText)
   const textListDirty = $derived(cardListText !== savedCardListText)
 
   async function saveCardListText() {
@@ -336,7 +339,7 @@
           Discard
         </Button>
         <span class="text-xs text-muted-foreground ml-auto tabular-nums">
-          {cardListText.split('\n').filter((l) => l.trim()).length} line{cardListText.split('\n').filter((l) => l.trim()).length !== 1 ? 's' : ''}
+          {cardListText.split('\n').filter((l: string) => l.trim()).length} line{cardListText.split('\n').filter((l: string) => l.trim()).length !== 1 ? 's' : ''}
         </span>
       </div>
     </div>

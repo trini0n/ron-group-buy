@@ -151,9 +151,9 @@ async function fetchMoxfieldDeck(url: string): Promise<{ name: string; cards: De
 // Normalize MDFCs: take first face only ("A // B" or "A / B" → "A")
 function normalizeMdfc(name: string): string {
   const doubleParts = name.split(' // ')
-  if (doubleParts.length > 1) return doubleParts[0].trim()
+  if (doubleParts.length > 1) return doubleParts[0]!.trim()
   const singleParts = name.split(' / ')
-  if (singleParts.length > 1) return singleParts[0].trim()
+  if (singleParts.length > 1) return singleParts[0]!.trim()
   return name.trim()
 }
 

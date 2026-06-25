@@ -25,7 +25,6 @@
   import { onMount } from 'svelte'
   import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils'
   import { browser } from '$app/environment'
-  import { PUBLIC_MOXFIELD_PROXY } from '$env/static/public'
 
   // Types
   interface DeckCard {
@@ -271,9 +270,9 @@
   // MDFC normalization: take first face only ("A // B" → "A")
   function normalizeMdfc(name: string): string {
     const parts = name.split(' // ')
-    if (parts.length > 1) return parts[0].trim()
+    if (parts.length > 1) return parts[0]!.trim()
     const singleParts = name.split(' / ')
-    if (singleParts.length > 1) return singleParts[0].trim()
+    if (singleParts.length > 1) return singleParts[0]!.trim()
     return name.trim()
   }
 
@@ -287,8 +286,9 @@
     const deckId = match[1]
     // Route through Cloudflare Worker proxy (adds CORS headers; Worker runs on CF edge so Moxfield trusts it)
     // Falls back to direct URL if PUBLIC_MOXFIELD_PROXY is not set
-    const apiUrl = PUBLIC_MOXFIELD_PROXY
-      ? `${PUBLIC_MOXFIELD_PROXY}/${deckId}`
+    const moxfieldProxy: string | undefined = import.meta.env.PUBLIC_MOXFIELD_PROXY
+    const apiUrl = moxfieldProxy
+      ? `${moxfieldProxy}/${deckId}`
       : `https://api2.moxfield.com/v3/decks/all/${deckId}`
     const response = await fetch(apiUrl, {
       headers: { Accept: 'application/json' }

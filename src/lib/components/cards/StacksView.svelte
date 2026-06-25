@@ -235,10 +235,10 @@
       const visualH = 1.82 + (col.rows.length - 1) * 0.182
       let minIdx = 0
       for (let i = 1; i < numCols; i++) {
-        if (heights[i] < heights[minIdx]) minIdx = i
+        if (heights[i]! < heights[minIdx]!) minIdx = i
       }
-      result[minIdx].push(col)
-      heights[minIdx] += visualH
+      result[minIdx]!.push(col)
+      heights[minIdx]! += visualH
     }
     return result
   })

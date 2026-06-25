@@ -261,7 +261,7 @@ export const POST: RequestHandler = async ({ locals }) => {
     let hasMore = true
 
     while (hasMore) {
-      const { data: dbBatch } = await adminClient
+      const { data: rawBatch } = await adminClient
         .from('cards')
         .select(
           'serial, naming, card_name, set_name, set_code, collector_number, card_type, foil_type, ' +
@@ -270,6 +270,8 @@ export const POST: RequestHandler = async ({ locals }) => {
           'type_line, mana_cost, ron_image_url, is_in_stock, is_new, is_misprint'
         )
         .range(offset, offset + fetchBatchSize - 1)
+
+      const dbBatch = rawBatch as CardRecord[] | null
 
       if (dbBatch && dbBatch.length > 0) {
         dbBatch.forEach((card) => {

@@ -94,10 +94,10 @@
     <div class="border rounded-xl overflow-hidden">
       <div class="px-4 py-2 bg-muted/40 border-b text-xs text-muted-foreground font-medium flex items-center gap-2">
         <FileText class="h-3.5 w-3.5" />
-        {data.set.card_list_text.split('\n').filter((l) => l.trim()).length} cards
+        {data.set.card_list_text.split('\n').filter((l: string) => l.trim()).length} cards
       </div>
       <ol class="divide-y divide-border">
-        {#each data.set.card_list_text.split('\n').filter((l) => l.trim()) as line, i}
+        {#each data.set.card_list_text.split('\n').filter((l: string) => l.trim()) as line, i}
           <li class="flex items-baseline gap-3 px-4 py-2 hover:bg-muted/20 transition-colors">
             <span class="text-muted-foreground text-xs w-6 shrink-0 text-right tabular-nums select-none">{i + 1}</span>
             <span class="font-mono text-sm flex-1">{line}</span>
