@@ -597,17 +597,18 @@ export async function exportAllSets(): Promise<Buffer> {
 
   if (setsError) throw new Error('Failed to fetch sets')
 
-  // Fetch all set_cards with card metadata
   // NOTE: must set an explicit limit — Supabase JS client silently caps at 1000 rows by default.
+  // NOTE: alias set_cards.set_code → bundle_set_code to avoid PostgREST shadowing it with
+  // the identically-named cards.set_code column, which caused Normal/Holo sets to be missing.
   const { data: setCards, error: cardsError } = await adminClient
     .from('set_cards')
-    .select('set_code, quantity, cards(set_code, collector_number, language, card_type)')
+    .select('bundle_set_code:set_code, quantity, cards(set_code, collector_number, language, card_type)')
     .limit(50000)
     .order('created_at', { ascending: true })
 
   if (cardsError) throw new Error('Failed to fetch set cards')
 
-  // Group imported cards by set_code
+  // Group imported cards by bundle set_code
   const cardsBySet = new Map<string, Array<{
     set_code: string | null
     collector_number: string | null
@@ -617,15 +618,16 @@ export async function exportAllSets(): Promise<Buffer> {
   }>>()
 
   for (const sc of setCards ?? []) {
+    const bundleCode = (sc as unknown as { bundle_set_code: string | null }).bundle_set_code
     const card = sc.cards as {
       set_code: string | null
       collector_number: string | null
       language: string | null
       card_type: string
     } | null
-    if (!sc.set_code) continue
-    if (!cardsBySet.has(sc.set_code)) cardsBySet.set(sc.set_code, [])
-    cardsBySet.get(sc.set_code)!.push({
+    if (!bundleCode) continue
+    if (!cardsBySet.has(bundleCode)) cardsBySet.set(bundleCode, [])
+    cardsBySet.get(bundleCode)!.push({
       set_code: card?.set_code ?? null,
       collector_number: card?.collector_number ?? null,
       language: card?.language ?? null,
