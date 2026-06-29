@@ -598,9 +598,11 @@ export async function exportAllSets(): Promise<Buffer> {
   if (setsError) throw new Error('Failed to fetch sets')
 
   // Fetch all set_cards with card metadata
+  // NOTE: must set an explicit limit — Supabase JS client silently caps at 1000 rows by default.
   const { data: setCards, error: cardsError } = await adminClient
     .from('set_cards')
     .select('set_code, quantity, cards(set_code, collector_number, language, card_type)')
+    .limit(50000)
     .order('created_at', { ascending: true })
 
   if (cardsError) throw new Error('Failed to fetch set cards')
