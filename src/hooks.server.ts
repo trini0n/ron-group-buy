@@ -51,18 +51,18 @@ export const handle: Handle = async ({ event, resolve }) => {
     [
       "default-src 'self'",
       // Allow Supabase API and auth
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co`,
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       // Allow Google Fonts
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      // Allow images from Supabase storage and Google Sheets
-      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
+      // Allow images from Supabase storage, Google auth avatars, and Scryfall (card images + mana symbols)
+      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://*.scryfall.io https://svgs.scryfall.io",
       // Block all framing
       "frame-ancestors 'none'",
       // Block object/embed
       "object-src 'none'",
-      // Allow scripts from self only
-      "script-src 'self'"
+      // unsafe-inline required for SvelteKit's hydration scripts and dark mode toggle
+      "script-src 'self' 'unsafe-inline'"
     ].join('; ')
   )
   response.headers.set('X-Frame-Options', 'DENY')
