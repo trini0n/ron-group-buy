@@ -567,37 +567,37 @@ function formatCurrency(amount: number): string {
 
 // ─── Sets Export ──────────────────────────────────────────────────────────────
 
-interface SetExportRow {
-  set_code: string
-  set_name: string
-  set_type: string
-  price: number | null
-  cards: Array<{
-    set_code: string | null
-    collector_number: string | null
-    language: string | null
-    card_type: string
-    quantity: number
-  }>
+/** Escape a value for CSV (wrap in quotes if it contains comma, quote, or newline) */
+function csvCell(val: string | number | null | undefined): string {
+  const s = String(val ?? '')
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
+
+function csvRow(...cells: (string | number | null | undefined)[]): string {
+  return cells.map(csvCell).join(',')
 }
 
 /**
- * Export all sets (with their cards) as a single Excel workbook.
- * One worksheet per set, tabs named by set_code.
+ * Export all sets as a single CSV.
+ * Each set gets a metadata header block then its cards (or plaintext list as fallback).
+ * Sets are separated by a blank line.
  */
 export async function exportAllSets(): Promise<Buffer> {
   const adminClient = createAdminClient()
 
-  // Fetch all sets ordered by sort_order then name
+  // Fetch sets with card_list_text for the plaintext fallback
   const { data: sets, error: setsError } = await adminClient
     .from('sets')
-    .select('set_code, set_name, set_type, price')
+    .select('set_code, set_name, set_type, price, card_list_text')
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
 
   if (setsError) throw new Error('Failed to fetch sets')
 
-  // Fetch all set_cards with card metadata in one query
+  // Fetch all set_cards with card metadata
   const { data: setCards, error: cardsError } = await adminClient
     .from('set_cards')
     .select('set_code, quantity, cards(set_code, collector_number, language, card_type)')
@@ -605,8 +605,15 @@ export async function exportAllSets(): Promise<Buffer> {
 
   if (cardsError) throw new Error('Failed to fetch set cards')
 
-  // Group cards by set_code
-  const cardsBySet = new Map<string, SetExportRow['cards']>()
+  // Group imported cards by set_code
+  const cardsBySet = new Map<string, Array<{
+    set_code: string | null
+    collector_number: string | null
+    language: string | null
+    card_type: string
+    quantity: number
+  }>>()
+
   for (const sc of setCards ?? []) {
     const card = sc.cards as {
       set_code: string | null
@@ -625,89 +632,42 @@ export async function exportAllSets(): Promise<Buffer> {
     })
   }
 
-  const workbook = new ExcelJS.Workbook()
+  const lines: string[] = []
 
   for (const set of sets ?? []) {
-    // Excel sheet names max 31 chars, no special chars
-    const sheetName = (set.set_code ?? 'SET').slice(0, 31)
-    const ws = workbook.addWorksheet(sheetName)
+    // ── Set metadata header ──
+    lines.push(csvRow('Set Code', set.set_code ?? ''))
+    lines.push(csvRow('Name', set.set_name ?? ''))
+    lines.push(csvRow('Type', (set.set_type as string) ?? 'Normal'))
+    lines.push(csvRow('Price', set.price != null ? formatCurrency(Number(set.price)) : ''))
+    lines.push('')
 
-    ws.columns = [
-      { width: 16 }, // A
-      { width: 32 }, // B
-      { width: 14 }, // C
-      { width: 14 }, // D
-      { width: 10 }  // E
-    ]
+    const importedCards = cardsBySet.get(set.set_code) ?? []
 
-    let row = 1
-
-    // ── Set header block ──
-    const headerStyle: Partial<ExcelJS.Style> = { font: { bold: true } }
-
-    ws.getCell(`A${row}`).value = 'Set Code'
-    Object.assign(ws.getCell(`A${row}`), headerStyle)
-    ws.getCell(`B${row}`).value = set.set_code ?? ''
-    row++
-
-    ws.getCell(`A${row}`).value = 'Name'
-    Object.assign(ws.getCell(`A${row}`), headerStyle)
-    ws.getCell(`B${row}`).value = set.set_name ?? ''
-    row++
-
-    ws.getCell(`A${row}`).value = 'Type'
-    Object.assign(ws.getCell(`A${row}`), headerStyle)
-    ws.getCell(`B${row}`).value = (set.set_type as string) ?? 'Normal'
-    row++
-
-    ws.getCell(`A${row}`).value = 'Price'
-    Object.assign(ws.getCell(`A${row}`), headerStyle)
-    ws.getCell(`B${row}`).value = set.price != null ? formatCurrency(Number(set.price)) : '—'
-    row++
-
-    // Blank separator
-    row++
-
-    // ── Card table header ──
-    const tableHeaders = ['Set Code', 'Collector #', 'Language', 'Finish / Type', 'Quantity']
-    const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }
-    const thinBorder: Partial<ExcelJS.Borders> = {
-      top: { style: 'thin' }, left: { style: 'thin' },
-      bottom: { style: 'thin' }, right: { style: 'thin' }
-    }
-
-    tableHeaders.forEach((h, i) => {
-      const cell = ws.getCell(row, i + 1)
-      cell.value = h
-      cell.font = { bold: true }
-      cell.fill = headerFill
-      cell.border = thinBorder
-    })
-    row++
-
-    // ── Card rows ──
-    const cards = cardsBySet.get(set.set_code) ?? []
-    if (cards.length === 0) {
-      ws.getCell(`A${row}`).value = '(no cards imported)'
-      ws.getCell(`A${row}`).font = { italic: true, color: { argb: 'FF888888' } }
-    } else {
-      for (const card of cards) {
-        const rowData = [
-          (card.set_code ?? '—').toUpperCase(),
-          card.collector_number ?? '—',
+    if (importedCards.length > 0) {
+      // ── Structured card rows ──
+      lines.push(csvRow('Set Code', 'Collector #', 'Language', 'Finish / Type', 'Quantity'))
+      for (const card of importedCards) {
+        lines.push(csvRow(
+          (card.set_code ?? '').toUpperCase(),
+          card.collector_number ?? '',
           card.language && card.language !== 'en' ? card.language : '',
-          card.card_type ?? '—',
+          card.card_type ?? '',
           card.quantity
-        ]
-        rowData.forEach((val, i) => {
-          const cell = ws.getCell(row, i + 1)
-          cell.value = val
-          cell.border = thinBorder
-        })
-        row++
+        ))
+      }
+    } else if (set.card_list_text?.trim()) {
+      // ── Plaintext list fallback ──
+      lines.push(csvRow('Card List'))
+      for (const cardLine of set.card_list_text.split('\n')) {
+        const trimmed = cardLine.trim()
+        if (trimmed) lines.push(csvCell(trimmed))
       }
     }
+
+    // Blank separator between sets
+    lines.push('')
   }
 
-  return (await workbook.xlsx.writeBuffer()) as unknown as Buffer
+  return Buffer.from(lines.join('\r\n'), 'utf-8')
 }

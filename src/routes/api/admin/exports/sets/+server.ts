@@ -11,11 +11,11 @@ export async function GET({ locals }: RequestEvent) {
     const buffer = await exportAllSets()
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-    const filename = `sets_export_${timestamp}.xlsx`
+    const filename = `sets_export_${timestamp}.csv`
 
-    return new Response(Buffer.from(buffer), {
+    return new Response(buffer, {
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
         'Content-Length': buffer.length.toString()
       }
