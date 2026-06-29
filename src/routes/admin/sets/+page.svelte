@@ -6,7 +6,7 @@
   import * as Table from '$components/ui/table'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
-  import { Plus, Pencil, Trash2, Check, X, Library, Upload, AlertCircle } from 'lucide-svelte'
+  import { Plus, Pencil, Trash2, Check, X, Library, Upload, AlertCircle, Download } from 'lucide-svelte'
 
   let { data } = $props()
 
@@ -204,6 +204,35 @@
   }
 
   const lineCount = $derived(bulkLines.split('\n').filter((l) => l.trim()).length)
+
+  // ── Export All ────────────────────────────────────────────────
+  let isExporting = $state(false)
+
+  async function exportAll() {
+    isExporting = true
+    try {
+      const response = await fetch('/api/admin/exports/sets')
+      if (!response.ok) {
+        toast.error('Failed to export sets')
+        return
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download =
+        response.headers.get('content-disposition')?.split("filename*=UTF-8''")?.[1]
+          ? decodeURIComponent(response.headers.get('content-disposition')!.split("filename*=UTF-8''")?.[1])
+          : 'sets_export.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Sets exported')
+    } catch {
+      toast.error('Network error exporting sets')
+    } finally {
+      isExporting = false
+    }
+  }
 </script>
 
 <svelte:head>
@@ -221,6 +250,10 @@
       </div>
     </div>
     <div class="flex gap-2">
+      <Button variant="outline" onclick={exportAll} disabled={isExporting}>
+        <Download class="h-4 w-4 mr-2" />
+        {isExporting ? 'Exporting…' : 'Export All'}
+      </Button>
       <Button variant="outline" onclick={() => { showBulkForm = !showBulkForm; showCreateForm = false }}>
         <Upload class="h-4 w-4 mr-2" />
         Bulk Import

@@ -92,6 +92,6 @@ export const POST: RequestHandler = async ({ params, locals }) => {
     })
   } catch (err) {
     logger.error({ error: err, orderId: params.id }, 'Error merging order into cart')
-    throw error(500, err instanceof Error ? err.message : 'Failed to merge order into cart')
+    throw error(500, 'Failed to merge order into cart')
   }
 }

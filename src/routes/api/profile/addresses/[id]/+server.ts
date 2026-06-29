@@ -1,6 +1,19 @@
 import { json, error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { logger } from '$lib/server/logger'
+import { z } from 'zod'
+
+const UpdateAddressSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  line1: z.string().min(1).max(500).optional(),
+  line2: z.string().max(500).optional().nullable(),
+  city: z.string().min(1).max(255).optional(),
+  state: z.string().max(255).optional().nullable(),
+  postal_code: z.string().min(1).max(20).optional(),
+  country: z.string().min(1).max(100).optional(),
+  phone_number: z.string().max(30).optional().nullable(),
+  is_default: z.boolean().optional()
+})
 
 // Update an address
 export const PATCH: RequestHandler = async ({ request, params, locals }) => {
@@ -8,7 +21,11 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
     throw error(401, 'Unauthorized')
   }
 
-  const updates = await request.json()
+  const parseResult = UpdateAddressSchema.safeParse(await request.json())
+  if (!parseResult.success) {
+    return json({ error: 'Invalid request body', issues: parseResult.error.issues }, { status: 400 })
+  }
+  const updates = parseResult.data
 
   // If setting as default, unset other defaults first
   if (updates.is_default) {
@@ -40,7 +57,7 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
       },
       'Error updating address'
     )
-    throw error(500, `Failed to update address: ${updateError.message || 'Unknown error'}`)
+    throw error(500, 'Failed to update address')
   }
 
   return json(address)
@@ -71,7 +88,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
       },
       'Error deleting address'
     )
-    throw error(500, `Failed to delete address: ${deleteError.message || 'Unknown error'}`)
+    throw error(500, 'Failed to delete address')
   }
 
   return json({ success: true })

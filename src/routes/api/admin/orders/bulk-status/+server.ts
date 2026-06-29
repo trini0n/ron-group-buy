@@ -13,7 +13,10 @@ const BulkStatusSchema = z.object({
 })
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  // Verify admin access
+  // Distinguish 401 (not logged in) from 403 (not admin)
+  if (!locals.user) {
+    throw error(401, 'Authentication required')
+  }
   if (!(await isAdminRequest(locals))) {
     throw error(403, 'Admin access required')
   }
