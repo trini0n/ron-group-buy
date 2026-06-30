@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { createAdminClient } from './admin'
 import { getFrameEffectLabel, getFinishLabel, sortOrdersByShippingAndDate, compareSerials } from '$lib/utils'
+import { logger } from '$lib/server/logger'
 
 // Type definitions for export data structures
 // Using explicit types instead of Database types to avoid import issues
@@ -608,6 +609,11 @@ export async function exportAllSets(): Promise<Buffer> {
 
   if (setCardsError) throw new Error('Failed to fetch set cards')
 
+  logger.info(
+    { setCardsCount: setCards?.length ?? 0, setsCount: sets?.length ?? 0 },
+    '[sets-export] set_cards rows fetched'
+  )
+
   // ── Step 2: fetch card metadata in one batch using the collected card IDs
   const cardIds = [
     ...new Set(
@@ -652,6 +658,11 @@ export async function exportAllSets(): Promise<Buffer> {
     }
   }
 
+  logger.info(
+    { uniqueCardIdsRequested: cardIds.length, cardsByIdSize: cardsById.size },
+    '[sets-export] cards metadata fetched'
+  )
+
   // ── Step 3: group by bundle set_code (set_cards.set_code)
   const cardsBySet = new Map<string, Array<{
     set_code: string | null
@@ -677,6 +688,19 @@ export async function exportAllSets(): Promise<Buffer> {
       card_name: card?.card_name ?? '',
       quantity: (sc.quantity as number) ?? 1
     })
+  }
+
+  // Diagnostic: log which sets have zero imported cards
+  for (const set of sets ?? []) {
+    const count = cardsBySet.get(set.set_code)?.length ?? 0
+    if (count === 0) {
+      logger.info(
+        { setCode: set.set_code, hasCardListText: Boolean(set.card_list_text?.trim()) },
+        '[sets-export] set has zero imported cards'
+      )
+    } else {
+      logger.info({ setCode: set.set_code, importedCardCount: count }, '[sets-export] set card count')
+    }
   }
 
   const lines: string[] = []
