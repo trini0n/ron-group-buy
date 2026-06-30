@@ -597,41 +597,77 @@ export async function exportAllSets(): Promise<Buffer> {
 
   if (setsError) throw new Error('Failed to fetch sets')
 
-  // NOTE: must set an explicit limit — Supabase JS client silently caps at 1000 rows by default.
-  // NOTE: alias set_cards.set_code → bundle_set_code to avoid PostgREST shadowing it with
-  // the identically-named cards.set_code column, which caused Normal/Holo sets to be missing.
-  const { data: setCards, error: cardsError } = await adminClient
+  // ── Step 1: fetch set_cards WITHOUT a join to avoid PostgREST shadowing set_cards.set_code
+  //   with the identically-named cards.set_code column (was silently dropping Holo/Normal sets).
+  // Supabase JS default cap is 1000 rows — override with an explicit limit.
+  const { data: setCards, error: setCardsError } = await adminClient
     .from('set_cards')
-    .select('bundle_set_code:set_code, quantity, cards(set_code, collector_number, language, card_type)')
+    .select('set_code, card_id, quantity')
     .limit(50000)
     .order('created_at', { ascending: true })
 
-  if (cardsError) throw new Error('Failed to fetch set cards')
+  if (setCardsError) throw new Error('Failed to fetch set cards')
 
-  // Group imported cards by bundle set_code
+  // ── Step 2: fetch card metadata in one batch using the collected card IDs
+  const cardIds = [
+    ...new Set(
+      (setCards ?? []).map((sc) => sc.card_id).filter((id): id is string => Boolean(id))
+    )
+  ]
+
+  const cardsById = new Map<string, {
+    set_code: string | null
+    collector_number: string | null
+    language: string | null
+    card_type: string
+    serial: string | null
+    card_name: string
+  }>()
+
+  if (cardIds.length > 0) {
+    const { data: cardsData, error: cardsFetchError } = await adminClient
+      .from('cards')
+      .select('id, set_code, collector_number, language, card_type, serial, card_name')
+      .in('id', cardIds)
+      .limit(cardIds.length + 1)
+
+    if (cardsFetchError) throw new Error('Failed to fetch card metadata')
+
+    for (const c of cardsData ?? []) {
+      cardsById.set(c.id, {
+        set_code: (c.set_code as string | null) ?? null,
+        collector_number: (c.collector_number as string | null) ?? null,
+        language: (c.language as string | null) ?? null,
+        card_type: (c.card_type as string) ?? '',
+        serial: (c.serial as string | null) ?? null,
+        card_name: (c.card_name as string) ?? ''
+      })
+    }
+  }
+
+  // ── Step 3: group by bundle set_code (set_cards.set_code)
   const cardsBySet = new Map<string, Array<{
     set_code: string | null
     collector_number: string | null
     language: string | null
     card_type: string
+    serial: string | null
+    card_name: string
     quantity: number
   }>>()
 
   for (const sc of setCards ?? []) {
-    const bundleCode = (sc as unknown as { bundle_set_code: string | null }).bundle_set_code
-    const card = sc.cards as {
-      set_code: string | null
-      collector_number: string | null
-      language: string | null
-      card_type: string
-    } | null
-    if (!bundleCode) continue
+    const bundleCode = sc.set_code as string | null
+    if (!bundleCode || !sc.card_id) continue
+    const card = cardsById.get(sc.card_id as string) ?? null
     if (!cardsBySet.has(bundleCode)) cardsBySet.set(bundleCode, [])
     cardsBySet.get(bundleCode)!.push({
       set_code: card?.set_code ?? null,
       collector_number: card?.collector_number ?? null,
       language: card?.language ?? null,
       card_type: card?.card_type ?? '',
+      serial: card?.serial ?? null,
+      card_name: card?.card_name ?? '',
       quantity: (sc.quantity as number) ?? 1
     })
   }
@@ -650,13 +686,15 @@ export async function exportAllSets(): Promise<Buffer> {
 
     if (importedCards.length > 0) {
       // ── Structured card rows ──
-      lines.push(csvRow('Set Code', 'Collector #', 'Language', 'Finish / Type', 'Quantity'))
+      lines.push(csvRow('Set', 'Coll#', 'Lang', 'Card Name', 'Type', 'Serial', 'Qty'))
       for (const card of importedCards) {
         lines.push(csvRow(
           (card.set_code ?? '').toUpperCase(),
           card.collector_number ?? '',
           card.language && card.language !== 'en' ? card.language : '',
+          card.card_name,
           card.card_type ?? '',
+          card.serial ?? '',
           card.quantity
         ))
       }
