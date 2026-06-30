@@ -56,7 +56,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       // Allow images from Supabase storage, Google auth avatars, and Scryfall (card images + mana symbols)
-      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://*.scryfall.io https://svgs.scryfall.io",
+      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://*.scryfall.io https://svgs.scryfall.io https://cdn.discordapp.com",
       // Block all framing
       "frame-ancestors 'none'",
       // Block object/embed
