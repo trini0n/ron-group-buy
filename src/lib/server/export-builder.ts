@@ -598,26 +598,40 @@ export async function exportAllSets(): Promise<Buffer> {
 
   if (setsError) throw new Error('Failed to fetch sets')
 
-  // ── Step 1: fetch set_cards WITHOUT a join to avoid PostgREST shadowing set_cards.set_code
-  //   with the identically-named cards.set_code column (was silently dropping Holo/Normal sets).
-  // Supabase JS default cap is 1000 rows — override with an explicit limit.
-  const { data: setCards, error: setCardsError } = await adminClient
-    .from('set_cards')
-    .select('set_code, card_id, quantity')
-    .limit(50000)
-    .order('created_at', { ascending: true })
+  // ── Step 1: fetch set_cards WITHOUT a join to avoid PostgREST column name shadowing.
+  // PostgREST enforces a server-side max-rows cap (1000) that overrides any client .limit().
+  // Paginate with .range() so we always get every row regardless of catalog size.
+  const PAGE_SIZE = 1000
+  const allSetCards: Array<{ set_code: string; card_id: string; quantity: number }> = []
+  let page = 0
 
-  if (setCardsError) throw new Error('Failed to fetch set cards')
+  while (true) {
+    const { data: pageData, error: pageError } = await adminClient
+      .from('set_cards')
+      .select('set_code, card_id, quantity')
+      .order('created_at', { ascending: true })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+    if (pageError) throw new Error(`Failed to fetch set_cards page ${page}: ${pageError.message}`)
+    if (!pageData || pageData.length === 0) break
+
+    allSetCards.push(
+      ...(pageData as Array<{ set_code: string; card_id: string; quantity: number }>)
+    )
+
+    if (pageData.length < PAGE_SIZE) break // last page
+    page++
+  }
 
   logger.info(
-    { setCardsCount: setCards?.length ?? 0, setsCount: sets?.length ?? 0 },
+    { setCardsCount: allSetCards.length, setsCount: sets?.length ?? 0, pages: page + 1 },
     '[sets-export] set_cards rows fetched'
   )
 
   // ── Step 2: fetch card metadata in one batch using the collected card IDs
   const cardIds = [
     ...new Set(
-      (setCards ?? []).map((sc) => sc.card_id).filter((id): id is string => Boolean(id))
+      allSetCards.map((sc) => sc.card_id).filter((id): id is string => Boolean(id))
     )
   ]
 
@@ -674,7 +688,7 @@ export async function exportAllSets(): Promise<Buffer> {
     quantity: number
   }>>()
 
-  for (const sc of setCards ?? []) {
+  for (const sc of allSetCards) {
     const bundleCode = sc.set_code as string | null
     if (!bundleCode || !sc.card_id) continue
     const card = cardsById.get(sc.card_id as string) ?? null
