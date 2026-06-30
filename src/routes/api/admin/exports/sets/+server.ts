@@ -21,7 +21,9 @@ export async function GET({ locals }: RequestEvent) {
       }
     })
   } catch (err) {
-    logger.error({ error: err }, 'Sets export error')
-    throw error(500, `Failed to export sets: ${(err as Error).message}`)
+    const msg = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
+    logger.error({ message: msg, stack }, 'Sets export error')
+    throw error(500, `Failed to export sets: ${msg}`)
   }
 }

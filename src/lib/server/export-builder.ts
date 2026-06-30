@@ -625,23 +625,30 @@ export async function exportAllSets(): Promise<Buffer> {
   }>()
 
   if (cardIds.length > 0) {
-    const { data: cardsData, error: cardsFetchError } = await adminClient
-      .from('cards')
-      .select('id, set_code, collector_number, language, card_type, serial, card_name')
-      .in('id', cardIds)
-      .limit(cardIds.length + 1)
+    // Chunk into batches of 500 — .in() encodes IDs in the URL and hits length limits
+    // with large catalogs, which causes a silent empty-response or fetch error.
+    const CHUNK = 500
+    for (let i = 0; i < cardIds.length; i += CHUNK) {
+      const chunk = cardIds.slice(i, i + CHUNK)
+      const { data: cardsData, error: cardsFetchError } = await adminClient
+        .from('cards')
+        .select('id, set_code, collector_number, language, card_type, serial, card_name')
+        .in('id', chunk)
 
-    if (cardsFetchError) throw new Error('Failed to fetch card metadata')
+      if (cardsFetchError) {
+        throw new Error(`Failed to fetch card metadata (chunk ${Math.floor(i / CHUNK) + 1}): ${cardsFetchError.message}`)
+      }
 
-    for (const c of cardsData ?? []) {
-      cardsById.set(c.id, {
-        set_code: (c.set_code as string | null) ?? null,
-        collector_number: (c.collector_number as string | null) ?? null,
-        language: (c.language as string | null) ?? null,
-        card_type: (c.card_type as string) ?? '',
-        serial: (c.serial as string | null) ?? null,
-        card_name: (c.card_name as string) ?? ''
-      })
+      for (const c of cardsData ?? []) {
+        cardsById.set(c.id, {
+          set_code: (c.set_code as string | null) ?? null,
+          collector_number: (c.collector_number as string | null) ?? null,
+          language: (c.language as string | null) ?? null,
+          card_type: (c.card_type as string) ?? '',
+          serial: (c.serial as string | null) ?? null,
+          card_name: (c.card_name as string) ?? ''
+        })
+      }
     }
   }
 
