@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as DropdownMenu from '$components/ui/dropdown-menu';
   import { Button } from '$components/ui/button';
-  import { ShoppingCart, User, Menu, Sun, Moon, LogOut, Shield } from 'lucide-svelte';
+  import { ShoppingCart, User, Menu, Sun, Moon, LogOut, Shield, ChevronDown, LayoutGrid, TrendingUp } from 'lucide-svelte';
   import { toggleMode, mode } from 'mode-watcher';
   import { cartStore } from '$lib/stores/cart.svelte';
   import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -30,9 +30,30 @@
 
     <!-- Navigation -->
     <nav class="hidden items-center gap-6 md:flex">
-      <a href="/" class="text-sm font-medium transition-colors hover:text-primary">
-        Cards
-      </a>
+      <!-- Cards nav with hover dropdown -->
+      <div class="group relative">
+        <button class="flex items-center gap-1 py-2 text-sm font-medium transition-colors hover:text-primary">
+          Cards
+          <ChevronDown class="h-3 w-3 transition-transform duration-150 group-hover:rotate-180" />
+        </button>
+        <!-- Dropdown panel — pure CSS hover, no JS -->
+        <div class="invisible absolute left-0 top-full z-50 mt-1 w-52 rounded-md border bg-popover py-1 opacity-0 shadow-lg transition-all duration-150 group-hover:visible group-hover:opacity-100">
+          <a
+            href="/"
+            class="flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-accent"
+          >
+            <LayoutGrid class="h-4 w-4 text-muted-foreground" />
+            Browse All Cards
+          </a>
+          <a
+            href="/cards/popular"
+            class="flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-accent"
+          >
+            <TrendingUp class="h-4 w-4 text-muted-foreground" />
+            Most Popular
+          </a>
+        </div>
+      </div>
       <a href="/sets" class="text-sm font-medium transition-colors hover:text-primary">
         Sets
       </a>
@@ -119,7 +140,13 @@
         </DropdownMenu.Trigger>
         <DropdownMenu.Content sideOffset={4}>
           <DropdownMenu.Item>
-            <a href="/" class="flex w-full items-center">Cards</a>
+            <a href="/" class="flex w-full items-center">Browse All Cards</a>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item>
+            <a href="/cards/popular" class="flex w-full items-center gap-2">
+              <TrendingUp class="h-4 w-4" />
+              Most Popular
+            </a>
           </DropdownMenu.Item>
           <DropdownMenu.Item>
             <a href="/sets" class="flex w-full items-center">Sets</a>
