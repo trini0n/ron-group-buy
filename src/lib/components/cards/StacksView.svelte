@@ -275,6 +275,35 @@
     if (c.scryfall_id) return getScryfallImageUrl(c.scryfall_id, 'normal')
     return '/images/card-placeholder.png'
   }
+
+  // ── Tap-to-reveal (mobile) ───────────────────────────────────────────────
+  //
+  // On touch devices hover isn't available, so we intercept the click event:
+  //
+  //   First tap on a hidden card  → reveal it (set hoveredInfo), block navigation.
+  //   Second tap on revealed card → navigation proceeds normally.
+  //
+  // "Revealed" = the card's full face is currently visible:
+  //   • idx === 0        — top card, always visible, navigates immediately.
+  //   • hoveredInfo matches this card — full face exposed by slide-down animation.
+  //
+  // On desktop, hover fires BEFORE click, so hoveredInfo is already set when
+  // the click event arrives → isRevealed is true → navigation proceeds unchanged.
+  //
+  function onCardClick(e: MouseEvent, setCode: string, idx: number) {
+    const isRevealed =
+      idx === 0 ||
+      (hoveredInfo !== null && hoveredInfo.setCode === setCode && hoveredInfo.idx === idx)
+
+    if (!isRevealed) {
+      e.preventDefault()
+      // Cancel any in-flight timers and immediately reveal this card
+      if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+      if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+      hoveredInfo = { setCode, idx }
+    }
+    // If already revealed, let the <a> navigate naturally
+  }
 </script>
 
 <!--
@@ -403,6 +432,7 @@
             onmouseleave={onLeave}
             onfocus={() => onEnter(col.setCode, i)}
             onblur={onLeave}
+            onclick={(e) => onCardClick(e, col.setCode, i)}
           >
             <!-- Scryfall card image -->
             <img
