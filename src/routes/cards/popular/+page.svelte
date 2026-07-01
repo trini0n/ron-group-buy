@@ -17,6 +17,9 @@
 
   let { data } = $props()
 
+  // EUR → USD conversion rate (reasonable static estimate; no need for live API on a public page)
+  const EUR_TO_USD = 1.08
+
   // ── Filter state ────────────────────────────────────────────────────────────
   let metricMode = $state<'copies' | 'orders'>('copies')
   let topN = $state<20 | 50 | 100 | 200>(20)
@@ -27,9 +30,16 @@
   let quantity = $state(1)
 
   // ── Scryfall detail types + cache ───────────────────────────────────────────
+  interface ScryfallPrices {
+    usd: string | null
+    usd_foil: string | null
+    usd_etched: string | null
+    eur: string | null
+    eur_foil: string | null
+  }
   interface ScryfallDetail {
     oracle_text: string | null
-    prices: { usd: string | null; usd_foil: string | null } | null
+    prices: ScryfallPrices | null
     rarity: string | null
   }
 
@@ -37,8 +47,12 @@
   const scryfallCache = new Map<string, ScryfallDetail>()
   let detailData = $state<ScryfallDetail | null>(null)
 
-  // ── Hover debounce timer ────────────────────────────────────────────────────
-  let hoverTimer: ReturnType<typeof setTimeout> | null = null
+  // ── Symbol map from server (symbol → svg_uri) ───────────────────────────────
+  const symbolMap = $derived((data.symbolMap ?? {}) as Record<string, string>)
+
+  // ── Hover debounce timers (same pattern as StacksView) ─────────────────────
+  let enterTimer: ReturnType<typeof setTimeout> | null = null
+  let leaveTimer: ReturnType<typeof setTimeout> | null = null
 
   // ── Derived: sorted + sliced card list ─────────────────────────────────────
   const filteredCards = $derived.by(() => {
@@ -50,16 +64,11 @@
     return sorted.slice(0, topN).map((c, i) => ({ ...c, rank: i + 1 }))
   })
 
-  // ── Group buy select value (shadcn Select uses string) ──────────────────────
+  // ── Group buy select value ───────────────────────────────────────────────────
   const groupBuySelectValue = $derived(data.groupBuyFilter ?? 'all')
-
-  // Active group buy (is_active = true)
   const activeGroupBuy = $derived(data.groupBuys.find((gb) => gb.is_active) ?? null)
-
-  // Inactive group buys (sorted by created_at desc — already sorted from server)
   const inactiveGroupBuys = $derived(data.groupBuys.filter((gb) => !gb.is_active))
 
-  // ── Group buy filter handler ────────────────────────────────────────────────
   function onGroupBuyChange(value: string | undefined) {
     if (!value || value === 'all') {
       goto('/cards/popular')
@@ -68,26 +77,28 @@
     }
   }
 
-  // ── Hover handlers ──────────────────────────────────────────────────────────
-  function onCardHover(card: PopularCard) {
-    // Already selected — don't re-trigger
+  // ── Hover handlers (StacksView grace-period pattern) ───────────────────────
+  function onCardEnter(card: PopularCard) {
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+    if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+
+    // Already selected — don't re-trigger Scryfall fetch
     if (selectedCard?.card_name === card.card_name) return
-    if (hoverTimer) clearTimeout(hoverTimer)
-    hoverTimer = setTimeout(() => {
+
+    enterTimer = setTimeout(() => {
       selectedCard = card
       quantity = 1
       fetchScryfallDetail(card.scryfall_id)
-      hoverTimer = null
+      enterTimer = null
     }, 75)
   }
 
   function onCardLeave() {
-    // Cancel enter debounce if user left before it fired
-    // Do NOT clear selectedCard — the detail panel persists after mouse leaves
-    if (hoverTimer) {
-      clearTimeout(hoverTimer)
-      hoverTimer = null
-    }
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+    // Grace period: keep selectedCard visible so user can move to detail panel
+    leaveTimer = setTimeout(() => {
+      leaveTimer = null
+    }, 50)
   }
 
   // ── Scryfall lazy fetch ─────────────────────────────────────────────────────
@@ -109,10 +120,7 @@
       const res = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
         headers: { 'User-Agent': 'RonGroupBuy/1.0' }
       })
-      if (!res.ok) {
-        detailData = null
-        return
-      }
+      if (!res.ok) { detailData = null; return }
       const json = await res.json()
       const detail: ScryfallDetail = {
         oracle_text: json.oracle_text ?? null,
@@ -128,23 +136,111 @@
     }
   }
 
-  // ── CMC parser: "{2}{W}{U}" → "4" ──────────────────────────────────────────
-  function parseCmc(manaCost: string): string {
-    let cmc = 0
-    const generics = manaCost.match(/\{(\d+)\}/g)
-    if (generics) cmc += generics.reduce((s, m) => s + parseInt(m.slice(1, -1), 10), 0)
-    const colored = manaCost.match(/\{[WUBRGC]\}/gi)
-    if (colored) cmc += colored.length
-    return cmc > 0 ? String(cmc) : ''
+  // ── Mana cost rendering ─────────────────────────────────────────────────────
+  // Converts "{2}{W}{U}" → array of [{sym: '{2}', url: '...'}, ...]
+  interface ManaPart {
+    sym: string
+    url: string | null
+  }
+  function parseManaCost(manaCost: string): ManaPart[] {
+    const parts: ManaPart[] = []
+    const re = /\{[^}]+\}/g
+    let match
+    while ((match = re.exec(manaCost)) !== null) {
+      const sym = match[0]
+      parts.push({ sym, url: symbolMap[sym] ?? null })
+    }
+    return parts
+  }
+
+  // ── Oracle text: replace {sym} tokens with <img> tags ──────────────────────
+  function renderOracleText(text: string): string {
+    return text.replace(/\{[^}]+\}/g, (sym) => {
+      const url = symbolMap[sym]
+      if (url) {
+        return `<img src="${url}" alt="${sym}" class="inline-block h-4 w-4 align-middle" />`
+      }
+      return sym
+    })
+  }
+
+  // ── Market price: USD preferred, fallback EUR × rate ───────────────────────
+  function getMarketPrice(card: PopularCard, detail: ScryfallDetail | null): string | null {
+    if (!detail?.prices) return null
+    const isFoil = !!(card.foil_type || card.card_type?.toLowerCase().includes('foil'))
+    const isEtched = card.foil_type?.toLowerCase() === 'etched' || card.card_type?.toLowerCase() === 'etched'
+    const p = detail.prices
+
+    // Priority: USD finish-specific → USD base → EUR finish × rate → EUR base × rate
+    let usd: string | null = null
+    if (isEtched) {
+      usd = p.usd_etched ?? p.usd_foil ?? p.usd
+    } else if (isFoil) {
+      usd = p.usd_foil ?? p.usd
+    } else {
+      usd = p.usd
+    }
+    if (usd) return parseFloat(usd).toFixed(2)
+
+    // EUR fallback
+    let eur: string | null = isFoil ? (p.eur_foil ?? p.eur) : p.eur
+    if (eur) return (parseFloat(eur) * EUR_TO_USD).toFixed(2)
+
+    return null
   }
 
   function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1)
   }
 
+  // ── Rank medal colors ───────────────────────────────────────────────────────
+  function rankClass(rank: number): string {
+    if (rank === 1) return 'text-yellow-500 font-bold'
+    if (rank === 2) return 'text-slate-400 font-bold'
+    if (rank === 3) return 'text-amber-600 font-bold'
+    return 'text-muted-foreground'
+  }
+
+  // ── Stacking geometry (mirrors StacksView) ──────────────────────────────────
+  // 13% of card height = peek strip showing the card name banner.
+  // card_height = 1.4 × width  (2.5:3.5 aspect ratio)
+  // peek_height = 0.13 × 1.4w = 0.182w
+  // overlap     = 1.4w − 0.182w = 1.218w  →  121.8% of column width
+  const OVERLAP = '121.8%'
+
+  function marginTop(i: number, hoveredIdx: number | null): string {
+    if (i === 0) return '0'
+    if (hoveredIdx !== null && i === hoveredIdx + 1) return '0'
+    return `-${OVERLAP}`
+  }
+
+  let hoveredIdx = $state<number | null>(null)
+
+  function onStackEnter(idx: number, card: PopularCard) {
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+    if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+
+    enterTimer = setTimeout(() => {
+      hoveredIdx = idx
+      selectedCard = card
+      quantity = 1
+      fetchScryfallDetail(card.scryfall_id)
+      enterTimer = null
+    }, 75)
+  }
+
+  function onStackLeave() {
+    if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
+    leaveTimer = setTimeout(() => {
+      hoveredIdx = null
+      leaveTimer = null
+      // selectedCard intentionally kept — detail persists
+    }, 50)
+  }
+
+  // ── Add to cart ─────────────────────────────────────────────────────────────
   function handleAddToCart() {
     if (!selectedCard?.card_id || !selectedCard.is_in_stock) return
-    // Build a Card Row-compatible object for cartStore.addItem
     const cardForCart = {
       id: selectedCard.card_id,
       card_name: selectedCard.card_name,
@@ -180,24 +276,19 @@
     cartStore.addItem(cardForCart, quantity)
     quantity = 1
   }
-
-
-  // ── Rank medal colors ───────────────────────────────────────────────────────
-  function rankClass(rank: number): string {
-    if (rank === 1) return 'text-yellow-500 font-bold'
-    if (rank === 2) return 'text-slate-400 font-bold'
-    if (rank === 3) return 'text-amber-600 font-bold'
-    return 'text-muted-foreground'
-  }
-
-  // ── Market price display ────────────────────────────────────────────────────
-  function getMarketPrice(card: PopularCard, detail: ScryfallDetail | null): string | null {
-    if (!detail?.prices) return null
-    const isFoil = card.card_type?.toLowerCase().includes('foil') ?? false
-    const price = isFoil ? detail.prices.usd_foil : detail.prices.usd
-    return price ?? null
-  }
 </script>
+
+<style>
+  /* Immediate amber glow on hover (no debounce delay) — same as StacksView */
+  .stack-card {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  }
+  .stack-card:hover {
+    box-shadow:
+      0 16px 36px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(245, 145, 5, 0.8);
+  }
+</style>
 
 <svelte:head>
   <title>Most Popular Cards | Group Buy</title>
@@ -301,8 +392,8 @@
   <!-- ── Split panel ────────────────────────────────────────────────────────── -->
   <div class="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
 
-    <!-- ── Left: Ranked card list ─────────────────────────────────────────── -->
-    <div class="w-full flex-none md:w-72">
+    <!-- ── Left: Stacked card column (StacksView pattern) ─────────────────── -->
+    <div class="w-full flex-none md:w-56 lg:w-64">
       {#if filteredCards.length === 0}
         <div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-muted-foreground">
           <TrendingUp class="mb-3 h-10 w-10 opacity-30" />
@@ -310,32 +401,59 @@
           <p class="mt-1 text-xs">Check back after the first group buy</p>
         </div>
       {:else}
-        <div class="max-h-[calc(100vh-14rem)] overflow-y-auto rounded-lg border">
-          {#each filteredCards as card (card.card_name)}
-            <button
-              class="flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-colors
-                     last:border-b-0 hover:bg-accent
-                     {selectedCard?.card_name === card.card_name ? 'bg-accent' : ''}"
-              onmouseenter={() => onCardHover(card)}
-              onmouseleave={onCardLeave}
-              id="popular-card-{card.rank}"
+        <!-- Stack: card images overlapping with 13% peek strip, same as StacksView -->
+        <div class="relative">
+          {#each filteredCards as card, i (card.card_name)}
+            {@const mt = marginTop(i, hoveredIdx)}
+            {@const isHovered = hoveredIdx === i}
+            {@const isActive = selectedCard?.card_name === card.card_name}
+
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="stack-card relative block w-full cursor-pointer overflow-hidden rounded-[10px]"
+              style="
+                aspect-ratio: 2.5/3.5;
+                margin-top: {mt};
+                z-index: {isHovered ? filteredCards.length + 50 : i + 1};
+                transition: margin-top 250ms cubic-bezier(0.4, 0, 0.2, 1);
+                outline: {isActive ? '2px solid rgba(245, 145, 5, 0.9)' : 'none'};
+              "
+              onmouseenter={() => onStackEnter(i, card)}
+              onmouseleave={onStackLeave}
+              role="button"
+              tabindex="0"
               aria-label="View details for {card.card_name} (rank #{card.rank})"
+              aria-pressed={isActive}
+              id="popular-card-{card.rank}"
             >
-              <!-- Rank -->
-              <span class="w-8 flex-none text-right text-sm font-mono {rankClass(card.rank)}">
-                #{card.rank}
-              </span>
+              <!-- Card image -->
+              <img
+                src={card.scryfall_id
+                  ? getScryfallImageUrl(card.scryfall_id, 'normal')
+                  : '/images/card-placeholder.png'}
+                alt={card.card_name}
+                class="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                draggable="false"
+              />
 
-              <!-- Card name -->
-              <span class="min-w-0 flex-1 truncate text-sm font-medium">
-                {card.card_name}
-              </span>
+              <!-- Rank badge (top-left, amber pill) -->
+              <div
+                class="absolute left-1 top-1 z-10 flex h-[18px] min-w-[18px] items-center justify-center
+                       rounded-full px-1 text-[10px] font-extrabold leading-none text-white shadow-lg tabular-nums"
+                style="background-color: #f59105; border: 1.5px solid rgba(255,255,255,0.35);"
+              >
+                {card.rank}
+              </div>
 
-              <!-- Count badge -->
-              <span class="flex-none rounded-full bg-primary/15 px-2 py-0.5 text-xs text-primary tabular-nums">
+              <!-- Metric badge (top-right) -->
+              <div
+                class="absolute right-1 top-1 z-10 flex h-[18px] min-w-[18px] items-center justify-center
+                       rounded-full bg-black/60 px-1 text-[9px] font-bold leading-none text-white shadow tabular-nums"
+              >
                 {metricMode === 'copies' ? card.total_copies : card.distinct_orders}
-              </span>
-            </button>
+              </div>
+            </div>
           {/each}
         </div>
       {/if}
@@ -371,20 +489,29 @@
             <!-- Card metadata -->
             <div class="min-w-0 flex-1">
 
-              <!-- Name + CMC -->
-              <div class="mb-1 flex items-start justify-between gap-2">
-                <h2 class="text-lg font-bold leading-tight sm:text-xl">
-                  {selectedCard.card_name}
-                </h2>
-                {#if selectedCard.mana_cost}
-                  {@const cmc = parseCmc(selectedCard.mana_cost)}
-                  {#if cmc}
-                    <span class="flex-none rounded-full bg-muted px-2 py-0.5 font-mono text-sm font-bold">
-                      {cmc}
-                    </span>
-                  {/if}
-                {/if}
-              </div>
+              <!-- Name -->
+              <h2 class="mb-1 text-lg font-bold leading-tight sm:text-xl">
+                {selectedCard.card_name}
+              </h2>
+
+              <!-- Mana cost as symbols -->
+              {#if selectedCard.mana_cost}
+                {@const parts = parseManaCost(selectedCard.mana_cost)}
+                <div class="mb-2 flex flex-wrap items-center gap-0.5">
+                  {#each parts as part (part.sym)}
+                    {#if part.url}
+                      <img
+                        src={part.url}
+                        alt={part.sym}
+                        title={part.sym}
+                        class="h-4 w-4 object-contain"
+                      />
+                    {:else}
+                      <span class="rounded bg-muted px-1 font-mono text-xs">{part.sym}</span>
+                    {/if}
+                  {/each}
+                </div>
+              {/if}
 
               <!-- Set info line -->
               <p class="mb-2 text-sm text-muted-foreground">
@@ -407,12 +534,13 @@
 
               <hr class="my-3" />
 
-              <!-- Oracle text -->
+              <!-- Oracle text with symbol rendering -->
               {#if detailLoading}
                 <div class="h-16 animate-pulse rounded bg-muted"></div>
               {:else if detailData?.oracle_text}
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                 <p class="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                  {detailData.oracle_text}
+                  {@html renderOracleText(detailData.oracle_text)}
                 </p>
               {:else if selectedCard.scryfall_id}
                 <p class="text-xs text-muted-foreground/60 italic">Loading oracle text…</p>
@@ -425,13 +553,19 @@
 
             <!-- Price row -->
             <div class="mb-4 flex items-baseline gap-3">
+              <!-- Our price -->
               <span class="text-2xl font-bold text-primary">
                 {formatPrice(getCardPrice(selectedCard.foil_type ?? selectedCard.card_type ?? 'Normal'))}
               </span>
-              {#if detailData}
+              <!-- Market price (Scryfall) -->
+              {#if detailLoading}
+                <span class="text-sm text-muted-foreground animate-pulse">mkt …</span>
+              {:else}
                 {@const mktPrice = getMarketPrice(selectedCard, detailData)}
                 {#if mktPrice}
                   <span class="text-sm text-muted-foreground">mkt ${mktPrice}</span>
+                {:else if selectedCard.scryfall_id && detailData}
+                  <span class="text-sm text-muted-foreground/50 italic">no market price</span>
                 {/if}
               {/if}
             </div>
