@@ -50,8 +50,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      // Allow Supabase API and auth
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      // Allow Supabase API and auth, and Scryfall API (for /cards/popular lazy fetch)
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.scryfall.com",
       // Allow Google Fonts
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
