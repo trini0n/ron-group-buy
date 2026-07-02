@@ -94,19 +94,38 @@ export async function POST({ locals }: RequestEvent) {
 
   const start = Date.now()
 
-  // 1. Fetch all cards with a scryfall_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: cards, error: fetchError } = await (locals.supabase as any)
-    .from('cards')
-    .select('id, scryfall_id, card_type, foil_type, is_etched')
-    .not('scryfall_id', 'is', null)
+  // 1. Fetch ALL cards with a scryfall_id using pagination to bypass
+  //    Supabase's default 1000-row cap per query.
+  const DB_BATCH = 1000
+  let offset = 0
+  let hasMore = true
+  const allCards: Array<{ id: string; scryfall_id: string; card_type: string; foil_type: string | null; is_etched: boolean | null }> = []
 
-  if (fetchError) {
-    logger.error({ error: fetchError }, 'sync-market-prices: failed to fetch cards')
-    throw error(500, fetchError.message)
+  while (hasMore) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: batch, error: fetchError } = await (locals.supabase as any)
+      .from('cards')
+      .select('id, scryfall_id, card_type, foil_type, is_etched')
+      .not('scryfall_id', 'is', null)
+      .range(offset, offset + DB_BATCH - 1)
+
+    if (fetchError) {
+      logger.error({ error: fetchError }, 'sync-market-prices: failed to fetch cards')
+      throw error(500, fetchError.message)
+    }
+
+    if (batch && batch.length > 0) {
+      allCards.push(...batch)
+      offset += DB_BATCH
+      hasMore = batch.length === DB_BATCH
+    } else {
+      hasMore = false
+    }
   }
 
-  if (!cards || cards.length === 0) {
+  const cards = allCards
+
+  if (cards.length === 0) {
     return json({ updated: 0, skipped: 0, elapsed_ms: 0 })
   }
 
@@ -177,31 +196,48 @@ export async function POST({ locals }: RequestEvent) {
     }
   }
 
-  // 4. Bulk-update the DB (batch by 500 to stay within supabase limits)
-  const UPDATE_BATCH = 500
+  // 4. Bulk-update the DB.
+  //    Strategy: group by resolved price value, then issue one UPDATE per
+  //    unique price using .in(ids). For ~5000 cards this reduces DB round-trips
+  //    from O(N) to O(distinct prices) — typically well under 1000 calls.
   const now = new Date().toISOString()
+  const IN_BATCH_SIZE = 500 // max IDs per .in() to stay within URL length limits
 
-  for (let i = 0; i < updates.length; i += UPDATE_BATCH) {
-    const batch = updates.slice(i, i + UPDATE_BATCH)
+  // Group card IDs by their resolved price (null prices handled separately)
+  const priceGroups = new Map<string, string[]>() // price string (or 'null') → [id, ...]
+  for (const u of updates) {
+    const key = u.market_price_usd === null ? '__null__' : String(u.market_price_usd)
+    const bucket = priceGroups.get(key)
+    if (bucket) {
+      bucket.push(u.id)
+    } else {
+      priceGroups.set(key, [u.id])
+    }
+  }
 
-    for (const u of batch) {
+  for (const [priceKey, ids] of priceGroups) {
+    const priceValue = priceKey === '__null__' ? null : parseFloat(priceKey)
+
+    // Chunk IDs to avoid over-long .in() arrays
+    for (let i = 0; i < ids.length; i += IN_BATCH_SIZE) {
+      const chunk = ids.slice(i, i + IN_BATCH_SIZE)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: updateError } = await (locals.supabase as any)
         .from('cards')
-        .update({ market_price_usd: u.market_price_usd, market_price_updated_at: now })
-        .eq('id', u.id)
+        .update({ market_price_usd: priceValue, market_price_updated_at: now })
+        .in('id', chunk)
 
       if (updateError) {
-        logger.error({ error: updateError, cardId: u.id }, 'sync-market-prices: failed to update card')
-        skipped++
+        logger.error({ error: updateError, priceKey, chunkSize: chunk.length }, 'sync-market-prices: batch update failed')
+        skipped += chunk.length
       } else {
-        updated++
+        updated += chunk.length
       }
     }
   }
 
   const elapsed_ms = Date.now() - start
-  logger.info({ updated, skipped, elapsed_ms }, 'sync-market-prices: complete')
+  logger.info({ updated, skipped, elapsed_ms, totalCards: cards.length }, 'sync-market-prices: complete')
 
   return json({ updated, skipped, elapsed_ms })
 }
