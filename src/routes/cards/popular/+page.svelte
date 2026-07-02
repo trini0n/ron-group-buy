@@ -21,7 +21,7 @@
   const EUR_TO_USD = 1.08
 
   // ── Filter state ────────────────────────────────────────────────────────────
-  let metricMode = $state<'copies' | 'orders'>('copies')
+  let metricMode = $state<'copies' | 'orders'>('orders')
   let topN = $state<20 | 50 | 100 | 200>(20)
 
   // ── Hover / detail state ────────────────────────────────────────────────────
@@ -41,11 +41,19 @@
     oracle_text: string | null
     prices: ScryfallPrices | null
     rarity: string | null
+    // Verified-correct Scryfall image URI (normal size). Populated by fetchScryfallDetail
+    // which checks the API response name matches the catalog name — if not, it does a
+    // secondary /cards/named lookup to get the right image regardless of DB scryfall_id.
+    image_uri: string | null
   }
 
-  // Module-scope cache persists across hover events in the same session
+  // Module-scope cache (key = card_name lowercase for name-verified entries)
   const scryfallCache = new Map<string, ScryfallDetail>()
   let detailData = $state<ScryfallDetail | null>(null)
+
+  // Reactive map: card_name (lowercase) → verified correct image URI.
+  // Updated after each hover fetch so the left stack column also shows correct images.
+  let correctImageUriMap = $state<Record<string, string>>({})
 
   // ── Symbol map from server (symbol → svg_uri) ───────────────────────────────
   const symbolMap = $derived((data.symbolMap ?? {}) as Record<string, string>)
@@ -88,7 +96,7 @@
     enterTimer = setTimeout(() => {
       selectedCard = card
       quantity = 1
-      fetchScryfallDetail(card.scryfall_id)
+      fetchScryfallDetail(card.scryfall_id, card.card_name)
       enterTimer = null
     }, 75)
   }
@@ -102,33 +110,65 @@
   }
 
   // ── Scryfall lazy fetch ─────────────────────────────────────────────────────
-  async function fetchScryfallDetail(scryfallId: string | null) {
-    if (!scryfallId) {
-      detailData = null
-      return
-    }
+  // Fetches by scryfall_id first (fast), then verifies the returned card name
+  // matches `expectedCardName`. If not (DB data corruption — card_id links to
+  // a different card than ordered), falls back to /cards/named for correct data.
+  // Cache key = card_name (lowercase) so name-verified entries are always reused.
+  async function fetchScryfallDetail(scryfallId: string | null, expectedCardName: string) {
+    const cacheKey = expectedCardName.toLowerCase()
 
     // Cache hit — instant
-    if (scryfallCache.has(scryfallId)) {
-      detailData = scryfallCache.get(scryfallId)!
+    if (scryfallCache.has(cacheKey)) {
+      detailData = scryfallCache.get(cacheKey)!
       return
     }
 
     detailLoading = true
     detailData = null
     try {
-      const res = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
-        headers: { 'User-Agent': 'RonGroupBuy/1.0' }
-      })
-      if (!res.ok) { detailData = null; return }
-      const json = await res.json()
-      const detail: ScryfallDetail = {
-        oracle_text: json.oracle_text ?? null,
-        prices: json.prices ?? null,
-        rarity: json.rarity ?? null
+      // Step 1: fetch by scryfall_id (fastest, most specific)
+      let json: Record<string, unknown> | null = null
+      if (scryfallId) {
+        const res = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
+          headers: { 'User-Agent': 'RonGroupBuy/1.0' }
+        })
+        if (res.ok) json = await res.json()
       }
-      scryfallCache.set(scryfallId, detail)
+
+      // Step 2: verify the returned card name matches what we expect.
+      // If the DB scryfall_id is stale/wrong (e.g., card was replaced in catalog),
+      // the API will return the wrong card. Detect this and re-fetch by name.
+      const returnedName = (json?.name as string | undefined) ?? ''
+      const nameMatches = returnedName.toLowerCase() === expectedCardName.toLowerCase()
+
+      if (!json || !nameMatches) {
+        // Fall back to name-based lookup — always returns the correct card
+        const nameRes = await fetch(
+          `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(expectedCardName)}`,
+          { headers: { 'User-Agent': 'RonGroupBuy/1.0' } }
+        )
+        if (nameRes.ok) json = await nameRes.json()
+      }
+
+      if (!json) { detailData = null; return }
+
+      // Extract verified image URI (normal size)
+      const imageUris = json.image_uris as Record<string, string> | undefined
+      const imageUri = imageUris?.normal ?? null
+
+      const detail: ScryfallDetail = {
+        oracle_text: (json.oracle_text as string | null) ?? null,
+        prices: (json.prices as ScryfallPrices | null) ?? null,
+        rarity: (json.rarity as string | null) ?? null,
+        image_uri: imageUri
+      }
+      scryfallCache.set(cacheKey, detail)
       detailData = detail
+
+      // Update reactive image map so the left stack column also corrects itself
+      if (imageUri) {
+        correctImageUriMap = { ...correctImageUriMap, [cacheKey]: imageUri }
+      }
     } catch {
       detailData = null
     } finally {
@@ -224,7 +264,7 @@
       hoveredIdx = idx
       selectedCard = card
       quantity = 1
-      fetchScryfallDetail(card.scryfall_id)
+      fetchScryfallDetail(card.scryfall_id, card.card_name)
       enterTimer = null
     }, 75)
   }
@@ -352,17 +392,8 @@
       </Select.Root>
     </div>
 
-    <!-- Metric toggle -->
+    <!-- Metric toggle: By Orders first (default), By Copies second -->
     <div class="flex items-center gap-1 rounded-lg border p-1">
-      <button
-        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors
-               {metricMode === 'copies' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
-        onclick={() => metricMode = 'copies'}
-        id="metric-copies"
-      >
-        <Hash class="h-3.5 w-3.5" />
-        By Copies
-      </button>
       <button
         class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors
                {metricMode === 'orders' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
@@ -371,6 +402,15 @@
       >
         <BarChart2 class="h-3.5 w-3.5" />
         By Orders
+      </button>
+      <button
+        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+               {metricMode === 'copies' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
+        onclick={() => metricMode = 'copies'}
+        id="metric-copies"
+      >
+        <Hash class="h-3.5 w-3.5" />
+        By Copies
       </button>
     </div>
 
@@ -426,11 +466,10 @@
               aria-pressed={isActive}
               id="popular-card-{card.rank}"
             >
-              <!-- Card image -->
+              <!-- Card image: prefer Scryfall-verified URI from correctImageUriMap -->
               <img
-                src={card.scryfall_id
-                  ? getScryfallImageUrl(card.scryfall_id, 'normal')
-                  : '/images/card-placeholder.png'}
+                src={correctImageUriMap[card.card_name.toLowerCase()]
+                  ?? (card.scryfall_id ? getScryfallImageUrl(card.scryfall_id, 'normal') : '/images/card-placeholder.png')}
                 alt={card.card_name}
                 class="absolute inset-0 h-full w-full object-cover"
                 loading="lazy"
@@ -474,12 +513,11 @@
           <!-- Top section: image + card info -->
           <div class="flex gap-4 p-5">
 
-            <!-- Card image -->
+            <!-- Card image: prefer Scryfall-verified URI (corrects DB scryfall_id mismatches) -->
             <div class="w-36 flex-none sm:w-44">
               <img
-                src={selectedCard.scryfall_id
-                  ? getScryfallImageUrl(selectedCard.scryfall_id, 'normal')
-                  : '/images/card-placeholder.png'}
+                src={detailData?.image_uri
+                  ?? (selectedCard.scryfall_id ? getScryfallImageUrl(selectedCard.scryfall_id, 'normal') : '/images/card-placeholder.png')}
                 alt={selectedCard.card_name}
                 class="aspect-[2.5/3.5] w-full rounded-lg object-cover shadow-lg"
                 referrerpolicy="no-referrer"
@@ -489,29 +527,30 @@
             <!-- Card metadata -->
             <div class="min-w-0 flex-1">
 
-              <!-- Name -->
-              <h2 class="mb-1 text-lg font-bold leading-tight sm:text-xl">
-                {selectedCard.card_name}
-              </h2>
-
-              <!-- Mana cost as symbols -->
-              {#if selectedCard.mana_cost}
-                {@const parts = parseManaCost(selectedCard.mana_cost)}
-                <div class="mb-2 flex flex-wrap items-center gap-0.5">
-                  {#each parts as part (part.sym)}
-                    {#if part.url}
-                      <img
-                        src={part.url}
-                        alt={part.sym}
-                        title={part.sym}
-                        class="h-4 w-4 object-contain"
-                      />
-                    {:else}
-                      <span class="rounded bg-muted px-1 font-mono text-xs">{part.sym}</span>
-                    {/if}
-                  {/each}
-                </div>
-              {/if}
+              <!-- Name + mana cost on the same row (cost floats top-right) -->
+              <div class="mb-1 flex items-start justify-between gap-2">
+                <h2 class="text-lg font-bold leading-tight sm:text-xl">
+                  {selectedCard.card_name}
+                </h2>
+                <!-- Mana cost as symbols (top-right) -->
+                {#if selectedCard.mana_cost}
+                  {@const parts = parseManaCost(selectedCard.mana_cost)}
+                  <div class="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 pt-1">
+                    {#each parts as part (part.sym)}
+                      {#if part.url}
+                        <img
+                          src={part.url}
+                          alt={part.sym}
+                          title={part.sym}
+                          class="h-4 w-4 object-contain"
+                        />
+                      {:else}
+                        <span class="rounded bg-muted px-1 font-mono text-xs">{part.sym}</span>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
+              </div>
 
               <!-- Set info line -->
               <p class="mb-2 text-sm text-muted-foreground">
