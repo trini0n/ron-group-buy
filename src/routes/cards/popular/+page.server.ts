@@ -101,14 +101,17 @@ export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers
 	})
 
 	// --- Aggregate in JS: group by card_name ---
-	// Combines all finishes of the same card name into one entry
+	// Combines all finishes/printings of the same card name into one entry.
+	// Collects ALL card_ids seen for each name so we can later pick the one
+	// whose linked card row name actually matches (guards against order_items
+	// rows where card_name and card_id disagree due to data entry errors).
 	const aggregateMap = new Map<
 		string,
 		{
 			card_name: string
 			total_copies: number
 			order_ids: Set<string>
-			card_id: string | null
+			card_ids: Set<string>   // ALL card_ids seen; may include mismatched ones
 		}
 	>()
 
@@ -118,16 +121,13 @@ export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers
 		if (existing) {
 			existing.total_copies += item.quantity ?? 1
 			existing.order_ids.add(item.order_id)
-			// Keep first non-null card_id we encounter
-			if (!existing.card_id && item.card_id) {
-				existing.card_id = item.card_id
-			}
+			if (item.card_id) existing.card_ids.add(item.card_id)
 		} else {
 			aggregateMap.set(key, {
 				card_name: item.card_name,
 				total_copies: item.quantity ?? 1,
 				order_ids: new Set([item.order_id]),
-				card_id: item.card_id ?? null
+				card_ids: new Set(item.card_id ? [item.card_id] : [])
 			})
 		}
 	}
@@ -138,15 +138,16 @@ export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers
 			card_name: e.card_name,
 			total_copies: e.total_copies,
 			distinct_orders: e.order_ids.size,
-			card_id: e.card_id
+			card_ids: [...e.card_ids]   // all candidate IDs for this card name
 		}))
 		.sort((a, b) => b.total_copies - a.total_copies)
 		.slice(0, 200)
 
-	// --- Fetch card display data for top 200 card_ids ---
-	// Include card_name so we can verify the card_id still matches the aggregated name.
-	// If the card was replaced in the catalog, the scryfall_id would show the wrong image.
-	const cardIds = ranked.map((r) => r.card_id).filter((id): id is string => id !== null)
+	// --- Fetch card display data for all candidate card_ids ---
+	// We collect every card_id referenced by the top 200 entries (can be >200
+	// if some names had multiple card_ids across orders). The merge step will
+	// pick the best-matching card_id for each name.
+	const cardIds = [...new Set(ranked.flatMap((r) => r.card_ids))]
 
 	type CardRow = {
 		id: string
@@ -177,31 +178,51 @@ export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers
 	}
 
 	// --- Merge card details into ranked list ---
+	// For each aggregated card_name, pick the card_id whose linked card row has a
+	// matching name. This handles order_items rows where card_name and card_id
+	// disagree (e.g., orders placed for "The Mind Stone" that somehow got linked
+	// to Stasis's card_id due to a data-entry error).
 	const popularCards: PopularCard[] = ranked.map((r, i) => {
-		const card = r.card_id ? cardMap.get(r.card_id) : null
+		// Find the best-matching card among all candidate IDs for this name
+		let bestCard: (typeof cardMap extends Map<string, infer V> ? V : never) | undefined
+		let bestCardId: string | null = null
 
-		// Only use the card's scryfall_id if the card_name in the DB still matches
-		// the aggregated card_name from order_items. If not, the card was replaced
-		// and the scryfall_id would display the wrong card image.
-		const namesMatch = card?.card_name?.toLowerCase() === r.card_name.toLowerCase()
+		for (const cid of r.card_ids) {
+			const candidate = cardMap.get(cid)
+			if (candidate && candidate.card_name.toLowerCase() === r.card_name.toLowerCase()) {
+				bestCard = candidate
+				bestCardId = cid
+				break   // first name-matching card wins
+			}
+		}
+
+		// Fallback: if no name-matching card found, use the first available
+		// (scryfall_id will be nulled below since namesMatch = false)
+		if (!bestCard && r.card_ids.length > 0) {
+			bestCardId = r.card_ids[0]!
+			bestCard = cardMap.get(bestCardId)
+		}
+
+		const namesMatch = bestCard?.card_name?.toLowerCase() === r.card_name.toLowerCase()
 
 		return {
 			rank: i + 1,
 			card_name: r.card_name,
 			total_copies: r.total_copies,
 			distinct_orders: r.distinct_orders,
-			card_id: r.card_id,
-			scryfall_id: (namesMatch ? card?.scryfall_id : null) ?? null,
-			card_type: card?.card_type ?? null,
-			foil_type: card?.foil_type ?? null,
-			set_name: card?.set_name ?? null,
-			set_code: card?.set_code ?? null,
-			collector_number: card?.collector_number ?? null,
-			mana_cost: card?.mana_cost ?? null,
-			type_line: card?.type_line ?? null,
-			is_in_stock: (namesMatch ? card?.is_in_stock : null) ?? false
+			card_id: namesMatch ? bestCardId : null,
+			scryfall_id: (namesMatch ? bestCard?.scryfall_id : null) ?? null,
+			card_type: (namesMatch ? bestCard?.card_type : null) ?? null,
+			foil_type: (namesMatch ? bestCard?.foil_type : null) ?? null,
+			set_name: (namesMatch ? bestCard?.set_name : null) ?? null,
+			set_code: (namesMatch ? bestCard?.set_code : null) ?? null,
+			collector_number: (namesMatch ? bestCard?.collector_number : null) ?? null,
+			mana_cost: (namesMatch ? bestCard?.mana_cost : null) ?? null,
+			type_line: (namesMatch ? bestCard?.type_line : null) ?? null,
+			is_in_stock: (namesMatch ? bestCard?.is_in_stock : null) ?? false
 		}
 	})
+
 
 	// --- Fetch Scryfall symbol map (cached) ---
 	const symbolMap = await fetchSymbolMap()
