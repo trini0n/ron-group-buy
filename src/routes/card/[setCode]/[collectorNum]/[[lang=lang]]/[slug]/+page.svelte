@@ -282,7 +282,9 @@
       <div class="relative">
         {#if currentImage}
           <img
-            src={enrichment?.scryfall_image_uri ?? currentImage.url}
+            src={currentImage.url.includes('lh3.googleusercontent.com')
+                  ? currentImage.url
+                  : (enrichment?.scryfall_image_uri ?? currentImage.url)}
             alt={selectedCard.card_name}
             class="max-w-sm rounded-lg shadow-lg"
             loading="lazy"
