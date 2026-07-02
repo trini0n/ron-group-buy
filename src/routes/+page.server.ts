@@ -143,6 +143,9 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
   })
 
   // Parse initial filter state from URL
+  const VALID_SORTS = ['name-asc', 'name-desc', 'price-asc', 'price-desc', 'release-newest', 'release-oldest', 'set-collector'] as const
+  type SortBy = typeof VALID_SORTS[number]
+  const sortParam = url.searchParams.get('sort') ?? 'name-asc'
   const initialFilters = {
     search: url.searchParams.get('q') || '',
     setCodes:
@@ -169,7 +172,8 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     isNew: url.searchParams.get('new') === '1',
     isMisprint: url.searchParams.get('misprint') === '1',
     view: (url.searchParams.get('view') as 'grid' | 'table') || 'grid',
-    page: parseInt(url.searchParams.get('page') || '1') || 1
+    page: parseInt(url.searchParams.get('page') || '1') || 1,
+    sortBy: (VALID_SORTS.includes(sortParam as SortBy) ? sortParam : 'name-asc') as SortBy
   }
 
   // Use streaming to return immediately while data loads

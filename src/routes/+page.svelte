@@ -10,6 +10,7 @@
   import { Search, LayoutGrid, List } from 'lucide-svelte'
   import { untrack } from 'svelte'
   import type { Card } from '$lib/server/types'
+  import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
 
   let { data } = $props()
 
@@ -19,6 +20,9 @@
   let searchQuery = $state(initialFilters.search)
   let viewMode = $state<'grid' | 'table'>(initialFilters.view)
   let currentPage = $state(initialFilters.page)
+  let sortBy = $state<SortBy>(
+    (initialFilters as Record<string, unknown>).sortBy as SortBy ?? 'name-asc'
+  )
   let filters = $state({
     setCodes: initialFilters.setCodes,
     colorIdentity: initialFilters.colorIdentity as string[],
@@ -80,7 +84,8 @@
     inStockOnly: false,
     isNew: false,
     isMisprint: false,
-    viewMode: 'grid' as 'grid' | 'table'
+    viewMode: 'grid' as 'grid' | 'table',
+    sortBy: 'name-asc' as SortBy
   }
 
   // Debounce timer for search input
@@ -124,6 +129,7 @@
     if (filters.isNew) params.set('new', '1')
     if (filters.isMisprint) params.set('misprint', '1')
     if (viewMode !== 'grid') params.set('view', viewMode)
+    if (sortBy !== 'name-asc') params.set('sort', sortBy)
     if (currentPage > 1) params.set('page', String(currentPage))
 
     const queryString = params.toString()
@@ -184,7 +190,8 @@
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew,
       isMisprint: filters.isMisprint,
-      viewMode: viewMode
+      viewMode: viewMode,
+      sortBy: sortBy
     }
 
     // Skip the initial render to avoid unnecessary URL update
@@ -316,10 +323,12 @@
     <aside class="w-full shrink-0 lg:w-64">
       <SearchFilters
         bind:filters
+        bind:sortBy
         sets={loadedSets || []}
         onClearAll={() => {
           searchQuery = ''
           currentPage = 1
+          sortBy = 'name-asc'
         }}
       />
     </aside>
@@ -355,6 +364,7 @@
             cards={loadedCards}
             {searchQuery}
             {filters}
+            {sortBy}
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}
@@ -364,6 +374,7 @@
             cards={loadedCards}
             {searchQuery}
             {filters}
+            {sortBy}
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}

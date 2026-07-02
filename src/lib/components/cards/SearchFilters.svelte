@@ -5,10 +5,12 @@
   import * as Popover from '$components/ui/popover'
   import * as Command from '$components/ui/command'
   import * as Accordion from '$components/ui/accordion'
+  import * as Select from '$components/ui/select'
   import ManaIcon from '$lib/components/icons/ManaIcon.svelte'
   import { X, ChevronsUpDown, Check, ChevronDown, Filter, Info } from 'lucide-svelte'
   import { browser } from '$app/environment'
   import * as Tooltip from '$components/ui/tooltip'
+  import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
 
   interface Set {
     code: string
@@ -32,10 +34,24 @@
   interface Props {
     filters: Filters
     sets: Set[]
+    sortBy?: SortBy
     onClearAll?: () => void
   }
 
-  let { filters = $bindable(), sets, onClearAll }: Props = $props()
+  let { filters = $bindable(), sets, sortBy = $bindable('name-asc'), onClearAll }: Props = $props()
+
+  // Sort options matching the dropdown in the screenshot
+  const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
+    { value: 'name-asc',       label: 'Name (A\u2192Z)' },
+    { value: 'name-desc',      label: 'Name (Z\u2192A)' },
+    { value: 'price-asc',      label: 'Price (Market \u2191)' },
+    { value: 'price-desc',     label: 'Price (Market \u2193)' },
+    { value: 'release-newest', label: 'Release Date (Newest)' },
+    { value: 'release-oldest', label: 'Release Date (Oldest)' },
+    { value: 'set-collector',  label: 'Set + Collector #' }
+  ]
+
+  const sortLabel = $derived(SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'Name (A\u2192Z)')
 
   // Combobox state
   let setComboboxOpen = $state(false)
@@ -281,6 +297,24 @@
 
   <!-- Filter content - collapsible on mobile -->
   <div class="space-y-6 {isMobile && !mobileFiltersOpen ? 'hidden' : ''}">
+
+    <!-- Sort By -->
+    <div class="space-y-2">
+      <Label for="sort-by-select">Sort By</Label>
+      <Select.Root type="single" value={sortBy} onValueChange={(v) => { if (v) sortBy = v as typeof sortBy }}>
+        <Select.Trigger id="sort-by-select" class="w-full">
+          {sortLabel}
+        </Select.Trigger>
+        <Select.Content>
+          {#each SORT_OPTIONS as option (option.value)}
+            <Select.Item value={option.value} label={option.label}>
+              {option.label}
+            </Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
+
     <!-- Set Filter - Multiselect Combobox -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">

@@ -5,8 +5,17 @@
   import { Button } from '$components/ui/button'
   import { ChevronLeft, ChevronRight } from 'lucide-svelte'
   import { untrack } from 'svelte'
-  import { getFinishLabel, FOIL_SUBTYPES } from '$lib/utils'
+  import { getCardPrice, getFinishLabel, getMispriceKey, FOIL_SUBTYPES } from '$lib/utils'
   import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
+
+  export type SortBy =
+    | 'name-asc'
+    | 'name-desc'
+    | 'price-asc'
+    | 'price-desc'
+    | 'release-newest'
+    | 'release-oldest'
+    | 'set-collector'
 
   interface Filters {
     setCodes: string[]
@@ -29,12 +38,13 @@
     cards: Card[]
     searchQuery: string
     filters: Filters
+    sortBy?: SortBy
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
   }
 
-  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+  let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
 
   const CARDS_PER_PAGE = 25
   let internalPage = $state(1)
@@ -67,7 +77,8 @@
     allCards: Card[],
     query: string,
     f: Filters,
-    releaseDates: Record<string, string>
+    releaseDates: Record<string, string>,
+    sort: SortBy
   ): CardGroup[] {
     // Parse is:TAG tokens from the query (case-insensitive). Strip them to get text-only part.
     const isTokens = [...query.matchAll(/\bis:(\S+)/gi)].map((m) => m[1]?.toLowerCase() ?? '')
@@ -213,28 +224,64 @@
       group.primary = inStock || group.finishVariants[0]!
     }
 
-    // Sort: new cards first, then alphabetically by name, then newest set first, then collector number asc
+    // Sort card groups using the selected sortBy option.
+    // When sortBy is 'name-asc' (default), new cards bubble to the top first.
     return Array.from(groups.values()).sort((a, b) => {
-      // 1. New cards first
-      const aIsNew = a.primary.is_new ? 1 : 0
-      const bIsNew = b.primary.is_new ? 1 : 0
-      if (bIsNew !== aIsNew) return bIsNew - aIsNew
+      // For default name-asc sort, new cards first
+      if (sort === 'name-asc') {
+        const aIsNew = a.primary.is_new ? 1 : 0
+        const bIsNew = b.primary.is_new ? 1 : 0
+        if (bIsNew !== aIsNew) return bIsNew - aIsNew
+      }
 
-      // 2. Card name ascending
-      const nameComp = a.primary.card_name.localeCompare(b.primary.card_name)
-      if (nameComp !== 0) return nameComp
-
-      // 3. Set release date descending (newest set first)
       const aSetCode = a.primary.set_code?.toLowerCase() || ''
       const bSetCode = b.primary.set_code?.toLowerCase() || ''
       const aReleased = releaseDates[aSetCode] || ''
       const bReleased = releaseDates[bSetCode] || ''
-      if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
-
-      // 4. Collector number ascending (numeric)
       const aNum = parseInt(a.primary.collector_number || '0') || 0
       const bNum = parseInt(b.primary.collector_number || '0') || 0
-      return aNum - bNum
+      const aPrice = getCardPrice(getMispriceKey(a.primary))
+      const bPrice = getCardPrice(getMispriceKey(b.primary))
+
+      switch (sort) {
+        case 'name-asc':
+          // 1. Name A→Z  2. Newest set first  3. Collector # asc
+          const nameAsc = a.primary.card_name.localeCompare(b.primary.card_name)
+          if (nameAsc !== 0) return nameAsc
+          if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
+          return aNum - bNum
+
+        case 'name-desc':
+          const nameDesc = b.primary.card_name.localeCompare(a.primary.card_name)
+          if (nameDesc !== 0) return nameDesc
+          if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
+          return aNum - bNum
+
+        case 'price-asc':
+          if (aPrice !== bPrice) return aPrice - bPrice
+          return a.primary.card_name.localeCompare(b.primary.card_name)
+
+        case 'price-desc':
+          if (aPrice !== bPrice) return bPrice - aPrice
+          return a.primary.card_name.localeCompare(b.primary.card_name)
+
+        case 'release-newest':
+          if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
+          if (aNum !== bNum) return aNum - bNum
+          return a.primary.card_name.localeCompare(b.primary.card_name)
+
+        case 'release-oldest':
+          if (aReleased !== bReleased) return aReleased.localeCompare(bReleased)
+          if (aNum !== bNum) return aNum - bNum
+          return a.primary.card_name.localeCompare(b.primary.card_name)
+
+        case 'set-collector':
+          if (aSetCode !== bSetCode) return aSetCode.localeCompare(bSetCode)
+          return aNum - bNum
+
+        default:
+          return a.primary.card_name.localeCompare(b.primary.card_name)
+      }
     })
   }
 
@@ -248,6 +295,7 @@
     const currentCards = cards
     const currentQuery = searchQuery
     const currentReleaseDates = setReleaseDates
+    const currentSort = sortBy
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
       setCodes: [...filters.setCodes],
@@ -272,7 +320,7 @@
     if (!initialLoadDone && currentCards.length > 0) {
       initialLoadDone = true
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentSort)
       })
       return
     }
@@ -282,7 +330,7 @@
       pendingFrameId = null
       // Use untrack to avoid reading state during update
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentSort)
       })
     })
   })
