@@ -372,8 +372,8 @@
         Check New Cards
       </Button>
 
-      <!-- Market price sync — shows live progress bar while streaming -->
-      <div class="flex flex-col items-end gap-1">
+      <!-- Market price sync — progress bar floats below without affecting layout -->
+      <div class="relative">
         <Button variant="outline" onclick={syncMarketPrices} disabled={isSyncingPrices} class="gap-2">
           {#if isSyncingPrices}
             <Loader2 class="h-4 w-4 animate-spin" />
@@ -384,15 +384,14 @@
           {/if}
         </Button>
         {#if isSyncingPrices}
-          <div class="w-full min-w-[200px]">
-            <!-- Progress bar -->
-            <div class="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+          <div class="absolute left-0 right-0 top-full pt-1.5" style="z-index: 10;">
+            <div class="h-1 w-full rounded-full bg-muted overflow-hidden">
               <div
                 class="h-full rounded-full bg-primary transition-all duration-300"
                 style="width: {syncProgress.totalChunks > 0 ? Math.round((syncProgress.chunk / syncProgress.totalChunks) * 100) : 0}%"
               ></div>
             </div>
-            <p class="mt-0.5 text-[11px] text-muted-foreground text-right">
+            <p class="mt-0.5 text-[10px] text-muted-foreground text-center whitespace-nowrap">
               {syncProgress.statusMsg || 'Starting…'}
             </p>
           </div>
