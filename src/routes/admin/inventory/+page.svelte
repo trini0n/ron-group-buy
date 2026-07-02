@@ -22,7 +22,8 @@
     Check,
     CloudDownload,
     Loader2,
-    ImageIcon
+    ImageIcon,
+    DollarSign
   } from 'lucide-svelte'
 
   interface InventoryCard {
@@ -73,6 +74,7 @@
   let selectedCards = $state<Set<string>>(new Set())
   let isUpdating = $state(false)
   let isSyncing = $state(false)
+  let isSyncingPrices = $state(false)
   let isResyncingImages = $state(false)
   let checkNewCardsOpen = $state(false)
   let resyncingCardId = $state<string | null>(null)
@@ -215,6 +217,30 @@
     }
   }
 
+  async function syncMarketPrices() {
+    isSyncingPrices = true
+    try {
+      const response = await fetch('/api/admin/sync-market-prices', {
+        method: 'POST'
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(
+          `Market prices synced! ${result.updated} updated, ${result.skipped} skipped (${(result.elapsed_ms / 1000).toFixed(1)}s)`
+        )
+        invalidateAll()
+      } else {
+        const err = await response.json().catch(() => ({}))
+        toast.error(err.message || 'Failed to sync market prices')
+      }
+    } catch (err) {
+      toast.error('Failed to sync market prices')
+    } finally {
+      isSyncingPrices = false
+    }
+  }
+
   async function resyncImages(cardIds: string[]) {
     isResyncingImages = true
     try {
@@ -298,6 +324,15 @@
       <Button variant="outline" onclick={() => (checkNewCardsOpen = true)} class="gap-2">
         <Search class="h-4 w-4" />
         Check New Cards
+      </Button>
+      <Button variant="outline" onclick={syncMarketPrices} disabled={isSyncingPrices} class="gap-2">
+        {#if isSyncingPrices}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          Syncing Prices…
+        {:else}
+          <DollarSign class="h-4 w-4" />
+          Sync Market Prices
+        {/if}
       </Button>
       <Button variant="outline" onclick={syncWithGoogleSheets} disabled={isSyncing} class="gap-2">
         {#if isSyncing}

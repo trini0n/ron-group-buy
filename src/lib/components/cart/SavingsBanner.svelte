@@ -1,10 +1,12 @@
+<!-- SavingsBanner: DB-first, Scryfall fallback for null-price cards -->
 <script lang="ts">
   /**
    * SavingsBanner
    *
-   * Fetches market prices for all individual cards in the cart using the
-   * Scryfall /cards/collection batch endpoint (up to 75 per request).
-   * Displays the delta between market total and our-price total.
+   * DB-first: reads market_price_usd from each cart item's card object.
+   * Only cards where market_price_usd IS NULL fall back to a Scryfall
+   * /cards/collection batch fetch. After running "Sync Market Prices" from
+   * /admin/inventory the component makes zero network calls.
    *
    * Hidden if:
    *  - Cart is empty
@@ -21,23 +23,20 @@
   let marketTotal = $state<number | null>(null)
   let loading = $state(false)
 
-  // ── Derived: our cart total (individual cards only — bundles skipped as we
-  //    can't reliably price them against Scryfall) ─────────────────────────────
+  // ── Derived: our cart total ──────────────────────────────────────────────────
   const ourTotal = $derived(
     cartStore.items.reduce((sum, item) => {
       return sum + getCardPrice(getMispriceKey(item.card)) * item.quantity
     }, 0)
   )
 
-  // ── Savings derived from fetched market total ────────────────────────────────
+  // ── Savings derived from computed market total ───────────────────────────────
   const savings = $derived(marketTotal !== null ? marketTotal - ourTotal : null)
   const showBanner = $derived(
     savings !== null && savings > 0.005 && cartStore.items.length > 0
   )
 
-  // ── Fetch market prices whenever cart items change ───────────────────────────
-  // Uses Scryfall /cards/collection (batch, up to 75 identifiers per request).
-  // We identify by scryfall_id where available, falling back to card_name exact match.
+  // ── Recompute whenever cart items (or their market_price_usd) change ─────────
   $effect(() => {
     const items = cartStore.items
     if (items.length === 0) {
@@ -45,96 +44,117 @@
       return
     }
 
-    // Build a stable cache key from (scryfall_id | card_name, finish, quantity) tuples
+    // Cache key includes market_price_usd so a sync triggers a recompute
     const key = items
-      .map((i) => `${i.card.scryfall_id ?? i.card.card_name}:${getFinishLabel(i.card)}:${i.quantity}`)
+      .map((i) => `${i.card.scryfall_id ?? i.card.card_name}:${getFinishLabel(i.card)}:${i.quantity}:${i.card.market_price_usd ?? 'null'}`)
       .sort()
       .join('|')
 
-    fetchMarketPrices(items, key)
+    computeMarketTotal(items, key)
   })
 
-  // Track the key of the last completed fetch to avoid stale overwrites
-  let lastFetchKey = ''
+  let lastKey = ''
 
-  async function fetchMarketPrices(
-    items: typeof cartStore.items,
-    key: string
-  ) {
-    if (key === lastFetchKey) return
+  async function computeMarketTotal(items: typeof cartStore.items, key: string) {
+    if (key === lastKey) return
     loading = true
 
     try {
-      // De-duplicate by scryfall_id (same card, multiple finishes = multiple entries)
-      // We'll price each unique (scryfall_id, finish) pair once then multiply by quantity.
-      const identifiers = items.map((item) =>
-        item.card.scryfall_id
-          ? { id: item.card.scryfall_id }
-          : { name: item.card.card_name }
-      )
-
-      // Scryfall collection endpoint accepts up to 75 identifiers per call
-      const chunks: typeof identifiers[] = []
-      for (let i = 0; i < identifiers.length; i += 75) {
-        chunks.push(identifiers.slice(i, i + 75))
-      }
-
-      const results = await Promise.all(
-        chunks.map((chunk) =>
-          fetch('https://api.scryfall.com/cards/collection', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'RonGroupBuy/1.0'
-            },
-            body: JSON.stringify({ identifiers: chunk })
-          }).then((r) => r.ok ? r.json() : { data: [] })
-        )
-      )
-
-      // Build a map: scryfall_id (or lowercase name) → prices object
-      const priceMap = new Map<string, { usd: string | null; usd_foil: string | null; usd_etched: string | null; eur: string | null; eur_foil: string | null }>()
-      for (const result of results) {
-        for (const card of (result.data ?? []) as Array<{ id: string; name: string; prices: { usd: string | null; usd_foil: string | null; usd_etched: string | null; eur: string | null; eur_foil: string | null } }>) {
-          priceMap.set(card.id, card.prices)
-          priceMap.set(card.name.toLowerCase(), card.prices)
-        }
-      }
-
-      // Sum market prices for each cart item × quantity
       let total = 0
       let anyPriceFound = false
+
+      // ── 1. Use DB prices where available ───────────────────────────────────
+      const needsScryfall: typeof items = []
+
       for (const item of items) {
-        const prices = priceMap.get(item.card.scryfall_id ?? '') ??
-                       priceMap.get(item.card.card_name.toLowerCase())
-        if (!prices) continue
-
-        const finishLabel = getFinishLabel(item.card).toLowerCase()
-        const isEtched = finishLabel.includes('etched')
-        const isFoil   = isEtched || finishLabel.includes('foil')
-
-        let usdStr: string | null = null
-        if (isEtched)     usdStr = prices.usd_etched ?? prices.usd_foil ?? prices.usd
-        else if (isFoil)  usdStr = prices.usd_foil ?? prices.usd
-        else              usdStr = prices.usd
-
-        let unitPrice: number | null = null
-        if (usdStr) {
-          unitPrice = parseFloat(usdStr)
-        } else {
-          const eurStr = isFoil ? (prices.eur_foil ?? prices.eur) : prices.eur
-          if (eurStr) unitPrice = parseFloat(eurStr) * EUR_TO_USD
-        }
-
-        if (unitPrice !== null && !isNaN(unitPrice)) {
-          total += unitPrice * item.quantity
+        const dbPrice = item.card.market_price_usd
+        if (dbPrice !== null && dbPrice !== undefined) {
+          total += dbPrice * item.quantity
           anyPriceFound = true
+        } else {
+          needsScryfall.push(item)
         }
       }
 
-      // Only update if this fetch is still current
-      if (key !== lastFetchKey) {
-        lastFetchKey = key
+      // ── 2. Scryfall fallback only for cards missing a DB price ──────────────
+      if (needsScryfall.length > 0) {
+        const identifiers = needsScryfall.map((item) =>
+          item.card.scryfall_id
+            ? { id: item.card.scryfall_id }
+            : { name: item.card.card_name }
+        )
+
+        const chunks: typeof identifiers[] = []
+        for (let i = 0; i < identifiers.length; i += 75) {
+          chunks.push(identifiers.slice(i, i + 75))
+        }
+
+        const results = await Promise.all(
+          chunks.map((chunk) =>
+            fetch('https://api.scryfall.com/cards/collection', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'RonGroupBuy/1.0'
+              },
+              body: JSON.stringify({ identifiers: chunk })
+            }).then((r) => (r.ok ? r.json() : { data: [] }))
+          )
+        )
+
+        // Build map: scryfall_id / lowercase name → prices
+        type Prices = {
+          usd: string | null
+          usd_foil: string | null
+          usd_etched: string | null
+          eur: string | null
+          eur_foil: string | null
+        }
+        const priceMap = new Map<string, Prices>()
+        for (const result of results) {
+          for (const card of (result.data ?? []) as Array<{
+            id: string
+            name: string
+            prices: Prices
+          }>) {
+            priceMap.set(card.id, card.prices)
+            priceMap.set(card.name.toLowerCase(), card.prices)
+          }
+        }
+
+        for (const item of needsScryfall) {
+          const prices =
+            priceMap.get(item.card.scryfall_id ?? '') ??
+            priceMap.get(item.card.card_name.toLowerCase())
+          if (!prices) continue
+
+          const finishLabel = getFinishLabel(item.card).toLowerCase()
+          const isEtched = finishLabel.includes('etched')
+          const isFoil = isEtched || finishLabel.includes('foil')
+
+          let usdStr: string | null = null
+          if (isEtched)    usdStr = prices.usd_etched ?? prices.usd_foil ?? prices.usd
+          else if (isFoil) usdStr = prices.usd_foil ?? prices.usd
+          else             usdStr = prices.usd
+
+          let unitPrice: number | null = null
+          if (usdStr) {
+            unitPrice = parseFloat(usdStr)
+          } else {
+            const eurStr = isFoil ? (prices.eur_foil ?? prices.eur) : prices.eur
+            if (eurStr) unitPrice = parseFloat(eurStr) * EUR_TO_USD
+          }
+
+          if (unitPrice !== null && !isNaN(unitPrice)) {
+            total += unitPrice * item.quantity
+            anyPriceFound = true
+          }
+        }
+      }
+
+      // Only update if this fetch is still the current one
+      if (key !== lastKey) {
+        lastKey = key
         marketTotal = anyPriceFound ? total : null
       }
     } catch {
@@ -145,7 +165,12 @@
   }
 
   function formatSavings(amount: number): string {
-    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return amount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
   }
 </script>
 

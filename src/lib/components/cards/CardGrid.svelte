@@ -240,8 +240,11 @@
       const bReleased = releaseDates[bSetCode] || ''
       const aNum = parseInt(a.primary.collector_number || '0') || 0
       const bNum = parseInt(b.primary.collector_number || '0') || 0
-      const aPrice = getCardPrice(getMispriceKey(a.primary))
-      const bPrice = getCardPrice(getMispriceKey(b.primary))
+      // Use DB market_price_usd if available, fall back to listing price
+      const aPrice =
+        a.primary.market_price_usd ?? getCardPrice(getMispriceKey(a.primary))
+      const bPrice =
+        b.primary.market_price_usd ?? getCardPrice(getMispriceKey(b.primary))
 
       switch (sort) {
         case 'name-asc':
