@@ -19,6 +19,7 @@
   import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
   import { browser } from '$app/environment'
   import { untrack } from 'svelte'
+  import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
 
   interface Filters {
     setCodes: string[]
@@ -41,12 +42,13 @@
     cards: Card[]
     searchQuery: string
     filters: Filters
+    sortBy?: SortBy
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
   }
 
-  let { cards, searchQuery, filters, currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+  let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
 
   // Sorting state with session storage persistence and default
   type SortKey = 'set_code' | 'collector_number' | 'card_name' | 'mana_cost' | 'type_line' | 'language' | 'card_type'
