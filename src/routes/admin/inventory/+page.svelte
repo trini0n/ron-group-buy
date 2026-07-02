@@ -74,6 +74,7 @@
   let selectedCards = $state<Set<string>>(new Set())
   let isUpdating = $state(false)
   let isSyncing = $state(false)
+  let sheetsProgress = $state({ step: 0, totalSteps: 0, message: '' })
   let isSyncingPrices = $state(false)
   // Market price sync progress
   let syncProgress = $state({ chunk: 0, totalChunks: 0, fetched: 0, totalCards: 0, statusMsg: '' })
@@ -199,23 +200,60 @@
 
   async function syncWithGoogleSheets() {
     isSyncing = true
-    try {
-      const response = await fetch('/api/admin/inventory/sync', {
-        method: 'POST'
-      })
+    sheetsProgress = { step: 0, totalSteps: 7, message: 'Starting…' }
 
-      if (response.ok) {
-        const result = await response.json()
-        toast.success(`Sync complete! ${result.success} cards synced, ${result.errors} errors. Total: ${result.total}`)
-        invalidateAll()
-      } else {
-        const err = await response.json()
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+
+    try {
+      const response = await fetch('/api/admin/inventory/sync', { method: 'POST' })
+
+      if (!response.ok || !response.body) {
+        const err = await response.json().catch(() => ({}))
         toast.error(err.message || 'Failed to sync with Google Sheets')
+        return
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const event = JSON.parse(trimmed)
+            if (event.type === 'progress') {
+              sheetsProgress = { step: event.step, totalSteps: event.totalSteps, message: event.message }
+            } else if (event.type === 'done') {
+              toast.success(
+                `Sync complete! ${event.success} cards synced, ${event.errors} errors. Total: ${event.total}`
+              )
+              invalidateAll()
+            } else if (event.type === 'error') {
+              toast.error(event.message || 'Failed to sync with Google Sheets')
+            }
+          } catch {
+            // Malformed JSON line — skip
+          }
+        }
       }
     } catch (err) {
       toast.error('Failed to sync with Google Sheets')
     } finally {
       isSyncing = false
+      sheetsProgress = { step: 0, totalSteps: 0, message: '' }
+      window.removeEventListener('beforeunload', onBeforeUnload)
     }
   }
 
@@ -398,15 +436,31 @@
         {/if}
       </div>
 
-      <Button variant="outline" onclick={syncWithGoogleSheets} disabled={isSyncing} class="gap-2">
+      <!-- Sync with Google Sheets — progress bar floats below without affecting layout -->
+      <div class="relative">
+        <Button variant="outline" onclick={syncWithGoogleSheets} disabled={isSyncing} class="gap-2">
+          {#if isSyncing}
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Syncing...
+          {:else}
+            <CloudDownload class="h-4 w-4" />
+            Sync with Google Sheets
+          {/if}
+        </Button>
         {#if isSyncing}
-          <Loader2 class="h-4 w-4 animate-spin" />
-          Syncing...
-        {:else}
-          <CloudDownload class="h-4 w-4" />
-          Sync with Google Sheets
+          <div class="absolute left-0 right-0 top-full pt-1.5" style="z-index: 10;">
+            <div class="h-1 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                class="h-full rounded-full bg-primary transition-all duration-300"
+                style="width: {sheetsProgress.totalSteps > 0 ? Math.round((sheetsProgress.step / sheetsProgress.totalSteps) * 100) : 0}%"
+              ></div>
+            </div>
+            <p class="mt-0.5 text-[10px] text-muted-foreground text-center whitespace-nowrap">
+              {sheetsProgress.message || 'Starting…'}
+            </p>
+          </div>
         {/if}
-      </Button>
+      </div>
     </div>
   </div>
 
