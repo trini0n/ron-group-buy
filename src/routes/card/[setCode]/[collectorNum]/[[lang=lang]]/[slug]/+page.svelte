@@ -49,40 +49,25 @@
   // Extract the primary card type from type_line (exclude supertypes)
   const primaryCardType = $derived.by(() => {
     const typeLine = selectedCard?.type_line || ''
-    // Card types in MTG (the ones we want to extract)
     const cardTypes = [
-      'Creature',
-      'Instant',
-      'Sorcery',
-      'Enchantment',
-      'Artifact',
-      'Land',
-      'Planeswalker',
-      'Battle',
-      'Kindred',
-      'Tribal'
+      'Creature', 'Instant', 'Sorcery', 'Enchantment',
+      'Artifact', 'Land', 'Planeswalker', 'Battle', 'Kindred', 'Tribal'
     ]
-
-    // Split by " — " to get the types part (before subtypes)
     const mainTypes = typeLine.split(' — ')[0] || typeLine
-
-    // Find the first matching card type
     for (const type of cardTypes) {
-      if (mainTypes.includes(type)) {
-        return type
-      }
+      if (mainTypes.includes(type)) return type
     }
     return null
   })
 
-  // Build breadcrumb URLs with filters applied
-  const setFilterUrl = $derived(`/?set=${selectedCard?.set_code?.toLowerCase() || ''}`)
+  // Build breadcrumb URLs
+  const setFilterUrl  = $derived(`/?set=${selectedCard?.set_code?.toLowerCase() || ''}`)
   const typeFilterUrl = $derived.by(() => {
     if (!primaryCardType) return setFilterUrl
     return `${setFilterUrl}&types=${primaryCardType}`
   })
 
-  // Compute images array - ensure it's always valid
+  // Images
   const images = $derived.by(() => {
     if (!selectedCard) return [{ url: '/images/card-placeholder.png', label: 'Placeholder' }]
     return getCardImages(selectedCard.ron_image_url, selectedCard.scryfall_id, 'large')
@@ -95,18 +80,14 @@
     return getCardPrice(getMispriceKey(selectedCard))
   })
 
-  // Reset image index when card changes or if index is out of bounds
   $effect(() => {
-    if (currentImageIndex >= images.length) {
-      currentImageIndex = 0
-    }
+    if (currentImageIndex >= images.length) currentImageIndex = 0
   })
 
   function nextImage() {
     if (images.length <= 1) return
     currentImageIndex = (currentImageIndex + 1) % images.length
   }
-
   function prevImage() {
     if (images.length <= 1) return
     currentImageIndex = (currentImageIndex - 1 + images.length) % images.length
@@ -116,23 +97,152 @@
     cartStore.addItem(selectedCard)
   }
 
-  // Current image with safety check
   const currentImage = $derived(images[currentImageIndex] ?? images[0])
 
-  // Get display name for card's language
   const languageDisplay = $derived.by(() => {
     const lang = selectedCard?.language?.toLowerCase()
     if (!lang || isDefaultLanguage(lang)) return null
     return LANGUAGE_NAMES[lang] || lang.toUpperCase()
   })
+
+  // ── Scryfall enrichment ──────────────────────────────────────────────────────
+  const EUR_TO_USD = 1.08
+
+  interface ScryfallPrices {
+    usd: string | null
+    usd_foil: string | null
+    usd_etched: string | null
+    eur: string | null
+    eur_foil: string | null
+  }
+  interface ScryfallEnrichment {
+    oracle_text: string | null
+    prices: ScryfallPrices | null
+    rarity: string | null
+    scryfall_image_uri: string | null   // verified correct large image
+  }
+
+  let enrichment     = $state<ScryfallEnrichment | null>(null)
+  let enrichmentLoading = $state(true)
+  let symbolMap      = $state<Record<string, string>>({})
+
+  // Re-fetch when selectedCard changes (finish switch or navigation)
+  $effect(() => {
+    const scryfallId = selectedCard?.scryfall_id
+    const cardName   = selectedCard?.card_name
+    if (!cardName) return
+
+    enrichment = null
+    enrichmentLoading = true
+
+    Promise.all([
+      // Symbol map (cached by browser after first fetch)
+      fetch('https://api.scryfall.com/symbology', { headers: { 'User-Agent': 'RonGroupBuy/1.0' } })
+        .then(r => r.ok ? r.json() : { data: [] })
+        .then((json: { data?: Array<{ symbol: string; svg_uri: string }> }) => {
+          const map: Record<string, string> = {}
+          for (const sym of json.data ?? []) {
+            if (sym.symbol && sym.svg_uri) map[sym.symbol] = sym.svg_uri
+          }
+          symbolMap = map
+        })
+        .catch(() => {}),
+
+      (async () => {
+        try {
+          let json: Record<string, unknown> | null = null
+
+          // Step 1: fetch by scryfall_id (specific to this printing)
+          if (scryfallId) {
+            const res = await fetch(`https://api.scryfall.com/cards/${scryfallId}`, {
+              headers: { 'User-Agent': 'RonGroupBuy/1.0' }
+            })
+            if (res.ok) json = await res.json()
+          }
+
+          // Step 2: verify returned card name — re-fetch by name if stale scryfall_id
+          const returnedName = (json?.name as string | undefined) ?? ''
+          if (!json || returnedName.toLowerCase() !== cardName.toLowerCase()) {
+            const nameRes = await fetch(
+              `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`,
+              { headers: { 'User-Agent': 'RonGroupBuy/1.0' } }
+            )
+            if (nameRes.ok) json = await nameRes.json()
+          }
+
+          if (!json) { enrichment = null; return }
+
+          const imageUris = json.image_uris as Record<string, string> | undefined
+          enrichment = {
+            oracle_text:        (json.oracle_text as string | null) ?? null,
+            prices:             (json.prices as ScryfallPrices | null) ?? null,
+            rarity:             (json.rarity as string | null) ?? null,
+            scryfall_image_uri: imageUris?.large ?? imageUris?.normal ?? null
+          }
+        } catch {
+          enrichment = null
+        } finally {
+          enrichmentLoading = false
+        }
+      })()
+    ])
+  })
+
+  // ── Mana symbol rendering ────────────────────────────────────────────────────
+  interface ManaPart { sym: string; url: string | null }
+
+  function parseManaCost(manaCost: string): ManaPart[] {
+    const parts: ManaPart[] = []
+    const re = /\{[^}]+\}/g
+    let match
+    while ((match = re.exec(manaCost)) !== null) {
+      const sym = match[0]
+      parts.push({ sym, url: symbolMap[sym] ?? null })
+    }
+    return parts
+  }
+
+  function renderOracleText(text: string): string {
+    return text.replace(/\{[^}]+\}/g, (sym) => {
+      const url = symbolMap[sym]
+      if (url) return `<img src="${url}" alt="${sym}" class="inline-block h-4 w-4 align-middle" />`
+      return sym
+    })
+  }
+
+  // ── Market price: USD preferred, EUR fallback ────────────────────────────────
+  function getMarketPrice(): string | null {
+    if (!enrichment?.prices) return null
+    const p = enrichment.prices
+    const finishLabel = getFinishLabel(selectedCard).toLowerCase()
+    const isEtched = finishLabel.includes('etched')
+    const isFoil   = isEtched || finishLabel.includes('foil')
+
+    let usd: string | null = null
+    if (isEtched)     usd = p.usd_etched ?? p.usd_foil ?? p.usd
+    else if (isFoil)  usd = p.usd_foil ?? p.usd
+    else              usd = p.usd
+
+    if (usd) return parseFloat(usd).toFixed(2)
+
+    const eur = isFoil ? (p.eur_foil ?? p.eur) : p.eur
+    if (eur)  return (parseFloat(eur) * EUR_TO_USD).toFixed(2)
+
+    return null
+  }
+
+  function capitalize(s: string): string {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+  }
 </script>
 
 <svelte:head>
   <title>{data.card.card_name} - Group Buy</title>
+  <meta name="description" content="{data.card.card_name} — {data.card.set_name}. {data.card.type_line ?? ''}." />
 </svelte:head>
 
 <div class="container py-8">
-  <!-- Breadcrumbs: / setCode / Type / Card Name -->
+  <!-- Breadcrumbs -->
   <Breadcrumb.Root class="mb-6">
     <Breadcrumb.List>
       <Breadcrumb.Item>
@@ -152,11 +262,8 @@
 
       {#if primaryCardType}
         <Breadcrumb.Separator />
-
         <Breadcrumb.Item>
-          <Breadcrumb.Link href={typeFilterUrl}>
-            {primaryCardType}
-          </Breadcrumb.Link>
+          <Breadcrumb.Link href={typeFilterUrl}>{primaryCardType}</Breadcrumb.Link>
         </Breadcrumb.Item>
       {/if}
 
@@ -169,12 +276,13 @@
   </Breadcrumb.Root>
 
   <div class="grid gap-8 lg:grid-cols-2">
-    <!-- Card Image Carousel -->
+
+    <!-- ── Card Image Carousel ──────────────────────────────────────────────── -->
     <div class="flex flex-col items-center gap-4">
       <div class="relative">
         {#if currentImage}
           <img
-            src={currentImage.url}
+            src={enrichment?.scryfall_image_uri ?? currentImage.url}
             alt={selectedCard.card_name}
             class="max-w-sm rounded-lg shadow-lg"
             loading="lazy"
@@ -186,7 +294,6 @@
           />
         {/if}
 
-        <!-- Navigation arrows (only show if multiple images) -->
         {#if images.length > 1}
           <button
             onclick={prevImage}
@@ -205,7 +312,6 @@
         {/if}
       </div>
 
-      <!-- Image indicator dots and label -->
       {#if images.length > 1}
         <div class="flex flex-col items-center gap-2">
           <div class="flex gap-2">
@@ -224,14 +330,43 @@
       {/if}
     </div>
 
-    <!-- Card Details -->
+    <!-- ── Card Details ──────────────────────────────────────────────────────── -->
     <Card.Root>
       <Card.Header>
-        <Card.Title class="text-3xl">{selectedCard.card_name}</Card.Title>
-        <Card.Description class="text-lg">{selectedCard.set_name}</Card.Description>
+
+        <!-- Name row + mana cost at top-right -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <Card.Title class="text-3xl">{selectedCard.card_name}</Card.Title>
+            <Card.Description class="text-base">
+              {selectedCard.set_name}
+              {#if enrichment?.rarity}
+                · {capitalize(enrichment.rarity)}
+              {:else if enrichmentLoading && selectedCard.scryfall_id}
+                <span class="animate-pulse">·&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              {/if}
+            </Card.Description>
+          </div>
+
+          <!-- Mana cost as symbol images (top-right) -->
+          {#if selectedCard.mana_cost}
+            {@const parts = parseManaCost(selectedCard.mana_cost)}
+            <div class="flex flex-shrink-0 flex-wrap items-center justify-end gap-1 pt-1">
+              {#each parts as part (part.sym)}
+                {#if part.url}
+                  <img src={part.url} alt={part.sym} title={part.sym} class="h-5 w-5 object-contain" />
+                {:else}
+                  <span class="rounded bg-muted px-1 font-mono text-sm">{part.sym}</span>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
       </Card.Header>
 
-      <Card.Content class="space-y-6">
+      <Card.Content class="space-y-5">
+
+        <!-- Badges -->
         <div class="flex flex-wrap gap-2">
           <Badge variant={selectedCard.is_in_stock === false ? 'destructive' : 'default'}>
             {selectedCard.is_in_stock ? 'In Stock' : 'Out of Stock'}
@@ -264,17 +399,17 @@
         {#if finishVariants.length > 1}
           <div>
             <h3 class="mb-2 font-semibold">Finish</h3>
-            <div class="flex rounded-md border overflow-hidden max-w-xs">
+            <div class="flex max-w-xs overflow-hidden rounded-md border">
               {#each finishVariants as variant}
                 {@const isActive = selectedCard.serial === variant.serial}
                 <button
                   onclick={() => (selectedCard = variant)}
                   disabled={!variant.is_in_stock}
-                  class="flex-1 py-2 px-3 text-center transition-all text-sm
+                  class="flex-1 px-3 py-2 text-center text-sm transition-all
                     {isActive
-                    ? 'bg-primary text-primary-foreground font-medium'
-                    : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
-                    {!variant.is_in_stock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}"
+                      ? 'bg-primary text-primary-foreground font-medium'
+                      : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
+                    {!variant.is_in_stock ? 'cursor-not-allowed opacity-50 line-through' : 'cursor-pointer'}"
                 >
                   <div>{getFinishLabel(variant)}</div>
                   <div class="font-semibold">{formatPrice(getCardPrice(getMispriceKey(variant)))}</div>
@@ -284,37 +419,62 @@
           </div>
         {/if}
 
-        <div class="space-y-2">
+        <!-- Price row: our price + market price -->
+        <div class="flex items-baseline gap-3">
           <p class="text-3xl font-bold">{formatPrice(price)}</p>
-          <p class="text-sm text-muted-foreground">Serial: {selectedCard.serial}</p>
+          {#if enrichmentLoading && selectedCard.scryfall_id}
+            <span class="animate-pulse text-sm text-muted-foreground">mkt …</span>
+          {:else}
+            {@const mktPrice = getMarketPrice()}
+            {#if mktPrice}
+              <span class="text-sm text-muted-foreground">mkt ${mktPrice}</span>
+            {/if}
+          {/if}
         </div>
+        <p class="text-sm text-muted-foreground -mt-3">Serial: {selectedCard.serial}</p>
 
         <Separator />
 
+        <!-- Type line -->
         {#if selectedCard.type_line}
           <div>
-            <h3 class="font-semibold">Type</h3>
-            <p class="text-muted-foreground">{selectedCard.type_line}</p>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-1">Type</h3>
+            <p>{selectedCard.type_line}</p>
           </div>
         {/if}
 
-        {#if selectedCard.mana_cost}
+        <!-- Oracle text with mana symbols -->
+        {#if enrichmentLoading && selectedCard.scryfall_id}
           <div>
-            <h3 class="font-semibold">Mana Cost</h3>
-            <p class="text-muted-foreground">{selectedCard.mana_cost}</p>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Oracle Text</h3>
+            <div class="space-y-1.5">
+              <div class="h-3.5 w-full animate-pulse rounded bg-muted"></div>
+              <div class="h-3.5 w-5/6 animate-pulse rounded bg-muted"></div>
+              <div class="h-3.5 w-4/6 animate-pulse rounded bg-muted"></div>
+            </div>
+          </div>
+        {:else if enrichment?.oracle_text}
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Oracle Text</h3>
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <p class="whitespace-pre-line text-sm leading-relaxed">
+              {@html renderOracleText(enrichment.oracle_text)}
+            </p>
           </div>
         {/if}
 
+        <!-- Color identity -->
         {#if selectedCard.color_identity}
           <div>
-            <h3 class="font-semibold">Color Identity</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-1">Color Identity</h3>
             <p class="text-muted-foreground">{selectedCard.color_identity}</p>
           </div>
         {/if}
+
       </Card.Content>
 
       <Card.Footer class="flex gap-4">
-        <Button size="lg" onclick={addToCart} disabled={selectedCard.is_in_stock !== true}>
+        <Button size="lg" onclick={addToCart} disabled={selectedCard.is_in_stock !== true} id="add-to-cart-detail">
           <ShoppingCart class="mr-2 h-4 w-4" />
           Add to Cart
         </Button>
