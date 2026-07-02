@@ -9,6 +9,7 @@
   import PhoneInput from '$lib/components/ui/PhoneInput.svelte'
   import CountrySelect from '$lib/components/ui/CountrySelect.svelte'
   import { Check } from 'lucide-svelte'
+  import SavingsBanner from '$lib/components/cart/SavingsBanner.svelte'
 
   import { Separator } from '$components/ui/separator'
   import { cartStore } from '$lib/stores/cart.svelte'
@@ -558,6 +559,10 @@
       <div class="lg:col-span-2">
         <h2 class="mb-4 text-xl font-semibold">Order Summary</h2>
 
+        <!-- Savings banner -->
+        <div class="mb-4">
+          <SavingsBanner />
+        </div>
         <Card>
           <CardContent class="pt-6">
             <!-- Collapsible Items Section -->

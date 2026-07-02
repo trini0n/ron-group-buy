@@ -14,6 +14,7 @@
     getMispriceKey,
     getFinishBadgeClasses
   } from '$lib/utils'
+  import SavingsBanner from '$lib/components/cart/SavingsBanner.svelte'
   import {
     Trash2,
     Minus,
@@ -404,6 +405,10 @@
 
       <!-- Order Summary -->
       <div class="lg:col-span-1">
+        <!-- Savings banner: shown above the summary card -->
+        <div class="mb-3">
+          <SavingsBanner />
+        </div>
         <Card.Root class="sticky top-24">
           <Card.Header>
             <Card.Title>Order Summary</Card.Title>
