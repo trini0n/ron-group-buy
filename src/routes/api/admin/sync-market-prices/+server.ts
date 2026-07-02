@@ -3,13 +3,16 @@
  *
  * POST /api/admin/sync-market-prices
  *
- * Fetches all cards with a scryfall_id, queries Scryfall's /cards/collection
- * endpoint in batches of 75, resolves the finish-aware USD price
- * (with EUR×1.08 fallback), and bulk-updates market_price_usd in the DB.
+ * Streams newline-delimited JSON progress events back to the client so the
+ * browser connection stays alive for the full duration of the sync. Each
+ * Scryfall chunk emits a { type: 'progress', chunk, totalChunks, fetched }
+ * event. On completion: { type: 'done', updated, skipped, elapsed_ms }.
+ * On error: { type: 'error', message }.
  *
- * Returns: { updated: number, skipped: number, elapsed_ms: number }
+ * The streaming response keeps the HTTP connection open, so the sync
+ * survives as long as the browser tab stays on the page.
  */
-import { json, error } from '@sveltejs/kit'
+import { error } from '@sveltejs/kit'
 import type { RequestEvent } from '@sveltejs/kit'
 import { isAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
@@ -52,7 +55,6 @@ function resolvePrice(
   ) {
     usd = prices.usd_foil ?? prices.usd ?? null
   } else {
-    // Normal / Holo (non-foil)
     usd = prices.usd ?? null
   }
 
@@ -94,150 +96,181 @@ export async function POST({ locals }: RequestEvent) {
 
   const start = Date.now()
 
-  // 1. Fetch ALL cards with a scryfall_id using pagination to bypass
-  //    Supabase's default 1000-row cap per query.
-  const DB_BATCH = 1000
-  let offset = 0
-  let hasMore = true
-  const allCards: Array<{ id: string; scryfall_id: string; card_type: string; foil_type: string | null; is_etched: boolean | null }> = []
+  // Capture supabase client before streaming (locals may not be available in async stream)
+  const supabase = locals.supabase as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  while (hasMore) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: fetchError } = await (locals.supabase as any)
-      .from('cards')
-      .select('id, scryfall_id, card_type, foil_type, is_etched')
-      .not('scryfall_id', 'is', null)
-      .range(offset, offset + DB_BATCH - 1)
-
-    if (fetchError) {
-      logger.error({ error: fetchError }, 'sync-market-prices: failed to fetch cards')
-      throw error(500, fetchError.message)
-    }
-
-    if (batch && batch.length > 0) {
-      allCards.push(...batch)
-      offset += DB_BATCH
-      hasMore = batch.length === DB_BATCH
-    } else {
-      hasMore = false
-    }
-  }
-
-  const cards = allCards
-
-  if (cards.length === 0) {
-    return json({ updated: 0, skipped: 0, elapsed_ms: 0 })
-  }
-
-  // 2. Chunk into groups of 75
-  const chunks: typeof cards[] = []
-  for (let i = 0; i < cards.length; i += SCRYFALL_BATCH_SIZE) {
-    chunks.push(cards.slice(i, i + SCRYFALL_BATCH_SIZE))
-  }
-
-  // Map scryfall_id → card row for lookups
-  const cardMap = new Map<string, (typeof cards)[number]>()
-  for (const card of cards) {
-    if (card.scryfall_id) cardMap.set(card.scryfall_id, card)
-  }
-
-  let updated = 0
-  let skipped = 0
-
-  // 3. Fetch Scryfall and accumulate updates
-  const updates: Array<{ id: string; market_price_usd: number | null }> = []
-
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i]
-    const identifiers = chunk.map((c: { scryfall_id: string }) => ({ id: c.scryfall_id }))
-
-    try {
-      const resp = await fetch('https://api.scryfall.com/cards/collection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'RonGroupBuy/1.0'
-        },
-        body: JSON.stringify({ identifiers })
-      })
-
-      if (!resp.ok) {
-        logger.warn({ status: resp.status, chunk: i }, 'sync-market-prices: Scryfall error, skipping chunk')
-        skipped += chunk.length
-        continue
+  const stream = new ReadableStream({
+    async start(controller) {
+      function send(obj: Record<string, unknown>) {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(obj) + '\n'))
       }
 
-      const body = await resp.json()
-      const scryfallCards: Array<{
-        id: string
-        prices: Record<string, string | null>
-      }> = body.data ?? []
+      try {
+        // 1. Paginated fetch of all cards with a scryfall_id
+        send({ type: 'status', message: 'Fetching cards from database…' })
 
-      for (const sc of scryfallCards) {
-        const cardRow = cardMap.get(sc.id)
-        if (!cardRow) {
-          skipped++
-          continue
+        const DB_BATCH = 1000
+        let offset = 0
+        let hasMore = true
+        const allCards: Array<{
+          id: string
+          scryfall_id: string
+          card_type: string
+          foil_type: string | null
+          is_etched: boolean | null
+        }> = []
+
+        while (hasMore) {
+          const { data: batch, error: fetchError } = await supabase
+            .from('cards')
+            .select('id, scryfall_id, card_type, foil_type, is_etched')
+            .not('scryfall_id', 'is', null)
+            .range(offset, offset + DB_BATCH - 1)
+
+          if (fetchError) {
+            logger.error({ error: fetchError }, 'sync-market-prices: failed to fetch cards')
+            send({ type: 'error', message: fetchError.message })
+            controller.close()
+            return
+          }
+
+          if (batch && batch.length > 0) {
+            allCards.push(...batch)
+            offset += DB_BATCH
+            hasMore = batch.length === DB_BATCH
+          } else {
+            hasMore = false
+          }
         }
-        const price = resolvePrice(sc.prices ?? {}, cardRow.card_type, cardRow.foil_type, cardRow.is_etched)
-        updates.push({ id: cardRow.id, market_price_usd: price })
+
+        if (allCards.length === 0) {
+          send({ type: 'done', updated: 0, skipped: 0, elapsed_ms: 0 })
+          controller.close()
+          return
+        }
+
+        send({ type: 'status', message: `Found ${allCards.length} cards. Fetching Scryfall prices…` })
+
+        // 2. Chunk into Scryfall batches of 75
+        const chunks: typeof allCards[] = []
+        for (let i = 0; i < allCards.length; i += SCRYFALL_BATCH_SIZE) {
+          chunks.push(allCards.slice(i, i + SCRYFALL_BATCH_SIZE))
+        }
+
+        const cardMap = new Map<string, (typeof allCards)[number]>()
+        for (const card of allCards) {
+          if (card.scryfall_id) cardMap.set(card.scryfall_id, card)
+        }
+
+        let fetched = 0
+        let skipped = 0
+        const updates: Array<{ id: string; market_price_usd: number | null }> = []
+
+        // 3. Fetch Scryfall prices, streaming progress per chunk
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i]
+          const identifiers = chunk.map((c) => ({ id: c.scryfall_id }))
+
+          try {
+            const resp = await fetch('https://api.scryfall.com/cards/collection', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'RonGroupBuy/1.0'
+              },
+              body: JSON.stringify({ identifiers })
+            })
+
+            if (!resp.ok) {
+              logger.warn({ status: resp.status, chunk: i }, 'sync-market-prices: Scryfall error, skipping chunk')
+              skipped += chunk.length
+            } else {
+              const body = await resp.json()
+              const scryfallCards: Array<{ id: string; prices: Record<string, string | null> }> =
+                body.data ?? []
+
+              for (const sc of scryfallCards) {
+                const cardRow = cardMap.get(sc.id)
+                if (!cardRow) { skipped++; continue }
+                const price = resolvePrice(sc.prices ?? {}, cardRow.card_type, cardRow.foil_type, cardRow.is_etched)
+                updates.push({ id: cardRow.id, market_price_usd: price })
+                fetched++
+              }
+
+              skipped += (body.not_found ?? []).length
+            }
+          } catch (err) {
+            logger.error({ err, chunk: i }, 'sync-market-prices: fetch error for chunk')
+            skipped += chunk.length
+          }
+
+          // Emit progress after each chunk
+          send({
+            type: 'progress',
+            chunk: i + 1,
+            totalChunks: chunks.length,
+            fetched,
+            skipped,
+            totalCards: allCards.length
+          })
+
+          // Polite delay between Scryfall requests (skip after last chunk)
+          if (i < chunks.length - 1) {
+            await sleep(SCRYFALL_DELAY_MS)
+          }
+        }
+
+        // 4. Bulk-update the DB grouped by price value
+        send({ type: 'status', message: `Writing ${updates.length} prices to database…` })
+
+        const now = new Date().toISOString()
+        const IN_BATCH_SIZE = 500
+        let updated = 0
+
+        // Group card IDs by resolved price to minimise DB round-trips
+        const priceGroups = new Map<string, string[]>()
+        for (const u of updates) {
+          const key = u.market_price_usd === null ? '__null__' : String(u.market_price_usd)
+          const bucket = priceGroups.get(key)
+          if (bucket) { bucket.push(u.id) } else { priceGroups.set(key, [u.id]) }
+        }
+
+        for (const [priceKey, ids] of priceGroups) {
+          const priceValue = priceKey === '__null__' ? null : parseFloat(priceKey)
+          for (let i = 0; i < ids.length; i += IN_BATCH_SIZE) {
+            const idChunk = ids.slice(i, i + IN_BATCH_SIZE)
+            const { error: updateError } = await supabase
+              .from('cards')
+              .update({ market_price_usd: priceValue, market_price_updated_at: now })
+              .in('id', idChunk)
+
+            if (updateError) {
+              logger.error({ error: updateError, priceKey, chunkSize: idChunk.length }, 'sync-market-prices: batch update failed')
+              skipped += idChunk.length
+            } else {
+              updated += idChunk.length
+            }
+          }
+        }
+
+        const elapsed_ms = Date.now() - start
+        logger.info({ updated, skipped, elapsed_ms, totalCards: allCards.length }, 'sync-market-prices: complete')
+
+        send({ type: 'done', updated, skipped, elapsed_ms })
+      } catch (err) {
+        logger.error({ err }, 'sync-market-prices: unexpected error')
+        send({ type: 'error', message: 'Unexpected error during sync' })
+      } finally {
+        controller.close()
       }
-
-      // Count Scryfall "not found" entries as skipped
-      skipped += (body.not_found ?? []).length
-    } catch (err) {
-      logger.error({ err, chunk: i }, 'sync-market-prices: fetch error for chunk')
-      skipped += chunk.length
     }
+  })
 
-    // Be polite — wait between chunks (skip delay after last chunk)
-    if (i < chunks.length - 1) {
-      await sleep(SCRYFALL_DELAY_MS)
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Transfer-Encoding': 'chunked',
+      'Cache-Control': 'no-cache'
     }
-  }
-
-  // 4. Bulk-update the DB.
-  //    Strategy: group by resolved price value, then issue one UPDATE per
-  //    unique price using .in(ids). For ~5000 cards this reduces DB round-trips
-  //    from O(N) to O(distinct prices) — typically well under 1000 calls.
-  const now = new Date().toISOString()
-  const IN_BATCH_SIZE = 500 // max IDs per .in() to stay within URL length limits
-
-  // Group card IDs by their resolved price (null prices handled separately)
-  const priceGroups = new Map<string, string[]>() // price string (or 'null') → [id, ...]
-  for (const u of updates) {
-    const key = u.market_price_usd === null ? '__null__' : String(u.market_price_usd)
-    const bucket = priceGroups.get(key)
-    if (bucket) {
-      bucket.push(u.id)
-    } else {
-      priceGroups.set(key, [u.id])
-    }
-  }
-
-  for (const [priceKey, ids] of priceGroups) {
-    const priceValue = priceKey === '__null__' ? null : parseFloat(priceKey)
-
-    // Chunk IDs to avoid over-long .in() arrays
-    for (let i = 0; i < ids.length; i += IN_BATCH_SIZE) {
-      const chunk = ids.slice(i, i + IN_BATCH_SIZE)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: updateError } = await (locals.supabase as any)
-        .from('cards')
-        .update({ market_price_usd: priceValue, market_price_updated_at: now })
-        .in('id', chunk)
-
-      if (updateError) {
-        logger.error({ error: updateError, priceKey, chunkSize: chunk.length }, 'sync-market-prices: batch update failed')
-        skipped += chunk.length
-      } else {
-        updated += chunk.length
-      }
-    }
-  }
-
-  const elapsed_ms = Date.now() - start
-  logger.info({ updated, skipped, elapsed_ms, totalCards: cards.length }, 'sync-market-prices: complete')
-
-  return json({ updated, skipped, elapsed_ms })
+  })
 }

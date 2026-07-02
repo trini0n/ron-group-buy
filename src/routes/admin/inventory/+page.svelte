@@ -75,6 +75,8 @@
   let isUpdating = $state(false)
   let isSyncing = $state(false)
   let isSyncingPrices = $state(false)
+  // Market price sync progress
+  let syncProgress = $state({ chunk: 0, totalChunks: 0, fetched: 0, totalCards: 0, statusMsg: '' })
   let isResyncingImages = $state(false)
   let checkNewCardsOpen = $state(false)
   let resyncingCardId = $state<string | null>(null)
@@ -219,25 +221,69 @@
 
   async function syncMarketPrices() {
     isSyncingPrices = true
-    try {
-      const response = await fetch('/api/admin/sync-market-prices', {
-        method: 'POST'
-      })
+    syncProgress = { chunk: 0, totalChunks: 0, fetched: 0, totalCards: 0, statusMsg: 'Starting…' }
 
-      if (response.ok) {
-        const result = await response.json()
-        toast.success(
-          `Market prices synced! ${result.updated} updated, ${result.skipped} skipped (${(result.elapsed_ms / 1000).toFixed(1)}s)`
-        )
-        invalidateAll()
-      } else {
+    // Warn user if they try to navigate away mid-sync
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+
+    try {
+      const response = await fetch('/api/admin/sync-market-prices', { method: 'POST' })
+
+      if (!response.ok || !response.body) {
         const err = await response.json().catch(() => ({}))
         toast.error(err.message || 'Failed to sync market prices')
+        return
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? '' // keep incomplete last line in buffer
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const event = JSON.parse(trimmed)
+            if (event.type === 'progress') {
+              syncProgress = {
+                chunk: event.chunk,
+                totalChunks: event.totalChunks,
+                fetched: event.fetched,
+                totalCards: event.totalCards,
+                statusMsg: `Chunk ${event.chunk}/${event.totalChunks} — ${event.fetched} prices fetched`
+              }
+            } else if (event.type === 'status') {
+              syncProgress = { ...syncProgress, statusMsg: event.message }
+            } else if (event.type === 'done') {
+              toast.success(
+                `Market prices synced! ${event.updated} updated, ${event.skipped} skipped (${(event.elapsed_ms / 1000).toFixed(1)}s)`
+              )
+              invalidateAll()
+            } else if (event.type === 'error') {
+              toast.error(event.message || 'Sync error')
+            }
+          } catch {
+            // Malformed JSON line — skip
+          }
+        }
       }
     } catch (err) {
       toast.error('Failed to sync market prices')
     } finally {
       isSyncingPrices = false
+      syncProgress = { chunk: 0, totalChunks: 0, fetched: 0, totalCards: 0, statusMsg: '' }
+      window.removeEventListener('beforeunload', onBeforeUnload)
     }
   }
 
@@ -325,15 +371,34 @@
         <Search class="h-4 w-4" />
         Check New Cards
       </Button>
-      <Button variant="outline" onclick={syncMarketPrices} disabled={isSyncingPrices} class="gap-2">
+
+      <!-- Market price sync — shows live progress bar while streaming -->
+      <div class="flex flex-col items-end gap-1">
+        <Button variant="outline" onclick={syncMarketPrices} disabled={isSyncingPrices} class="gap-2">
+          {#if isSyncingPrices}
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Syncing Prices…
+          {:else}
+            <DollarSign class="h-4 w-4" />
+            Sync Market Prices
+          {/if}
+        </Button>
         {#if isSyncingPrices}
-          <Loader2 class="h-4 w-4 animate-spin" />
-          Syncing Prices…
-        {:else}
-          <DollarSign class="h-4 w-4" />
-          Sync Market Prices
+          <div class="w-full min-w-[200px]">
+            <!-- Progress bar -->
+            <div class="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                class="h-full rounded-full bg-primary transition-all duration-300"
+                style="width: {syncProgress.totalChunks > 0 ? Math.round((syncProgress.chunk / syncProgress.totalChunks) * 100) : 0}%"
+              ></div>
+            </div>
+            <p class="mt-0.5 text-[11px] text-muted-foreground text-right">
+              {syncProgress.statusMsg || 'Starting…'}
+            </p>
+          </div>
         {/if}
-      </Button>
+      </div>
+
       <Button variant="outline" onclick={syncWithGoogleSheets} disabled={isSyncing} class="gap-2">
         {#if isSyncing}
           <Loader2 class="h-4 w-4 animate-spin" />
