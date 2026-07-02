@@ -310,6 +310,8 @@
       scryfall_id: selectedCard.scryfall_id ?? null,
       moxfield_syntax: null,
       ron_image_url: null,
+      market_price_usd: null,
+      market_price_updated_at: null,
       created_at: null,
       updated_at: null
     } satisfies Card
