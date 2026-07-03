@@ -280,17 +280,33 @@
   // Fetch Moxfield deck from the browser.
   // Moxfield sits behind Cloudflare Bot Management which blocks Vercel/AWS datacenter IPs.
   // The user's browser passes the check (residential IP + real Chrome TLS fingerprint).
+  // Requires a Cloudflare Worker proxy (PUBLIC_MOXFIELD_PROXY) that adds CORS headers.
+  // Falls back to server-side /api/import/deck when no proxy is configured.
   async function fetchMoxfieldDeckClient(url: string): Promise<{ name: string; cards: DeckCard[] }> {
     const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
     if (!match || !match[1]) throw new Error('Invalid Moxfield URL')
 
-    const deckId = match[1]
-    // Route through Cloudflare Worker proxy (adds CORS headers; Worker runs on CF edge so Moxfield trusts it)
-    // Falls back to direct URL if PUBLIC_MOXFIELD_PROXY is not set
     const moxfieldProxy: string | undefined = import.meta.env.PUBLIC_MOXFIELD_PROXY
-    const apiUrl = moxfieldProxy
-      ? `${moxfieldProxy}/${deckId}`
-      : `https://api2.moxfield.com/v3/decks/all/${deckId}`
+
+    if (!moxfieldProxy) {
+      // No proxy configured — use server-side fetch to avoid CORS issues
+      const deckResponse = await fetch('/api/import/deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, source: 'moxfield' })
+      })
+
+      if (!deckResponse.ok) {
+        const errorData = await deckResponse.text()
+        throw new Error(errorData || `Failed to fetch deck (status ${deckResponse.status})`)
+      }
+
+      return await deckResponse.json()
+    }
+
+    // Route through Cloudflare Worker proxy (adds CORS headers; Worker runs on CF edge so Moxfield trusts it)
+    const deckId = match[1]
+    const apiUrl = `${moxfieldProxy}/${deckId}`
     const response = await fetch(apiUrl, {
       headers: { Accept: 'application/json' }
     })
