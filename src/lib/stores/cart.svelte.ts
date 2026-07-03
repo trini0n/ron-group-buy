@@ -329,45 +329,59 @@ function createCartStore() {
 
     // Queue the server sync to prevent concurrent modification conflicts
     return cartRequestQueue.enqueue(async () => {
-      try {
-        const response = await fetch('/api/cart/bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: cardsWithQuantity.map(({ card, quantity }) => ({
-              card_id: card.id,
-              quantity
-            })),
-            expected_version: version > 0 ? version : undefined
+      // Retry helper: on 409 version conflict, resync and retry once
+      const attemptBulkAdd = async (retrying: boolean): Promise<boolean> => {
+        try {
+          const response = await fetch('/api/cart/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: cardsWithQuantity.map(({ card, quantity }) => ({
+                card_id: card.id,
+                quantity
+              })),
+              expected_version: version > 0 ? version : undefined
+            })
           })
-        })
 
-        if (response.status === 409) {
-          // Version conflict - resync and notify
-          await syncFromServer()
-          throw new Error('Version conflict - please try again')
+          if (response.status === 409) {
+            // Version conflict - resync and retry once
+            await syncFromServer()
+            if (!retrying) {
+              return attemptBulkAdd(true)
+            }
+            throw new Error('Version conflict - please try again')
+          }
+
+          if (!response.ok) {
+            throw new Error('Failed to add items')
+          }
+
+          const data = await response.json()
+
+          if (data.cart) {
+            cartId = data.cart.id
+            version = data.cart.version
+          }
+          applyServerItems(data.items || [])
+          persistLocal()
+
+          return true
+        } catch (err) {
+          // Only rollback on final failure
+          if (retrying || !(err instanceof Error) || !err.message.includes('Version conflict')) {
+            items = previousItems
+            persistLocal()
+            console.error('Bulk add to cart error:', err)
+            lastError = 'Failed to add items to cart'
+          }
+          throw err
         }
+      }
 
-        if (!response.ok) {
-          throw new Error('Failed to add items')
-        }
-
-        const data = await response.json()
-
-        if (data.cart) {
-          cartId = data.cart.id
-          version = data.cart.version
-        }
-        applyServerItems(data.items || [])
-        persistLocal()
-
-        return true
-      } catch (err) {
-        // Rollback
-        items = previousItems
-        persistLocal()
-        console.error('Bulk add to cart error:', err)
-        lastError = 'Failed to add items to cart'
+      try {
+        return await attemptBulkAdd(false)
+      } catch {
         return false
       }
     })

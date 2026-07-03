@@ -152,6 +152,7 @@
   let deckName = $state('')
   let deckSource = $state<'moxfield' | 'archidekt' | null>(null)
   let showMoxfieldWarning = $state(false) // Show warning when Moxfield import fails
+  let isAddingToCart = $state(false) // Prevent double-click on Add to Cart
 
   // Progress tracking
   let totalCardsToSearch = $state(0)
@@ -815,24 +816,30 @@
       toast.error('No cards selected')
       return
     }
+    if (isAddingToCart) return // Prevent double-click
 
-    // Prepare bulk items array
-    const itemsToAdd = Array.from(selectedCards.entries()).map(([idx, card]) => {
-      const result = searchResults[idx]
-      return {
-        card: card as any,
-        quantity: result!.requestedCard.quantity
+    isAddingToCart = true
+    try {
+      // Prepare bulk items array
+      const itemsToAdd = Array.from(selectedCards.entries()).map(([idx, card]) => {
+        const result = searchResults[idx]
+        return {
+          card: card as any,
+          quantity: result!.requestedCard.quantity
+        }
+      })
+
+      // Add all items in a single API call
+      const success = await cartStore.addItems(itemsToAdd)
+
+      if (success) {
+        toast.success(`Added ${itemsToAdd.length} cards to cart`)
+        selectedCards = new Map()
+      } else {
+        toast.error('Failed to add cards to cart')
       }
-    })
-
-    // Add all items in a single API call
-    const success = await cartStore.addItems(itemsToAdd)
-
-    if (success) {
-      toast.success(`Added ${itemsToAdd.length} cards to cart`)
-      selectedCards = new Map()
-    } else {
-      toast.error('Failed to add cards to cart')
+    } finally {
+      isAddingToCart = false
     }
   }
 
@@ -1408,11 +1415,16 @@
 
     <!-- Add to Cart Button -->
     <div class="sticky bottom-4 flex justify-center">
-      <Button size="lg" onclick={addSelectedToCart} disabled={totalSelected === 0} class="shadow-lg">
-        <ShoppingCart class="mr-2 h-4 w-4" />
-        Add {totalSelected} Cards to Cart
-        {#if totalQuantity > 0}
-          ({totalQuantity} total)
+      <Button size="lg" onclick={addSelectedToCart} disabled={totalSelected === 0 || isAddingToCart} class="shadow-lg">
+        {#if isAddingToCart}
+          <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+          Adding to Cart…
+        {:else}
+          <ShoppingCart class="mr-2 h-4 w-4" />
+          Add {totalSelected} Cards to Cart
+          {#if totalQuantity > 0}
+            ({totalQuantity} total)
+          {/if}
         {/if}
       </Button>
     </div>
