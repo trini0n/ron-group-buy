@@ -382,18 +382,18 @@ export class CartService {
       }
     }
 
-    // Execute updates with batch upsert (eliminates N+1 queries)
+    // Execute updates for existing items (use .update(), not .upsert(), because
+    // upsert checks NOT NULL constraints on cart_id/card_id before conflict resolution)
     if (itemsToUpdate.length > 0) {
-      const updates = itemsToUpdate.map((update) => ({
-        id: update.id,
-        quantity: update.quantity,
-        updated_at: new Date().toISOString()
-      }))
+      const updatePromises = itemsToUpdate.map((update) =>
+        this.supabase
+          .from('cart_items')
+          .update({ quantity: update.quantity, updated_at: new Date().toISOString() })
+          .eq('id', update.id)
+      )
 
-      const { error: updateError } = await this.supabase.from('cart_items').upsert(updates, {
-        onConflict: 'id'
-      })
-
+      const results = await Promise.all(updatePromises)
+      const updateError = results.find((r) => r.error)?.error
       if (updateError) {
         return { success: false, cart: null, error: updateError.message }
       }
