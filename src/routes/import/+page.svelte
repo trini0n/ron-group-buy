@@ -25,6 +25,7 @@
   import { onMount } from 'svelte'
   import { getNotFoundCards, formatCardForClipboard } from '$lib/deck-utils'
   import { browser } from '$app/environment'
+  import { env as publicEnv } from '$env/dynamic/public'
 
   // Types
   interface DeckCard {
@@ -286,7 +287,7 @@
     const match = url.match(/moxfield\.com\/decks\/([a-zA-Z0-9_-]+)/)
     if (!match || !match[1]) throw new Error('Invalid Moxfield URL')
 
-    const moxfieldProxy: string | undefined = import.meta.env.PUBLIC_MOXFIELD_PROXY
+    const moxfieldProxy: string | undefined = publicEnv.PUBLIC_MOXFIELD_PROXY
 
     if (!moxfieldProxy) {
       // No proxy configured — use server-side fetch to avoid CORS issues
