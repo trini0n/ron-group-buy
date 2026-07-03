@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '$lib/supabase'
 import type { Handle } from '@sveltejs/kit'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '$lib/server/database.types'
+import { env as publicEnv } from '$env/dynamic/public'
 
 export const handle: Handle = async ({ event, resolve }) => {
   // Create Supabase client for this request
@@ -50,8 +51,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      // Allow Supabase API and auth, Scryfall API (for /cards/popular lazy fetch), and Moxfield API (deck import fallback)
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.scryfall.com https://api2.moxfield.com",
+      // Allow Supabase API and auth, Scryfall API, and Moxfield proxy (if configured)
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.scryfall.com${publicEnv.PUBLIC_MOXFIELD_PROXY ? ' ' + publicEnv.PUBLIC_MOXFIELD_PROXY : ''}`,
       // Allow Google Fonts
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
