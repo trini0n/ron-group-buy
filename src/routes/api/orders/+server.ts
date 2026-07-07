@@ -148,16 +148,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   // Get active group buy
   const { data: activeGroupBuy } = await locals.supabase
     .from('group_buy_config')
-    .select('id')
+    .select('id, closes_at')
     .eq('is_active', true)
     .single()
+
+  // Reject order if group buy deadline has passed
+  if (activeGroupBuy?.closes_at) {
+    const closesAt = new Date(activeGroupBuy.closes_at)
+    if (new Date() > closesAt) {
+      return json(
+        { error: 'This group buy has closed. Orders are no longer being accepted. Please contact Brandon (@brndn_) on Discord for further support.' },
+        { status: 403 }
+      )
+    }
+  }
 
   // Check for existing pending order in this group buy
   const { data: existingOrder } = activeGroupBuy
     ? await locals.supabase
-        .from('orders')
-        .select(
-          `
+      .from('orders')
+      .select(
+        `
       id, 
       order_number,
       order_items (
@@ -166,11 +177,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         unit_price
       )
     `
-        )
-        .eq('user_id', locals.user.id)
-        .eq('group_buy_id', activeGroupBuy.id)
-        .eq('status', 'pending')
-        .single()
+      )
+      .eq('user_id', locals.user.id)
+      .eq('group_buy_id', activeGroupBuy.id)
+      .eq('status', 'pending')
+      .single()
     : { data: null }
 
   // If there's an existing pending order

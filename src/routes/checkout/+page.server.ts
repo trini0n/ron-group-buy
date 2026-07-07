@@ -71,9 +71,19 @@ export const load: PageServerLoad = async ({ locals }) => {
     .eq('id', locals.user.id)
     .single()
 
+  // Compute whether the group buy is currently open (accounts for closes_at, not just is_active)
+  const isGroupBuyOpen = (() => {
+    if (!groupBuyConfig || !groupBuyConfig.is_active) return false
+    const now = new Date()
+    if (groupBuyConfig.opens_at && now < new Date(groupBuyConfig.opens_at)) return false
+    if (groupBuyConfig.closes_at && now > new Date(groupBuyConfig.closes_at)) return false
+    return true
+  })()
+
   return {
     addresses: addresses || [],
     groupBuyConfig,
+    isGroupBuyOpen,
     isEmailVerified,
     userEmail: locals.user.email,
     userPaypalEmail: userData?.paypal_email || null,

@@ -1,24 +1,43 @@
 <script lang="ts">
-  import { Button } from '$lib/components/ui/button'
-  import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '$lib/components/ui/card'
-  import { Input } from '$lib/components/ui/input'
-  import { Label } from '$lib/components/ui/label'
-  import { Textarea } from '$lib/components/ui/textarea'
-  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group'
-  import { Checkbox } from '$lib/components/ui/checkbox'
-  import PhoneInput from '$lib/components/ui/PhoneInput.svelte'
-  import CountrySelect from '$lib/components/ui/CountrySelect.svelte'
-  import { Check } from 'lucide-svelte'
-  import SavingsBanner from '$lib/components/cart/SavingsBanner.svelte'
+  import { Button } from "$lib/components/ui/button";
+  import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardFooter,
+  } from "$lib/components/ui/card";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { RadioGroup, RadioGroupItem } from "$lib/components/ui/radio-group";
+  import { Checkbox } from "$lib/components/ui/checkbox";
+  import PhoneInput from "$lib/components/ui/PhoneInput.svelte";
+  import CountrySelect from "$lib/components/ui/CountrySelect.svelte";
+  import { Check } from "lucide-svelte";
+  import SavingsBanner from "$lib/components/cart/SavingsBanner.svelte";
 
-  import { Separator } from '$components/ui/separator'
-  import { cartStore } from '$lib/stores/cart.svelte'
-  import { formatPrice, getCardPrice, getFinishLabel, getMispriceKey } from '$lib/utils'
-  import { createSupabaseClient } from '$lib/supabase'
-  import { browser } from '$app/environment'
-  import { ArrowLeft, AlertTriangle, Mail, Package, Truck, ChevronDown, ChevronUp } from 'lucide-svelte'
+  import { Separator } from "$components/ui/separator";
+  import { cartStore } from "$lib/stores/cart.svelte";
+  import {
+    formatPrice,
+    getCardPrice,
+    getFinishLabel,
+    getMispriceKey,
+  } from "$lib/utils";
+  import { createSupabaseClient } from "$lib/supabase";
+  import { browser } from "$app/environment";
+  import {
+    ArrowLeft,
+    AlertTriangle,
+    Mail,
+    Package,
+    Truck,
+    ChevronDown,
+    ChevronUp,
+  } from "lucide-svelte";
 
-  let { data } = $props()
+  let { data } = $props();
 
   // Shipping pricing constants
   const SHIPPING_RATES = {
@@ -26,200 +45,226 @@
       regular: 6.0,
       express: 40.0,
       expressPerHalfKg: 8.0,
-      tariff: 9.0
+      tariff: 9.0,
     },
     international: {
       regular: 6.0,
       express: 25.0,
       expressPerHalfKg: 5.0, // Additional per 0.5kg
-      tariff: 0
-    }
-  }
+      tariff: 0,
+    },
+  };
 
   // Email verification
-  let isResendingVerification = $state(false)
-  let verificationSent = $state(false)
+  let isResendingVerification = $state(false);
+  let verificationSent = $state(false);
 
   // Form state - use $derived for data-dependent values
-  let selectedAddressId = $state<string | null>(null)
-  let useNewAddress = $state(false)
-  let isSubmitting = $state(false)
-  let shippingType = $state<'regular' | 'express'>('regular')
+  let selectedAddressId = $state<string | null>(null);
+  let useNewAddress = $state(false);
+  let isSubmitting = $state(false);
+  let shippingType = $state<"regular" | "express">("regular");
 
   // Initialize from data
   $effect(() => {
-    selectedAddressId = data.addresses.find((a) => a.is_default)?.id || data.addresses[0]?.id || null
-    useNewAddress = data.addresses.length === 0
-  })
+    selectedAddressId =
+      data.addresses.find((a) => a.is_default)?.id ||
+      data.addresses[0]?.id ||
+      null;
+    useNewAddress = data.addresses.length === 0;
+  });
 
   // New address form
   let newAddress = $state({
-    name: '',
-    line1: '',
-    line2: '',
-    city: '',
-    state: '',
-    postal_code: '',
-    country: 'US'
-  })
+    name: "",
+    line1: "",
+    line2: "",
+    city: "",
+    state: "",
+    postal_code: "",
+    country: "US",
+  });
 
   // PayPal email and Phone Number
-  let paypalEmail = $state('')
-  let phoneNumber = $state('')
-  let discordUsername = $state('')
+  let paypalEmail = $state("");
+  let phoneNumber = $state("");
+  let discordUsername = $state("");
 
-  let prevAddressId = $state<string | null>(null)
-  let prevCountry = $state<string | null>(null)
+  let prevAddressId = $state<string | null>(null);
+  let prevCountry = $state<string | null>(null);
 
   // Order note
-  let orderNote = $state('')
+  let orderNote = $state("");
 
   // Determine shipping location and calculate costs
   let selectedCountry = $derived.by(() => {
     if (useNewAddress) {
-      return newAddress.country
+      return newAddress.country;
     }
-    const selectedAddress = data.addresses.find((a: any) => a.id === selectedAddressId) as any
-    return selectedAddress?.country || 'US'
-  })
+    const selectedAddress = data.addresses.find(
+      (a: any) => a.id === selectedAddressId,
+    ) as any;
+    return selectedAddress?.country || "US";
+  });
 
   // Effect for handling phone number and email updates
   $effect(() => {
-    paypalEmail = data.userPaypalEmail || ''
+    paypalEmail = data.userPaypalEmail || "";
 
-    const currentCountry = selectedCountry
+    const currentCountry = selectedCountry;
 
     // If swapping to a different saved address
     if (!useNewAddress && selectedAddressId !== prevAddressId) {
-      const selected = data.addresses.find((a: any) => a.id === selectedAddressId) as any
+      const selected = data.addresses.find(
+        (a: any) => a.id === selectedAddressId,
+      ) as any;
 
       if (selected?.phone_number) {
-        phoneNumber = selected.phone_number
+        phoneNumber = selected.phone_number;
       } else {
-        phoneNumber = '' // Empty string lets PhoneInput prepopulate the country dial code
+        phoneNumber = ""; // Empty string lets PhoneInput prepopulate the country dial code
       }
-      prevAddressId = selectedAddressId
-      prevCountry = currentCountry
+      prevAddressId = selectedAddressId;
+      prevCountry = currentCountry;
     }
     // If country changed (e.g. typing in new address form) or switching to new address form
     else if (currentCountry !== prevCountry) {
-      prevCountry = currentCountry
-      if (useNewAddress) prevAddressId = null
+      prevCountry = currentCountry;
+      if (useNewAddress) prevAddressId = null;
     }
-  })
+  });
 
   let isUSShipping = $derived(
-    selectedCountry.toUpperCase() === 'US' ||
-      selectedCountry.toUpperCase() === 'USA' ||
-      selectedCountry.toUpperCase() === 'UNITED STATES'
-  )
+    selectedCountry.toUpperCase() === "US" ||
+      selectedCountry.toUpperCase() === "USA" ||
+      selectedCountry.toUpperCase() === "UNITED STATES",
+  );
 
-  let rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international)
-  let shippingCost = $derived(shippingType === 'regular' ? rates.regular : rates.express)
-  let tariffCost = $derived(rates.tariff)
-  let estimatedTotal = $derived(cartStore.total + shippingCost + tariffCost)
+  let rates = $derived(
+    isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international,
+  );
+  let shippingCost = $derived(
+    shippingType === "regular" ? rates.regular : rates.express,
+  );
+  let tariffCost = $derived(rates.tariff);
+  let estimatedTotal = $derived(cartStore.total + shippingCost + tariffCost);
 
   let hasLinkedDiscord = $derived(
-    Boolean((data as any).userData?.discord_id || (data as any).userData?.discord_username)
-  )
+    Boolean(
+      (data as any).userData?.discord_id ||
+      (data as any).userData?.discord_username,
+    ),
+  );
 
   // Collapsible items state
-  let showItems = $state(false)
+  let showItems = $state(false);
 
   // Group cart items by effective finish (foil_type ?? card_type) for a dynamic price breakdown
   // data.cardPrices is injected by the root layout server and merged into data at runtime
   let priceBreakdown = $derived.by(() => {
-    const prices: Record<string, number> = (data as any).cardPrices ?? {}
-    const groups = new Map<string, { count: number; total: number; price: number }>()
+    const prices: Record<string, number> = (data as any).cardPrices ?? {};
+    const groups = new Map<
+      string,
+      { count: number; total: number; price: number }
+    >();
     for (const item of cartStore.items) {
       // Use effective finish (foil_type ?? card_type) for correct grouping and pricing
-      const priceKey = getMispriceKey(item.card)
-      const price = getCardPrice(priceKey, prices)
-      const existing = groups.get(priceKey) ?? { count: 0, total: 0, price }
+      const priceKey = getMispriceKey(item.card);
+      const price = getCardPrice(priceKey, prices);
+      const existing = groups.get(priceKey) ?? { count: 0, total: 0, price };
       groups.set(priceKey, {
         count: existing.count + item.quantity,
         total: existing.total + price * item.quantity,
-        price
-      })
+        price,
+      });
     }
     // Sort by price ascending
-    return [...groups.entries()].sort((a, b) => a[1].price - b[1].price)
-  })
+    return [...groups.entries()].sort((a, b) => a[1].price - b[1].price);
+  });
 
   async function resendVerificationEmail() {
-    if (!browser) return
+    if (!browser) return;
 
-    isResendingVerification = true
-    const supabase = createSupabaseClient()
+    isResendingVerification = true;
+    const supabase = createSupabaseClient();
     const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: data.userEmail || ''
-    })
-    isResendingVerification = false
+      type: "signup",
+      email: data.userEmail || "",
+    });
+    isResendingVerification = false;
     if (!error) {
-      verificationSent = true
+      verificationSent = true;
     }
   }
 
   async function handleSubmit(e: Event) {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!data.isEmailVerified) {
-      alert('Please verify your email address before placing an order.')
-      return
+      alert("Please verify your email address before placing an order.");
+      return;
     }
 
     // Validation
     if (!phoneNumber || !phoneNumber.trim()) {
       // The HTML5 require will catch standard form submissions, but we keep this client block just in case
-      alert('Please provide a Phone Number.')
-      return
+      alert("Please provide a Phone Number.");
+      return;
     }
 
-    const hasDiscordLinked = Boolean((data as any).userData?.discord_id || (data as any).userData?.discord_username)
+    const hasDiscordLinked = Boolean(
+      (data as any).userData?.discord_id ||
+      (data as any).userData?.discord_username,
+    );
     if (!hasDiscordLinked && !discordUsername.trim()) {
-      alert('Please connect your Discord account or provide your Discord username.')
-      return
+      alert(
+        "Please connect your Discord account or provide your Discord username.",
+      );
+      return;
     }
 
     if (!paypalEmail || !paypalEmail.trim()) {
-      alert('Please provide a PayPal Email Address.')
-      return
+      alert("Please provide a PayPal Email Address.");
+      return;
     }
 
-    isSubmitting = true
+    isSubmitting = true;
 
     try {
       // Validate cart before submitting order
-      const validation = await cartStore.validate()
+      const validation = await cartStore.validate();
       if (validation) {
-        const hasInvalidItems = validation.invalid_items?.length > 0
-        const hasPriceChanges = validation.price_changes?.length > 0
+        const hasInvalidItems = validation.invalid_items?.length > 0;
+        const hasPriceChanges = validation.price_changes?.length > 0;
 
         if (hasInvalidItems) {
-          alert('Some items in your cart are no longer available. Please review your cart.')
-          isSubmitting = false
-          return
+          alert(
+            "Some items in your cart are no longer available. Please review your cart.",
+          );
+          isSubmitting = false;
+          return;
         }
 
         if (hasPriceChanges) {
           const confirm = window.confirm(
-            'Some prices have changed since you added items to your cart. Continue with checkout?'
-          )
+            "Some prices have changed since you added items to your cart. Continue with checkout?",
+          );
           if (!confirm) {
-            isSubmitting = false
-            return
+            isSubmitting = false;
+            return;
           }
         }
       }
 
-      const response = await fetch('/api/orders', {
-        method: 'POST',
+      const response = await fetch("/api/orders", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          addressId: useNewAddress ? undefined : (selectedAddressId ?? undefined),
+          addressId: useNewAddress
+            ? undefined
+            : (selectedAddressId ?? undefined),
           newAddress: useNewAddress ? newAddress : undefined,
           shippingType,
           notes: orderNote,
@@ -228,7 +273,7 @@
           discordUsername: discordUsername.trim() || undefined,
           cartId: cartStore.cartId ?? undefined,
           cartVersion: cartStore.version,
-          action: data.existingPendingOrder ? 'merge' : undefined, // Auto-merge if existing order
+          action: data.existingPendingOrder ? "merge" : undefined, // Auto-merge if existing order
           items: cartStore.items.map((item) => ({
             cardId: item.card.id,
             serial: item.card.serial,
@@ -241,44 +286,44 @@
             collectorNumber: item.card.collector_number,
             isFoil: item.card.is_foil,
             isEtched: item.card.is_etched,
-            language: item.card.language || 'en'
+            language: item.card.language || "en",
           })),
           bundles: cartStore.bundles.map((b) => ({
             setCode: b.set_code,
-            quantity: b.quantity
-          }))
-        })
-      })
+            quantity: b.quantity,
+          })),
+        }),
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (response.ok) {
         // Clear cart and wait for it to complete before redirecting
-        await cartStore.clear()
-        window.location.href = `/orders/${result.orderId}?success=true`
+        await cartStore.clear();
+        window.location.href = `/orders/${result.orderId}?success=true`;
       } else {
-        alert(`Error: ${result.message ?? result.error ?? 'Unknown error'}`)
+        alert(`Error: ${result.message ?? result.error ?? "Unknown error"}`);
       }
     } catch (err) {
-      alert('Failed to submit order. Please try again.')
+      alert("Failed to submit order. Please try again.");
     } finally {
-      isSubmitting = false
+      isSubmitting = false;
     }
   }
 
   async function connectDiscord() {
     try {
-      const response = await fetch('/api/profile/auth/discord', {
-        method: 'POST'
-      })
+      const response = await fetch("/api/profile/auth/discord", {
+        method: "POST",
+      });
       if (response.ok) {
-        const { url } = await response.json()
-        window.location.href = url
+        const { url } = await response.json();
+        window.location.href = url;
       } else {
-        alert('Failed to connect Discord.')
+        alert("Failed to connect Discord.");
       }
     } catch {
-      alert('Failed to connect Discord.')
+      alert("Failed to connect Discord.");
     }
   }
 </script>
@@ -288,7 +333,10 @@
 </svelte:head>
 
 <div class="container max-w-4xl py-8">
-  <a href="/cart" class="mb-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground">
+  <a
+    href="/cart"
+    class="mb-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+  >
     <ArrowLeft class="h-4 w-4" />
     Back to cart
   </a>
@@ -297,17 +345,25 @@
 
   <!-- Email Verification Warning -->
   {#if !data.isEmailVerified}
-    <div class="mb-6 rounded-lg border border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-900/20">
+    <div
+      class="mb-6 rounded-lg border border-yellow-500 bg-yellow-50 p-4 dark:bg-yellow-900/20"
+    >
       <div class="flex items-start gap-3">
-        <AlertTriangle class="mt-0.5 h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+        <AlertTriangle
+          class="mt-0.5 h-5 w-5 text-yellow-600 dark:text-yellow-400"
+        />
         <div class="flex-1">
-          <h3 class="font-medium text-yellow-800 dark:text-yellow-300">Email Verification Required</h3>
+          <h3 class="font-medium text-yellow-800 dark:text-yellow-300">
+            Email Verification Required
+          </h3>
           <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-400">
-            Please verify your email address ({data.userEmail}) before placing an order. Check your inbox for the
-            verification link.
+            Please verify your email address ({data.userEmail}) before placing
+            an order. Check your inbox for the verification link.
           </p>
           {#if verificationSent}
-            <p class="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+            <p
+              class="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400"
+            >
               <Check class="h-4 w-4" />
               Verification email sent! Check your inbox.
             </p>
@@ -320,11 +376,36 @@
               disabled={isResendingVerification}
             >
               <Mail class="mr-2 h-4 w-4" />
-              {isResendingVerification ? 'Sending...' : 'Resend Verification Email'}
+              {isResendingVerification
+                ? "Sending..."
+                : "Resend Verification Email"}
             </Button>
           {/if}
         </div>
       </div>
+    </div>
+  {/if}
+
+  {#if !data.isGroupBuyOpen}
+    <div
+      class="mb-6 rounded-lg border border-amber-400 bg-amber-50 p-6 text-center dark:border-amber-600 dark:bg-amber-900/20"
+    >
+      <AlertTriangle
+        class="mx-auto mb-3 h-8 w-8 text-amber-600 dark:text-amber-400"
+      />
+      <h2 class="text-lg font-semibold text-amber-800 dark:text-amber-200">
+        Group Buy Closed
+      </h2>
+      <p class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+        This group buy has closed and orders are no longer being accepted.
+      </p>
+      <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">
+        Please contact <strong>Brandon (@brndn_)</strong> on Discord for further support.
+      </p>
+      <Button variant="outline" class="mt-4" href="/cart">
+        <ArrowLeft class="mr-2 h-4 w-4" />
+        Back to Cart
+      </Button>
     </div>
   {/if}
 
@@ -349,8 +430,8 @@
                   value={address.id}
                   checked={selectedAddressId === address.id && !useNewAddress}
                   onchange={() => {
-                    selectedAddressId = address.id
-                    useNewAddress = false
+                    selectedAddressId = address.id;
+                    useNewAddress = false;
                   }}
                   class="mt-1"
                 />
@@ -383,11 +464,15 @@
         {#if useNewAddress || data.addresses.length === 0}
           <div class="space-y-4 rounded-lg border p-4">
             <div>
-              <Label for="name">Full Name <span class="text-red-500">*</span></Label>
+              <Label for="name"
+                >Full Name <span class="text-red-500">*</span></Label
+              >
               <Input id="name" bind:value={newAddress.name} required />
             </div>
             <div>
-              <Label for="line1">Address Line 1 <span class="text-red-500">*</span></Label>
+              <Label for="line1"
+                >Address Line 1 <span class="text-red-500">*</span></Label
+              >
               <Input id="line1" bind:value={newAddress.line1} required />
             </div>
             <div>
@@ -396,22 +481,40 @@
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label for="city">City <span class="text-red-500">*</span></Label>
+                <Label for="city"
+                  >City <span class="text-red-500">*</span></Label
+                >
                 <Input id="city" bind:value={newAddress.city} required />
               </div>
               <div>
                 <Label for="state">State / Province / Region</Label>
-                <Input id="state" bind:value={newAddress.state} placeholder="Optional" />
+                <Input
+                  id="state"
+                  bind:value={newAddress.state}
+                  placeholder="Optional"
+                />
               </div>
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label for="postal_code">Postal Code <span class="text-red-500">*</span></Label>
-                <Input id="postal_code" bind:value={newAddress.postal_code} required />
+                <Label for="postal_code"
+                  >Postal Code <span class="text-red-500">*</span></Label
+                >
+                <Input
+                  id="postal_code"
+                  bind:value={newAddress.postal_code}
+                  required
+                />
               </div>
               <div>
-                <Label for="country">Country <span class="text-red-500">*</span></Label>
-                <CountrySelect id="country" bind:value={newAddress.country} required={true} />
+                <Label for="country"
+                  >Country <span class="text-red-500">*</span></Label
+                >
+                <CountrySelect
+                  id="country"
+                  bind:value={newAddress.country}
+                  required={true}
+                />
               </div>
             </div>
           </div>
@@ -432,8 +535,8 @@
               type="radio"
               name="shippingType"
               value="regular"
-              checked={shippingType === 'regular'}
-              onchange={() => (shippingType = 'regular')}
+              checked={shippingType === "regular"}
+              onchange={() => (shippingType = "regular")}
               class="mt-1"
             />
             <div class="flex-1">
@@ -441,7 +544,9 @@
                 <Package class="h-4 w-4" />
                 <span class="font-medium">Regular Shipping</span>
               </div>
-              <p class="mt-1 text-sm text-muted-foreground">Standard delivery</p>
+              <p class="mt-1 text-sm text-muted-foreground">
+                Standard delivery
+              </p>
               <p class="mt-2 font-semibold">{formatPrice(rates.regular)}</p>
             </div>
           </label>
@@ -456,8 +561,8 @@
               type="radio"
               name="shippingType"
               value="express"
-              checked={shippingType === 'express'}
-              onchange={() => (shippingType = 'express')}
+              checked={shippingType === "express"}
+              onchange={() => (shippingType = "express")}
               class="mt-1"
             />
             <div class="flex-1">
@@ -466,7 +571,8 @@
                 <span class="font-medium">Express Shipping</span>
               </div>
               <p class="mt-1 text-sm text-muted-foreground">
-                Faster delivery (+{formatPrice(rates.expressPerHalfKg)}/0.5kg over 0.5kg)
+                Faster delivery (+{formatPrice(rates.expressPerHalfKg)}/0.5kg
+                over 0.5kg)
               </p>
               <p class="mt-2 font-semibold">{formatPrice(rates.express)}</p>
             </div>
@@ -476,10 +582,14 @@
 
       <!-- Contact Information -->
       <div class="lg:col-span-2">
-        <h2 class="mb-4 text-xl font-semibold">Contact & Payment Information</h2>
+        <h2 class="mb-4 text-xl font-semibold">
+          Contact & Payment Information
+        </h2>
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <Label for="paypal-email">PayPal Email Address <span class="text-red-500">*</span></Label>
+            <Label for="paypal-email"
+              >PayPal Email Address <span class="text-red-500">*</span></Label
+            >
             <Input
               id="paypal-email"
               type="email"
@@ -487,18 +597,28 @@
               required
               bind:value={paypalEmail}
             />
-            <p class="text-xs text-muted-foreground">We'll send your PayPal invoice to this address.</p>
+            <p class="text-xs text-muted-foreground">
+              We'll send your PayPal invoice to this address.
+            </p>
           </div>
           <div class="space-y-2">
-            <Label for="phone">Phone Number <span class="text-red-500">*</span></Label>
-            <PhoneInput bind:phoneNumber country={selectedCountry} required={true} />
+            <Label for="phone"
+              >Phone Number <span class="text-red-500">*</span></Label
+            >
+            <PhoneInput
+              bind:phoneNumber
+              country={selectedCountry}
+              required={true}
+            />
             <p class="text-xs text-muted-foreground">
               Required for delivery. Stored securely on your shipping address.
             </p>
           </div>
         </div>
 
-        <p class="mt-2 text-xs text-muted-foreground">These details will be saved to your profile for future orders.</p>
+        <p class="mt-2 text-xs text-muted-foreground">
+          These details will be saved to your profile for future orders.
+        </p>
       </div>
 
       <!-- Discord Requirement Section -->
@@ -512,19 +632,31 @@
                   Discord Connection <span class="text-red-500">*</span>
                 </p>
                 <p class="text-xs text-muted-foreground">
-                  A Discord account is required to place an order for ease of communication and status updates.
+                  A Discord account is required to place an order for ease of
+                  communication and status updates.
                 </p>
               </div>
               <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <Button type="button" variant="outline" onclick={connectDiscord}>
-                  <svg class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onclick={connectDiscord}
+                >
+                  <svg
+                    class="h-4 w-4 mr-2"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path
                       d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"
                     />
                   </svg>
                   Connect via Discord SSO
                 </Button>
-                <span class="text-sm font-medium text-muted-foreground w-full text-center sm:w-auto">OR</span>
+                <span
+                  class="text-sm font-medium text-muted-foreground w-full text-center sm:w-auto"
+                  >OR</span
+                >
                 <Input
                   type="text"
                   placeholder="Manual Discord Username"
@@ -571,7 +703,9 @@
               class="flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-accent"
               onclick={() => (showItems = !showItems)}
             >
-              <span class="font-medium">{cartStore.itemCount} items in cart</span>
+              <span class="font-medium"
+                >{cartStore.itemCount} items in cart</span
+              >
               {#if showItems}
                 <ChevronUp class="h-5 w-5 text-muted-foreground" />
               {:else}
@@ -580,14 +714,20 @@
             </button>
 
             {#if showItems}
-              <div class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3">
+              <div
+                class="mt-3 max-h-64 space-y-2 overflow-auto rounded-lg bg-muted/50 p-3"
+              >
                 {#each cartStore.bundles as bundle (bundle.id)}
                   <div class="flex justify-between text-sm">
                     <span class="truncate pr-2">
                       {bundle.set.set_name} × {bundle.quantity}
                       <span class="text-muted-foreground">(Set)</span>
                     </span>
-                    <span class="shrink-0">{formatPrice((bundle.set.price ?? 0) * bundle.quantity)}</span>
+                    <span class="shrink-0"
+                      >{formatPrice(
+                        (bundle.set.price ?? 0) * bundle.quantity,
+                      )}</span
+                    >
                   </div>
                 {/each}
                 {#each cartStore.items as item (item.id)}
@@ -595,9 +735,13 @@
                   <div class="flex justify-between text-sm">
                     <span class="truncate pr-2">
                       {item.card.card_name} × {item.quantity}
-                      <span class="text-muted-foreground">({item.card.card_type})</span>
+                      <span class="text-muted-foreground"
+                        >({item.card.card_type})</span
+                      >
                     </span>
-                    <span class="shrink-0">{formatPrice(price * item.quantity)}</span>
+                    <span class="shrink-0"
+                      >{formatPrice(price * item.quantity)}</span
+                    >
                   </div>
                 {/each}
               </div>
@@ -608,19 +752,34 @@
             <!-- Subtotal Breakdown -->
             <div class="space-y-2">
               <div class="flex justify-between text-sm font-medium">
-                <span>Subtotal ({cartStore.items.length} card{cartStore.items.length !== 1 ? 's' : ''}{cartStore.bundles.length > 0 ? ` + ${cartStore.bundles.length} set${cartStore.bundles.length !== 1 ? 's' : ''}` : ''})</span>
+                <span
+                  >Subtotal ({cartStore.items.length} card{cartStore.items
+                    .length !== 1
+                    ? "s"
+                    : ""}{cartStore.bundles.length > 0
+                    ? ` + ${cartStore.bundles.length} set${cartStore.bundles.length !== 1 ? "s" : ""}`
+                    : ""})</span
+                >
                 <span>{formatPrice(cartStore.total)}</span>
               </div>
               <div class="ml-4 space-y-1">
                 {#each priceBreakdown as [type, group]}
-                  <div class="flex justify-between text-xs text-muted-foreground">
-                    <span>{type} ({group.count} × {formatPrice(group.price)})</span>
+                  <div
+                    class="flex justify-between text-xs text-muted-foreground"
+                  >
+                    <span
+                      >{type} ({group.count} × {formatPrice(group.price)})</span
+                    >
                     <span>{formatPrice(group.total)}</span>
                   </div>
                 {/each}
               </div>
               <div class="flex justify-between text-sm">
-                <span>Shipping ({shippingType === 'regular' ? 'Regular' : 'Express'})</span>
+                <span
+                  >Shipping ({shippingType === "regular"
+                    ? "Regular"
+                    : "Express"})</span
+                >
                 <span>{formatPrice(shippingCost)}</span>
               </div>
               {#if tariffCost > 0}
@@ -639,13 +798,23 @@
             </div>
 
             <p class="mt-2 text-xs text-muted-foreground">
-              * Final invoice may include additional weight-based shipping charges for Express orders.
+              * Final invoice may include additional weight-based shipping
+              charges for Express orders.
             </p>
           </CardContent>
         </Card>
 
-        <Button type="submit" class="mt-6 w-full" size="lg" disabled={isSubmitting || !data.isEmailVerified}>
-          {#if isSubmitting}
+        <Button
+          type="submit"
+          class="mt-6 w-full"
+          size="lg"
+          disabled={isSubmitting ||
+            !data.isEmailVerified ||
+            !data.isGroupBuyOpen}
+        >
+          {#if !data.isGroupBuyOpen}
+            Group Buy Closed
+          {:else if isSubmitting}
             Submitting...
           {:else if !data.isEmailVerified}
             <AlertTriangle class="mr-2 h-4 w-4" />
