@@ -168,7 +168,7 @@ export async function POST({ locals }: RequestEvent) {
 
         // 3. Fetch Scryfall prices, streaming progress per chunk
         for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i]
+          const chunk = chunks[i]!
           const identifiers = chunk.map((c) => ({ id: c.scryfall_id }))
 
           try {

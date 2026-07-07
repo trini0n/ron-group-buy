@@ -13,7 +13,7 @@ export async function GET({ locals }: RequestEvent) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
     const filename = `sets_export_${timestamp}.csv`
 
-    return new Response(buffer, {
+    return new Response(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,

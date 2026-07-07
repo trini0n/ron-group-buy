@@ -222,7 +222,7 @@
       a.href = url
       a.download =
         response.headers.get('content-disposition')?.split("filename*=UTF-8''")?.[1]
-          ? decodeURIComponent(response.headers.get('content-disposition')!.split("filename*=UTF-8''")?.[1])
+          ? decodeURIComponent(response.headers.get('content-disposition')!.split("filename*=UTF-8''")?.[1] ?? '')
           : 'sets_export.xlsx'
       a.click()
       URL.revokeObjectURL(url)
