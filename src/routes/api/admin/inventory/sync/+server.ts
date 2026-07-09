@@ -255,7 +255,8 @@ export const POST: RequestHandler = async ({ locals }) => {
           is_foil: card.is_foil,
           is_etched: card.is_etched,
           language: card.language,
-          is_in_stock: card.is_in_stock
+          is_in_stock: card.is_in_stock,
+          is_misprint: card.is_misprint
         }))
 
         const duplicateGroups = detectDuplicatesInBatch(cardsWithIdentity)

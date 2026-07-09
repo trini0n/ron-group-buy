@@ -20,11 +20,12 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|123|lightning bolt|foil|true|false|en')
+      expect(key).toBe('fdn|123|lightning bolt|foil|true|false|en|false')
     })
 
     it('should generate key with missing collector_number', () => {
@@ -35,11 +36,12 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('ecl||wistfulness|normal|false|false|en')
+      expect(key).toBe('ecl||wistfulness|normal|false|false|en|false')
     })
 
     it('should normalize text fields (trim and lowercase)', () => {
@@ -50,11 +52,12 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'EN'
+        language: 'EN',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|123|lightning bolt|normal|false|false|en')
+      expect(key).toBe('fdn|123|lightning bolt|normal|false|false|en|false')
     })
 
     it('should handle etched foil cards', () => {
@@ -65,11 +68,12 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: false,
         is_etched: true,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('cmm|456|sol ring|foil|false|true|en')
+      expect(key).toBe('cmm|456|sol ring|foil|false|true|en|false')
     })
 
     it('should handle non-English languages', () => {
@@ -80,11 +84,12 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'es'
+        language: 'es',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|100|rayo|normal|false|false|es')
+      expect(key).toBe('fdn|100|rayo|normal|false|false|es|false')
     })
 
     it('should default language to en when missing', () => {
@@ -95,11 +100,12 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: ''
+        language: '',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('fdn|100|test card|normal|false|false|en')
+      expect(key).toBe('fdn|100|test card|normal|false|false|en|false')
     })
 
     it('should handle null set_code', () => {
@@ -110,11 +116,12 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const key = generateCardIdentityKey(identity)
-      expect(key).toBe('|100|test card|normal|false|false|en')
+      expect(key).toBe('|100|test card|normal|false|false|en|false')
     })
 
     it('should generate different keys for Holo vs Foil variants', () => {
@@ -125,7 +132,8 @@ describe('Card Identity Service', () => {
         card_type: 'Holo',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const foilIdentity: CardIdentity = {
@@ -135,14 +143,45 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const holoKey = generateCardIdentityKey(holoIdentity)
       const foilKey = generateCardIdentityKey(foilIdentity)
       expect(holoKey).not.toBe(foilKey)
-      expect(holoKey).toBe('fdn|123|lightning bolt|holo|true|false|en')
-      expect(foilKey).toBe('fdn|123|lightning bolt|foil|true|false|en')
+      expect(holoKey).toBe('fdn|123|lightning bolt|holo|true|false|en|false')
+      expect(foilKey).toBe('fdn|123|lightning bolt|foil|true|false|en|false')
+    })
+
+    it('should generate different keys for misprint vs non-misprint cards', () => {
+      const normalIdentity: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: false,
+        is_etched: false,
+        language: 'en',
+        is_misprint: false
+      }
+
+      const misprintIdentity: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: false,
+        is_etched: false,
+        language: 'en',
+        is_misprint: true
+      }
+
+      const normalKey = generateCardIdentityKey(normalIdentity)
+      const misprintKey = generateCardIdentityKey(misprintIdentity)
+      expect(normalKey).not.toBe(misprintKey)
+      expect(normalKey).toBe('fdn|123|lightning bolt|holo|false|false|en|false')
+      expect(misprintKey).toBe('fdn|123|lightning bolt|holo|false|false|en|true')
     })
   })
 
@@ -158,7 +197,8 @@ describe('Card Identity Service', () => {
         is_foil: true,
         is_etched: false,
         language: 'en',
-        is_in_stock: true
+        is_in_stock: true,
+        is_misprint: false
       }
 
       const identity = extractCardIdentity(card)
@@ -169,7 +209,8 @@ describe('Card Identity Service', () => {
         card_type: 'Holo',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       })
     })
 
@@ -187,7 +228,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       })
     })
   })
@@ -201,7 +243,8 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const card2: CardIdentity = {
@@ -211,7 +254,8 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       expect(isSameIdentity(card1, card2)).toBe(true)
@@ -225,7 +269,8 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const card2: CardIdentity = {
@@ -235,7 +280,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       expect(isSameIdentity(card1, card2)).toBe(false)
@@ -249,7 +295,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const card2: CardIdentity = {
@@ -259,7 +306,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       expect(isSameIdentity(card1, card2)).toBe(false)
@@ -273,7 +321,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const card2: CardIdentity = {
@@ -283,7 +332,8 @@ describe('Card Identity Service', () => {
         card_type: 'Normal',
         is_foil: false,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       expect(isSameIdentity(card1, card2)).toBe(true)
@@ -299,7 +349,8 @@ describe('Card Identity Service', () => {
         card_type: 'Holo',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       const foil: CardIdentity = {
@@ -309,10 +360,39 @@ describe('Card Identity Service', () => {
         card_type: 'Foil',
         is_foil: true,
         is_etched: false,
-        language: 'en'
+        language: 'en',
+        is_misprint: false
       }
 
       expect(isSameIdentity(holo, foil)).toBe(false)
+    })
+
+    it('should return false for misprint vs non-misprint (same name/set/collector/type)', () => {
+      // Regression test: misprint and non-misprint of the same card must have
+      // distinct identity keys so neither is incorrectly marked OOS as a duplicate.
+      const normal: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: false,
+        is_etched: false,
+        language: 'en',
+        is_misprint: false
+      }
+
+      const misprint: CardIdentity = {
+        set_code: 'FDN',
+        collector_number: '123',
+        card_name: 'Lightning Bolt',
+        card_type: 'Holo',
+        is_foil: false,
+        is_etched: false,
+        language: 'en',
+        is_misprint: true
+      }
+
+      expect(isSameIdentity(normal, misprint)).toBe(false)
     })
   })
 
@@ -329,7 +409,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -341,7 +422,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -361,7 +443,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -373,7 +456,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -395,7 +479,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -407,7 +492,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-3',
@@ -419,7 +505,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -441,7 +528,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -453,7 +541,8 @@ describe('Card Identity Service', () => {
           is_foil: true,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -476,7 +565,8 @@ describe('Card Identity Service', () => {
           is_foil: true,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -488,12 +578,50 @@ describe('Card Identity Service', () => {
           is_foil: true,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
       const duplicates = detectDuplicatesInBatch(cards)
       // Should be zero — Holo and Foil are distinct cards, NOT duplicates.
+      expect(duplicates).toEqual([])
+    })
+
+    it('should NOT treat misprint and non-misprint as duplicates (regression: misprint-oos-on-import)', () => {
+      // Without is_misprint in the identity key, a misprint and non-misprint of
+      // the same card would collapse into one key, marking the lower serial OOS.
+      const cards: CardWithIdentity[] = [
+        {
+          id: 'uuid-1',
+          serial: 'H-100',
+          card_name: 'Lightning Bolt',
+          set_code: 'FDN',
+          collector_number: '123',
+          card_type: 'Holo',
+          is_foil: false,
+          is_etched: false,
+          language: 'en',
+          is_in_stock: true,
+          is_misprint: false
+        },
+        {
+          id: 'uuid-2',
+          serial: 'H-200',
+          card_name: 'Lightning Bolt',
+          set_code: 'FDN',
+          collector_number: '123',
+          card_type: 'Holo',
+          is_foil: false,
+          is_etched: false,
+          language: 'en',
+          is_in_stock: true,
+          is_misprint: true
+        }
+      ]
+
+      const duplicates = detectDuplicatesInBatch(cards)
+      // Should be zero — misprint and non-misprint are distinct cards, NOT duplicates.
       expect(duplicates).toEqual([])
     })
 
@@ -510,7 +638,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -522,7 +651,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         // Group 2: Sol Ring
         {
@@ -535,7 +665,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-4',
@@ -547,7 +678,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -567,7 +699,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -579,7 +712,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
@@ -600,7 +734,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-2',
@@ -612,7 +747,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-3',
@@ -624,7 +760,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         },
         {
           id: 'uuid-4',
@@ -636,7 +773,8 @@ describe('Card Identity Service', () => {
           is_foil: false,
           is_etched: false,
           language: 'en',
-          is_in_stock: true
+          is_in_stock: true,
+          is_misprint: false
         }
       ]
 
