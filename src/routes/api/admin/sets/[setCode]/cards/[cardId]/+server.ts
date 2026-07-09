@@ -49,3 +49,33 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
   return new Response(null, { status: 204 })
 }
+
+// PATCH /api/admin/sets/[setCode]/cards/[cardId]
+// Increments quantity by 1.
+export const PATCH: RequestHandler = async ({ locals, params }) => {
+  await requireAdmin(locals)
+  const adminClient = createAdminClient()
+
+  const { data: existing, error: fetchError } = await adminClient
+    .from('set_cards')
+    .select('id, quantity')
+    .eq('set_code', params.setCode)
+    .eq('card_id', params.cardId)
+    .single()
+
+  if (fetchError || !existing) {
+    throw error(404, 'Card not found in set')
+  }
+
+  const { error: updateError } = await adminClient
+    .from('set_cards')
+    .update({ quantity: existing.quantity + 1 })
+    .eq('id', existing.id)
+
+  if (updateError) {
+    logger.error({ error: updateError }, 'Error incrementing set_card quantity')
+    throw error(500, 'Failed to update card quantity')
+  }
+
+  return json({ quantity: existing.quantity + 1 }, { status: 200 })
+}

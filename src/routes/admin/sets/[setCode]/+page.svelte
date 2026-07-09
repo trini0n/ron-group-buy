@@ -87,25 +87,15 @@
   async function adjustQuantity(cardId: string, cardName: string, delta: -1 | 1) {
     adjustingId = cardId
     try {
+      const url = `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards/${encodeURIComponent(cardId)}`
       if (delta === -1) {
         // DELETE decrements quantity; if qty reaches 0 the row is removed
-        const res = await fetch(
-          `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards/${encodeURIComponent(cardId)}`,
-          { method: 'DELETE' }
-        )
+        const res = await fetch(url, { method: 'DELETE' })
         if (!res.ok) { toast.error(`Failed to update ${cardName}`); return }
-        // 204 = fully removed, 200 = qty decremented
         if (res.status === 204) toast.success(`Removed ${cardName} from set`)
       } else {
-        // POST a single line to increment quantity by 1
-        const res = await fetch(
-          `/api/admin/sets/${encodeURIComponent(data.set.set_code)}/cards`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lines: [`${cardName}`] })
-          }
-        )
+        // PATCH increments quantity by 1 directly in the DB
+        const res = await fetch(url, { method: 'PATCH' })
         if (!res.ok) { toast.error(`Failed to update ${cardName}`); return }
       }
       await invalidateAll()
