@@ -236,8 +236,12 @@
             if (event.type === 'progress') {
               sheetsProgress = { step: event.step, totalSteps: event.totalSteps, message: event.message }
             } else if (event.type === 'done') {
+              const foilInfo = event.foil_types_found?.length
+                ? `\nFoil types: ${event.foil_types_found.join(', ')}`
+                : ''
               toast.success(
-                `Sync complete! ${event.success} cards synced, ${event.errors} errors. Total: ${event.total}`
+                `Sync complete! ${event.success} cards synced, ${event.errors} errors. Total: ${event.total}${foilInfo}`,
+                { duration: 15000 }
               )
               invalidateAll()
             } else if (event.type === 'error') {

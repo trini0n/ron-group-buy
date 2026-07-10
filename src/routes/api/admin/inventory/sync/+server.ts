@@ -367,7 +367,8 @@ export const POST: RequestHandler = async ({ locals }) => {
           alerts_created: alertsCreated,
           inserted,
           updated,
-          skipped
+          skipped,
+          foil_types_found: [...distinctFoilTypes].sort()
         })
       } catch (err) {
         logger.error({ error: err }, 'Sync failed')
