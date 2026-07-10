@@ -10,7 +10,6 @@
   import { Search, LayoutGrid, List } from 'lucide-svelte'
   import { untrack } from 'svelte'
   import type { Card } from '$lib/server/types'
-  import { deriveFoilSubtypes } from '$lib/utils'
   import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
 
   let { data } = $props()
@@ -43,6 +42,7 @@
   let loadedCards = $state<Card[] | null>(null)
   let loadedSets = $state<{ code: string; name: string }[] | null>(null)
   let loadedSetReleaseDates = $state<Record<string, string> | null>(null)
+  let loadedFoilSubtypes = $state<string[]>(['Foil'])
   let loadError = $state<string | null>(null)
   let isLoading = $state(true)
 
@@ -53,6 +53,11 @@
         loadedCards = cardsData.cards
         loadedSets = cardsData.sets
         loadedSetReleaseDates = cardsData.setReleaseDates
+        loadedFoilSubtypes = (cardsData as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil']
+        // Populate foil filter defaults from server data on initial load
+        if (filters.foilSubtypes.length === 0) {
+          filters.foilSubtypes = [...loadedFoilSubtypes]
+        }
         isLoading = false
       })
       .catch((error) => {
@@ -61,22 +66,10 @@
       })
   })
 
-  // Derive available foil subtypes from loaded card data
-  const availableFoilSubtypes = $derived(
-    loadedCards ? deriveFoilSubtypes(loadedCards) : ['Foil']
-  )
-
-  // Build foil subtype options for the filter UI
+  // Build foil subtype options for the filter UI (from server-computed data)
   const foilSubtypeOptions = $derived(
-    availableFoilSubtypes.map(v => ({ value: v, label: v === 'Foil' ? 'Regular Foil' : v }))
+    loadedFoilSubtypes.map(v => ({ value: v, label: v === 'Foil' ? 'Regular Foil' : v }))
   )
-
-  // When data loads and foilSubtypes is empty (meaning "all selected"), populate with all available subtypes
-  $effect(() => {
-    if (loadedCards && filters.foilSubtypes.length === 0) {
-      filters.foilSubtypes = [...availableFoilSubtypes]
-    }
-  })
 
   // Track whether this is the initial render (skip first URL update)
   let isInitialized = $state(false)
@@ -127,7 +120,7 @@
       params.set('price', filters.priceCategories.join(','))
     }
     // Write foilsubs only when Foil is selected and not all subtypes are active
-    if (filters.priceCategories.includes('Foil') && filters.foilSubtypes.length < availableFoilSubtypes.length) {
+    if (filters.priceCategories.includes('Foil') && filters.foilSubtypes.length < loadedFoilSubtypes.length) {
       params.set('foilsubs', filters.foilSubtypes.join(','))
     }
     // Write nfsubs only when Non-Foil is selected and not all non-foil subtypes are active

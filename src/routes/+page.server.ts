@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types'
 import { createAdminClient } from '$lib/server/admin'
 import type { Card } from '$lib/server/types'
 import { logger } from '$lib/server/logger'
+import { getFinishLabel } from '$lib/utils'
 
 // In-memory cache for cards and sets
 interface CacheEntry<T> {
@@ -56,6 +57,26 @@ async function fetchCards(): Promise<Card[]> {
   // Update cache
   cardsCache = { data: allCards, timestamp: Date.now() }
   return allCards
+}
+
+/**
+ * Derive the set of foil subtypes from cached card data.
+ * Runs server-side, shares the same 5-minute cache as fetchCards().
+ * 'Foil' (Regular Foil) always comes first, then remaining subtypes sorted alphabetically.
+ * Excludes 'Serialized' — it's a separate top-level category, not a foil subtype.
+ */
+function deriveFoilSubtypesFromCards(cards: Card[]): string[] {
+  const subtypes = new Set<string>()
+  for (const card of cards) {
+    if (card.card_type === 'Foil' || card.is_etched) {
+      const finish = getFinishLabel(card)
+      if (finish !== 'Serialized') {
+        subtypes.add(finish)
+      }
+    }
+  }
+  subtypes.delete('Foil')
+  return ['Foil', ...Array.from(subtypes).sort()]
 }
 
 async function fetchSets(): Promise<{ code: string; name: string }[]> {
@@ -172,11 +193,15 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
   }
 
   // Use streaming to return immediately while data loads
+  // Compute foil subtypes from the cached card data (free — same cache)
   return {
     initialFilters,
     streamed: {
       cardsData: Promise.all([fetchCards(), fetchSets(), fetchScryfallSetDates()]).then(
-        ([cards, sets, setReleaseDates]) => ({ cards, sets, setReleaseDates })
+        ([cards, sets, setReleaseDates]) => {
+          const foilSubtypes = deriveFoilSubtypesFromCards(cards)
+          return { cards, sets, setReleaseDates, foilSubtypes }
+        }
       )
     }
   }

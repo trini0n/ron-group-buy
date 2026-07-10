@@ -13,27 +13,6 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Derive the unique set of foil subtype labels from loaded card data.
- * Scans all cards where card_type === 'Foil' and collects their effective
- * finish labels (foil_type || 'Foil'). Always includes 'Foil' (Regular Foil)
- * as the first entry, then remaining subtypes sorted alphabetically.
- */
-export function deriveFoilSubtypes(
-  cards: Array<{ foil_type?: string | null; card_type: string; is_etched?: boolean | null }>
-): string[] {
-  const subtypes = new Set<string>()
-  for (const card of cards) {
-    const finish = getFinishLabel(card)
-    if (card.card_type === 'Foil' || finish === 'Etched Foil') {
-      subtypes.add(finish)
-    }
-  }
-  // Always include 'Foil' (Regular Foil) first, then sort the rest alphabetically
-  subtypes.delete('Foil')
-  return ['Foil', ...Array.from(subtypes).sort()]
-}
-
-/**
  * The canonical set of finish labels that belong to the "Non-Foil" family.
  * 'Normal' = No Holostamp, 'Holo' = Holostamped.
  */
