@@ -45,7 +45,7 @@ interface CsvRow {
   'Ron Print': string
   OOS: string
   '🆕': string
-  Misprint: string
+  'Misprint?': string
 }
 
 interface CardRecord {
@@ -164,7 +164,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
         ron_image_url: row['Ron Print'] || null,
         is_in_stock: !parseBoolean(row.OOS),
         is_new: parseIsNew(row['🆕']),
-        is_misprint: parseBoolean(row['Misprint'])
+        is_misprint: parseBoolean(row['Misprint?'])
       }
 
       // Etched override: if is_etched flag is set, force foil classification
@@ -233,7 +233,8 @@ export const POST: RequestHandler = async ({ locals }) => {
         }
 
         // ── Step 2: Deduplicate by serial ────────────────────────────────────
-        progress(2, `Parsed ${cards.length} rows — deduplicating…`)
+        const distinctFoilTypes = new Set(cards.filter(c => c.foil_type).map(c => c.foil_type))
+        progress(2, `Parsed ${cards.length} rows (foil types found: ${[...distinctFoilTypes].sort().join(', ') || 'none'}) — deduplicating…`)
         const seenSerials = new Set<string>()
         const uniqueCards = cards.filter((card) => {
           if (seenSerials.has(card.serial)) return false
