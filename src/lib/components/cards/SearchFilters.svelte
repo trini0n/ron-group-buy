@@ -34,11 +34,12 @@
   interface Props {
     filters: Filters
     sets: Set[]
+    foilSubtypeOptions?: Array<{ value: string; label: string }>
     sortBy?: SortBy
     onClearAll?: () => void
   }
 
-  let { filters = $bindable(), sets, sortBy = $bindable('name-asc'), onClearAll }: Props = $props()
+  let { filters = $bindable(), sets, foilSubtypeOptions = [], sortBy = $bindable('name-asc'), onClearAll }: Props = $props()
 
   // Sort options matching the dropdown in the screenshot
   const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
@@ -91,13 +92,7 @@
     { value: 'Serialized', label: 'Serialized' }
   ]
 
-  // Foil subtypes — only visible when 'Foil' is checked
-  const FOIL_SUBTYPES = [
-    { value: 'Foil', label: 'Regular Foil' },
-    { value: 'Galaxy Foil', label: 'Galaxy Foil' },
-    { value: 'Raised Foil', label: 'Raised Foil' },
-    { value: 'Surge Foil', label: 'Surge Foil' }
-  ]
+  // Foil subtypes — driven by foilSubtypeOptions prop (derived from card data upstream)
 
   // Non-Foil subtypes — only visible when 'Non-Foil' is checked
   const NON_FOIL_SUBTYPES = [
@@ -108,7 +103,7 @@
   // Whether the Foil subtype panel is relevant
   const foilSelected = $derived(filters.priceCategories.includes('Foil'))
   // Whether all subtypes are selected (used for the 'all' indicator)
-  const allFoilSubtypesSelected = $derived(filters.foilSubtypes.length === FOIL_SUBTYPES.length)
+  const allFoilSubtypesSelected = $derived(filters.foilSubtypes.length === foilSubtypeOptions.length)
 
   // Whether the Non-Foil subtype panel is relevant
   const nonFoilSelected = $derived(filters.priceCategories.includes('Non-Foil'))
@@ -139,7 +134,7 @@
       filters.priceCategories = [...filters.priceCategories, category]
       // When Foil is re-enabled, restore all subtypes so nothing is hidden
       if (category === 'Foil') {
-        filters.foilSubtypes = FOIL_SUBTYPES.map((s) => s.value)
+        filters.foilSubtypes = foilSubtypeOptions.map((s) => s.value)
       }
       // When Non-Foil is re-enabled, restore all non-foil subtypes
       if (category === 'Non-Foil') {
@@ -185,7 +180,7 @@
     filters.colorIdentity = []
     filters.colorIdentityStrict = true
     filters.priceCategories = ['Non-Foil', 'Foil', 'Serialized']
-    filters.foilSubtypes = FOIL_SUBTYPES.map((s) => s.value)
+    filters.foilSubtypes = foilSubtypeOptions.map((s) => s.value)
     filters.nonFoilSubtypes = NON_FOIL_SUBTYPES.map((s) => s.value)
     filters.cardTypes = []
     filters.frameTypes = []
@@ -450,7 +445,7 @@
           {#if category.value === 'Foil' && foilSelected}
             <!-- Foil subtypes — indented under the Foil checkbox -->
             <div class="ml-6 space-y-1.5 border-l border-border pl-3">
-              {#each FOIL_SUBTYPES as sub}
+              {#each foilSubtypeOptions as sub}
                 <label class="flex cursor-pointer items-center space-x-2">
                   <Checkbox
                     checked={filters.foilSubtypes.includes(sub.value)}

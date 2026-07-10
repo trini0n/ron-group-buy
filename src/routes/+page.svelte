@@ -10,6 +10,7 @@
   import { Search, LayoutGrid, List } from 'lucide-svelte'
   import { untrack } from 'svelte'
   import type { Card } from '$lib/server/types'
+  import { deriveFoilSubtypes } from '$lib/utils'
   import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
 
   let { data } = $props()
@@ -29,12 +30,7 @@
     colorIdentityStrict: initialFilters.colorIdentityStrict,
     priceCategories: initialFilters.priceCategories as string[],
     // Cast needed until SvelteKit regenerates PageData types after server load change
-    foilSubtypes: ((initialFilters as Record<string, unknown>).foilSubtypes as string[]) ?? [
-      'Foil',
-      'Galaxy Foil',
-      'Raised Foil',
-      'Surge Foil'
-    ],
+    foilSubtypes: ((initialFilters as Record<string, unknown>).foilSubtypes as string[]) ?? [],
     nonFoilSubtypes: ((initialFilters as Record<string, unknown>).nonFoilSubtypes as string[]) ?? ['Normal', 'Holo'],
     cardTypes: initialFilters.cardTypes as string[],
     frameTypes: initialFilters.frameTypes as string[],
@@ -63,6 +59,23 @@
         loadError = error.message || 'Failed to load cards'
         isLoading = false
       })
+  })
+
+  // Derive available foil subtypes from loaded card data
+  const availableFoilSubtypes = $derived(
+    loadedCards ? deriveFoilSubtypes(loadedCards) : ['Foil']
+  )
+
+  // Build foil subtype options for the filter UI
+  const foilSubtypeOptions = $derived(
+    availableFoilSubtypes.map(v => ({ value: v, label: v === 'Foil' ? 'Regular Foil' : v }))
+  )
+
+  // When data loads and foilSubtypes is empty (meaning "all selected"), populate with all available subtypes
+  $effect(() => {
+    if (loadedCards && filters.foilSubtypes.length === 0) {
+      filters.foilSubtypes = [...availableFoilSubtypes]
+    }
   })
 
   // Track whether this is the initial render (skip first URL update)
@@ -114,8 +127,7 @@
       params.set('price', filters.priceCategories.join(','))
     }
     // Write foilsubs only when Foil is selected and not all subtypes are active
-    const ALL_FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil']
-    if (filters.priceCategories.includes('Foil') && filters.foilSubtypes.length < ALL_FOIL_SUBTYPES.length) {
+    if (filters.priceCategories.includes('Foil') && filters.foilSubtypes.length < availableFoilSubtypes.length) {
       params.set('foilsubs', filters.foilSubtypes.join(','))
     }
     // Write nfsubs only when Non-Foil is selected and not all non-foil subtypes are active
@@ -325,6 +337,7 @@
         bind:filters
         bind:sortBy
         sets={loadedSets || []}
+        {foilSubtypeOptions}
         onClearAll={() => {
           searchQuery = ''
           currentPage = 1

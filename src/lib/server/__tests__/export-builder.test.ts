@@ -36,7 +36,7 @@ describe('Export Helper Functions', () => {
         is_etched: true
       }
 
-      expect(getFrameEffectLabel(card)).toBe('Retro, Etched')
+      expect(getFrameEffectLabel(card)).toBe('Retro') // Etched is now a finish type, not a frame effect
     })
 
     it('should prioritize Showcase over Borderless', () => {
@@ -73,8 +73,8 @@ describe('Export Helper Functions', () => {
         is_etched: true
       }
 
-      // Should show all except Borderless (superseded by Showcase)
-      expect(getFrameEffectLabel(card)).toBe('Retro, Extended Art, Showcase, Etched')
+      // Should show all except Borderless (superseded by Showcase) and Etched (now a finish type)
+      expect(getFrameEffectLabel(card)).toBe('Retro, Extended Art, Showcase')
     })
 
     it('should return null for null card', () => {

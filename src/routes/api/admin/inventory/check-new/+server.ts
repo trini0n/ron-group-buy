@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, isAdmin } from '$lib/server/admin'
-import { FOIL_SUBTYPES } from '$lib/utils'
+
 import { logger } from '$lib/server/logger'
 
 // Helper to verify admin access
@@ -81,8 +81,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   }
 
-  // Determine which card_type values to match in the DB
-  const cardTypeValues: string[] = card_type === 'Foil' ? [...FOIL_SUBTYPES] : [card_type]
+  // Determine which card_type values to match in the DB.
+  // All foil variants store card_type = 'Foil' (the subtype lives in foil_type).
+  const cardTypeValues: string[] = [card_type]
 
   // Collect unique (set_code, collector_number) pairs from input
   // Uppercase set codes to match DB storage (e.g. "2X2", "MH2"); keep lowercase for key comparison below

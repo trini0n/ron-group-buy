@@ -35,7 +35,7 @@ async function fetchCards(): Promise<Card[]> {
     const { data: batch, error } = await adminClient
       .from('cards')
       .select(
-        'id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, is_misprint, ron_image_url, scryfall_id, market_price_usd'
+        'id, serial, card_name, flavor_name, set_code, set_name, collector_number, language, color_identity, card_type, foil_type, type_line, mana_cost, is_retro, is_extended, is_borderless, is_showcase, is_in_stock, is_new, is_misprint, is_etched, ron_image_url, scryfall_id, market_price_usd'
       )
       .range(offset, offset + batchSize - 1)
 
@@ -158,12 +158,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     colorIdentityStrict: url.searchParams.get('strict') !== '0',
     priceCategories: url.searchParams.get('price')?.split(',').filter(Boolean) || ['Non-Foil', 'Foil', 'Serialized'],
     // Foil subtype filter (only relevant when 'Foil' is in priceCategories)
-    foilSubtypes: url.searchParams.get('foilsubs')?.split(',').filter(Boolean) || [
-      'Foil',
-      'Galaxy Foil',
-      'Raised Foil',
-      'Surge Foil'
-    ],
+    foilSubtypes: url.searchParams.get('foilsubs')?.split(',').filter(Boolean) || [],
     // Non-Foil subtype filter (only relevant when 'Non-Foil' is in priceCategories)
     nonFoilSubtypes: url.searchParams.get('nfsubs')?.split(',').filter(Boolean) || ['Normal', 'Holo'],
     cardTypes: url.searchParams.get('types')?.split(',').filter(Boolean) || [],

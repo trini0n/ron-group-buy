@@ -10,7 +10,8 @@ import { logger } from '$lib/server/logger'
 
 export type CardPrices = Record<string, number>
 
-/** Hardcoded fallback prices — matches the DB seed data */
+/** Hardcoded fallback prices — matches the DB seed data.
+ *  Unknown foil subtypes (e.g. Fracture Foil) fall back to the Foil price via getCardPrice() in utils.ts */
 export const FALLBACK_PRICES: CardPrices = {
   Normal: 1.25,
   Holo: 1.25,

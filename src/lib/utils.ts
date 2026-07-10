@@ -13,13 +13,25 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * The canonical set of finish labels that belong to the "Foil" family.
- * Used by filter logic to classify a card as a foil-type and to render
- * the subtype checkboxes in the Finish filter panel.
- * Keep in display order (cheapest/plainest first).
+ * Derive the unique set of foil subtype labels from loaded card data.
+ * Scans all cards where card_type === 'Foil' and collects their effective
+ * finish labels (foil_type || 'Foil'). Always includes 'Foil' (Regular Foil)
+ * as the first entry, then remaining subtypes sorted alphabetically.
  */
-export const FOIL_SUBTYPES = ['Foil', 'Galaxy Foil', 'Raised Foil', 'Surge Foil'] as const
-export type FoilSubtype = (typeof FOIL_SUBTYPES)[number]
+export function deriveFoilSubtypes(
+  cards: Array<{ foil_type?: string | null; card_type: string; is_etched?: boolean | null }>
+): string[] {
+  const subtypes = new Set<string>()
+  for (const card of cards) {
+    const finish = getFinishLabel(card)
+    if (card.card_type === 'Foil' || finish === 'Etched Foil') {
+      subtypes.add(finish)
+    }
+  }
+  // Always include 'Foil' (Regular Foil) first, then sort the rest alphabetically
+  subtypes.delete('Foil')
+  return ['Foil', ...Array.from(subtypes).sort()]
+}
 
 /**
  * The canonical set of finish labels that belong to the "Non-Foil" family.
@@ -31,7 +43,7 @@ export type NonFoilSubtype = (typeof NON_FOIL_SUBTYPES)[number]
 /**
  * Calculate price based on card type.
  * Accepts an optional prices map (from the database); falls back to hardcoded defaults.
- * Normal & Holo: $1.25  |  Foil / Galaxy Foil: $1.50  |  Raised Foil: $3.00  |  Serialized: $2.50
+ * Unknown foil subtypes (e.g. Fracture Foil, Silver Foil) fall back to the base Foil price.
  */
 export function getCardPrice(cardType: string, prices?: Record<string, number>): number {
   if (prices && cardType in prices) return prices[cardType]!
@@ -48,7 +60,8 @@ export function getCardPrice(cardType: string, prices?: Record<string, number>):
     'Holo Misprint': 0.7,
     'Foil Misprint': 0.7
   }
-  return DEFAULTS[cardType] ?? 1.25
+  // Fall back to Foil price for unknown foil subtypes (e.g. Fracture Foil, Silver Foil)
+  return DEFAULTS[cardType] ?? (cardType.toLowerCase().includes('foil') ? (DEFAULTS['Foil'] ?? 1.5) : 1.25)
 }
 
 /**
@@ -213,25 +226,29 @@ export function getCardUrl(card: {
 }
 
 /**
- * Get the display label for a card's finish type
+ * Get the display label for a card's finish type.
+ * Priority: is_etched (→ 'Etched Foil') > foil_type > card_type
  */
-export function getFinishLabel(card: { foil_type?: string | null; card_type: string }): string {
+export function getFinishLabel(card: { foil_type?: string | null; card_type: string; is_etched?: boolean | null }): string {
+  if (card.is_etched) return 'Etched Foil'
   return card.foil_type || card.card_type
 }
 
 /**
  * Get the price lookup key for a card, accounting for misprint status.
  * Misprint cards use separate price entries: "Normal Misprint", "Holo Misprint", "Foil Misprint".
- * All foil subtypes (Foil, Galaxy Foil, Raised Foil, Surge Foil) map to "Foil Misprint".
+ * All foil subtypes map to "Foil Misprint" (uses card_type to determine foil family).
  */
 export function getMispriceKey(card: {
   is_misprint?: boolean | null
   foil_type?: string | null
   card_type: string
+  is_etched?: boolean | null
 }): string {
   const finish = getFinishLabel(card)
   if (!card.is_misprint) return finish
-  const finishFamily = (FOIL_SUBTYPES as readonly string[]).includes(finish) ? 'Foil' : finish
+  // Any card with card_type 'Foil' or an etched finish maps to 'Foil Misprint'
+  const finishFamily = card.card_type === 'Foil' || card.is_etched ? 'Foil' : finish
   return `${finishFamily} Misprint`
 }
 
@@ -259,10 +276,26 @@ export function getFinishBadgeClasses(finish: string): string {
     case 'Raised Foil':
       // Rose - premium tactile finish
       return 'bg-rose-200 text-rose-800 dark:bg-rose-700 dark:text-rose-100'
+    case 'Etched Foil':
+      // Indigo - distinctive etched treatment
+      return 'bg-indigo-200 text-indigo-800 dark:bg-indigo-700 dark:text-indigo-100'
+    case 'Fracture Foil':
+      // Orange - fractured/cracked aesthetic
+      return 'bg-orange-200 text-orange-800 dark:bg-orange-700 dark:text-orange-100'
+    case 'Silver Foil':
+      // Slate - silver metallic feel
+      return 'bg-slate-300 text-slate-800 dark:bg-slate-600 dark:text-slate-100'
+    case 'Silverscroll Foil':
+      // Teal - ornate scroll-like finish
+      return 'bg-teal-200 text-teal-800 dark:bg-teal-700 dark:text-teal-100'
     case 'Serialized':
       // Yellow - rare/numbered feel
       return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'
     default:
+      // Generic foil fallback for unknown foil subtypes
+      if (finish.toLowerCase().includes('foil')) {
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-800 dark:text-amber-200'
+      }
       // Fallback to secondary
       return 'bg-secondary text-secondary-foreground'
   }
@@ -290,7 +323,7 @@ export function getFrameEffectLabel(
   if (card.is_showcase) effects.push('Showcase')
   // Only show Borderless if Showcase is NOT present (Showcase supersedes Borderless)
   if (card.is_borderless && !card.is_showcase) effects.push('Borderless')
-  if (card.is_etched) effects.push('Etched')
+  // Note: is_etched is handled as a finish type (Etched Foil), not a frame effect
 
   return effects.length > 0 ? effects.join(', ') : null
 }

@@ -5,7 +5,7 @@
   import { Button } from '$components/ui/button'
   import { ChevronLeft, ChevronRight } from 'lucide-svelte'
   import { untrack } from 'svelte'
-  import { getCardPrice, getFinishLabel, getMispriceKey, FOIL_SUBTYPES } from '$lib/utils'
+  import { getCardPrice, getFinishLabel, getMispriceKey, deriveFoilSubtypes } from '$lib/utils'
   import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
 
   export type SortBy =
@@ -45,6 +45,8 @@
   }
 
   let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+
+  const foilFamilySet = $derived(new Set(deriveFoilSubtypes(cards)))
 
   const CARDS_PER_PAGE = 25
   let internalPage = $state(1)
@@ -126,9 +128,8 @@
       //  Top level: 'Non-Foil', 'Foil' (the whole family), 'Serialized'
       //  Within Foil: narrow by foilSubtypes (default = all)
       const effectiveFinish = getFinishLabel(card) // foil_type || card_type
-      const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES // ['Foil','Galaxy Foil','Raised Foil','Surge Foil']
       const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo'
-      const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish)
+      const isFoilFamily = foilFamilySet.has(effectiveFinish)
       const isSerialized = effectiveFinish === 'Serialized'
 
       if (isNonFoil) {

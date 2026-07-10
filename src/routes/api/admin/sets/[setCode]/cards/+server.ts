@@ -2,7 +2,7 @@ import type { RequestHandler } from './$types'
 import { json, error } from '@sveltejs/kit'
 import { createAdminClient, requireAdmin } from '$lib/server/admin'
 import { logger } from '$lib/server/logger'
-import { FOIL_SUBTYPES } from '$lib/utils'
+
 
 interface AssociateResult {
   added: number
@@ -24,7 +24,19 @@ const FINISH_ALIASES: Record<string, string> = {
   raised: 'Raised Foil',
   surgefoil: 'Surge Foil',
   'surge foil': 'Surge Foil',
-  surge: 'Surge Foil'
+  surge: 'Surge Foil',
+  fracturefoil: 'Fracture Foil',
+  'fracture foil': 'Fracture Foil',
+  fracture: 'Fracture Foil',
+  silverfoil: 'Silver Foil',
+  'silver foil': 'Silver Foil',
+  silver: 'Silver Foil',
+  silverscrollfoil: 'Silverscroll Foil',
+  'silverscroll foil': 'Silverscroll Foil',
+  silverscroll: 'Silverscroll Foil',
+  etchedfoil: 'Etched Foil',
+  'etched foil': 'Etched Foil',
+  etched: 'Etched Foil'
 }
 
 function resolveFinish(raw: string): string | null {
@@ -180,7 +192,6 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
   // Build lookup using only the winning (highest-serial) card per exact key.
   // Wildcard and foil-family keys are derived from these winners only.
   const lookup = new Map<string, string[]>()
-  const foilSubtypes = FOIL_SUBTYPES as readonly string[]
 
   for (const [exactKey, winner] of bestByKey) {
     const [sc, cn, lang, ct] = exactKey.split('|')
@@ -196,8 +207,9 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     wildcardList.push(winner.id)
     lookup.set(wildcardKey, wildcardList)
 
-    // Foil-family key ("Foil" input matches all foil subtypes)
-    if (foilSubtypes.includes(ct!)) {
+    // Foil-family key ("Foil" input matches all foil subtypes).
+    // Any card_type that is not Normal, Holo, or Serialized is a foil variant.
+    if (ct && ct !== 'Normal' && ct !== 'Holo' && ct !== 'Serialized') {
       const familyKey = `${sc}|${cn}|${lang}|Foil-family`
       const familyList = lookup.get(familyKey) ?? []
       familyList.push(winner.id)

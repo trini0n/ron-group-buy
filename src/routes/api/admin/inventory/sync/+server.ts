@@ -90,14 +90,19 @@ function parseIsNew(value: string): boolean {
 
 function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil'; foil_type: string | null } {
   const sheetType = row['Card Type']?.trim()
-  if (sheetType === 'Raised Foil') return { card_type: 'Foil', foil_type: 'Raised Foil' }
-  if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
-  if (sheetType === 'Surge Foil')  return { card_type: 'Foil', foil_type: 'Surge Foil' }
-  if (sheetType === 'Galaxy Foil') return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
-  if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
-  if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
-  if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
 
+  // Explicit mappings for special card types
+  if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
+  if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
+  if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
+
+  // Exact 'Foil' → generic foil (no subtype)
+  if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
+
+  // Any value containing 'foil' (case-insensitive) → foil with the raw value as subtype
+  if (sheetType && /foil/i.test(sheetType)) return { card_type: 'Foil', foil_type: sheetType }
+
+  // Serial suffix fallback
   const serial = row.Serial || ''
   if (/^[A-Z]-\d+r$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Raised Foil' }
   if (/^[A-Z]-\d+z$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Serialized' }
@@ -118,34 +123,44 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
 
   return records
     .filter((row) => row.Serial && row['Card Name'])
-    .map((row) => ({
-      serial: row.Serial,
-      naming: row.Naming || null,
-      card_name: row['Card Name'],
-      set_name: row['Set Name'] || null,
-      set_code: row.Set || null,
-      collector_number: row['Collector #'] || null,
-      ...parseFinishFromRow(row),
-      is_retro: parseBoolean(row['Retro?']),
-      is_extended: parseBoolean(row['Extended?']),
-      is_showcase: parseBoolean(row['Showcase?']),
-      is_borderless: parseBoolean(row['Borderless?']),
-      is_etched: parseBoolean(row['Etched?']),
-      is_foil: row['Foil?']?.length > 0,
-      language: row.Language || 'en',
-      flavor_name: row['Flavor Name'] || null,
-      scryfall_link: row.Link || null,
-      scryfall_id: row['Scryfall ID'] || null,
-      moxfield_syntax: row.Coding || null,
-      color: row.Color || null,
-      color_identity: row['Color Identity'] || null,
-      type_line: row['Type Line'] || null,
-      mana_cost: row['Mana Cost'] || null,
-      ron_image_url: row['Ron Print'] || null,
-      is_in_stock: !parseBoolean(row.OOS),
-      is_new: parseIsNew(row['🆕']),
-      is_misprint: parseBoolean(row['Misprint'])
-    }))
+    .map((row) => {
+      const card = {
+        serial: row.Serial,
+        naming: row.Naming || null,
+        card_name: row['Card Name'],
+        set_name: row['Set Name'] || null,
+        set_code: row.Set || null,
+        collector_number: row['Collector #'] || null,
+        ...parseFinishFromRow(row),
+        is_retro: parseBoolean(row['Retro?']),
+        is_extended: parseBoolean(row['Extended?']),
+        is_showcase: parseBoolean(row['Showcase?']),
+        is_borderless: parseBoolean(row['Borderless?']),
+        is_etched: parseBoolean(row['Etched?']),
+        is_foil: row['Foil?']?.length > 0,
+        language: row.Language || 'en',
+        flavor_name: row['Flavor Name'] || null,
+        scryfall_link: row.Link || null,
+        scryfall_id: row['Scryfall ID'] || null,
+        moxfield_syntax: row.Coding || null,
+        color: row.Color || null,
+        color_identity: row['Color Identity'] || null,
+        type_line: row['Type Line'] || null,
+        mana_cost: row['Mana Cost'] || null,
+        ron_image_url: row['Ron Print'] || null,
+        is_in_stock: !parseBoolean(row.OOS),
+        is_new: parseIsNew(row['🆕']),
+        is_misprint: parseBoolean(row['Misprint'])
+      }
+
+      // Etched override: if is_etched flag is set, force foil classification
+      if (card.is_etched) {
+        card.card_type = 'Foil'
+        card.foil_type = 'Etched Foil'
+      }
+
+      return card
+    })
 }
 
 function cardFingerprint(card: Omit<CardRecord, 'serial' | 'ron_image_url' | 'is_in_stock'>): string {

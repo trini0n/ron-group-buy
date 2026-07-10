@@ -366,12 +366,12 @@ describe('getFrameEffectLabel', () => {
   it('returns single effect', () => {
     expect(getFrameEffectLabel({ is_retro: true })).toBe('Retro')
     expect(getFrameEffectLabel({ is_extended: true })).toBe('Extended Art')
-    expect(getFrameEffectLabel({ is_etched: true })).toBe('Etched')
+    expect(getFrameEffectLabel({ is_etched: true })).toBe(null) // Etched is now a finish type, not a frame effect
   })
 
   it('combines multiple effects', () => {
     const result = getFrameEffectLabel({ is_retro: true, is_etched: true })
-    expect(result).toBe('Retro, Etched')
+    expect(result).toBe('Retro') // Etched is now a finish type, not included in frame effects
   })
 
   it('showcase supersedes borderless', () => {

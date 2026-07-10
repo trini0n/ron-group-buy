@@ -14,7 +14,7 @@
     getCardUrl,
     getFinishLabel,
     getFinishBadgeClasses,
-    FOIL_SUBTYPES
+    deriveFoilSubtypes
   } from '$lib/utils'
   import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
   import { browser } from '$app/environment'
@@ -49,6 +49,8 @@
   }
 
   let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+
+  const foilFamilySet = $derived(new Set(deriveFoilSubtypes(cards)))
 
   // Sorting state with session storage persistence and default
   type SortKey = 'set_code' | 'collector_number' | 'card_name' | 'mana_cost' | 'type_line' | 'language' | 'card_type'
@@ -176,9 +178,8 @@
       //  Within Foil: narrowed by foilSubtypes
       {
         const effectiveFinish = getFinishLabel(card)
-        const FOIL_FAMILY: readonly string[] = FOIL_SUBTYPES
         const isNonFoil = effectiveFinish === 'Normal' || effectiveFinish === 'Holo'
-        const isFoilFamily = FOIL_FAMILY.includes(effectiveFinish)
+        const isFoilFamily = foilFamilySet.has(effectiveFinish)
         const isSerialized = effectiveFinish === 'Serialized'
 
         if (isNonFoil) {
