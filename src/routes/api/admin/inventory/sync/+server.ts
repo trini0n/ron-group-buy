@@ -127,6 +127,14 @@ function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil
   return { card_type: baseCardType, foil_type: null }
 }
 
+// Diagnostic: capture CSV column info and sample foil rows for debugging
+interface SyncDiagnostics {
+  csvColumnNames: string[]
+  sampleFoilRows: Array<{ serial: string; cardType: string | undefined; foilCol: string | undefined; parsedFoilType: string | null }>
+}
+
+let lastSyncDiagnostics: SyncDiagnostics = { csvColumnNames: [], sampleFoilRows: [] }
+
 function parseSheetCsv(csvContent: string): CardRecord[] {
   const records: CsvRow[] = parse(csvContent, {
     columns: true,
@@ -135,9 +143,26 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
     relax_column_count: true
   })
 
-  return records
+  // Capture actual column names from the first parsed row
+  const firstRow = records[0]
+  const columnNames = firstRow ? Object.keys(firstRow) : []
+  const sampleFoilRows: SyncDiagnostics['sampleFoilRows'] = []
+
+  const cards = records
     .filter((row) => row.Serial && row['Card Name'])
     .map((row) => {
+      const finishResult = parseFinishFromRow(row)
+
+      // Sample up to 5 foil rows with foil_type set for diagnostics
+      if (sampleFoilRows.length < 5 && finishResult.card_type === 'Foil') {
+        sampleFoilRows.push({
+          serial: row.Serial,
+          cardType: row['Card Type'],
+          foilCol: row['Foil?'],
+          parsedFoilType: finishResult.foil_type
+        })
+      }
+
       const card = {
         serial: row.Serial,
         naming: row.Naming || null,
@@ -145,7 +170,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
         set_name: row['Set Name'] || null,
         set_code: row.Set || null,
         collector_number: row['Collector #'] || null,
-        ...parseFinishFromRow(row),
+        ...finishResult,
         is_retro: parseBoolean(row['Retro?']),
         is_extended: parseBoolean(row['Extended?']),
         is_showcase: parseBoolean(row['Showcase?']),
@@ -175,6 +200,9 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
 
       return card
     })
+
+  lastSyncDiagnostics = { csvColumnNames: columnNames, sampleFoilRows }
+  return cards
 }
 
 function cardFingerprint(card: Omit<CardRecord, 'serial' | 'ron_image_url' | 'is_in_stock'>): string {
@@ -368,7 +396,11 @@ export const POST: RequestHandler = async ({ locals }) => {
           inserted,
           updated,
           skipped,
-          foil_types_found: [...distinctFoilTypes].sort()
+          foil_types_found: [...distinctFoilTypes].sort(),
+          _debug: {
+            csv_columns: lastSyncDiagnostics.csvColumnNames,
+            sample_foil_rows: lastSyncDiagnostics.sampleFoilRows
+          }
         })
       } catch (err) {
         logger.error({ error: err }, 'Sync failed')
