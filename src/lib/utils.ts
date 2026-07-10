@@ -61,7 +61,7 @@ export function getCardPrice(cardType: string, prices?: Record<string, number>):
     'Foil Misprint': 0.7
   }
   // Fall back to Foil price for unknown foil subtypes (e.g. Fracture Foil, Silver Foil)
-  return DEFAULTS[cardType] ?? (cardType.toLowerCase().includes('foil') ? (DEFAULTS['Foil'] ?? 1.5) : 1.25)
+  return DEFAULTS[cardType] ?? ((cardType ?? '').toLowerCase().includes('foil') ? (DEFAULTS['Foil'] ?? 1.5) : 1.25)
 }
 
 /**
@@ -231,7 +231,7 @@ export function getCardUrl(card: {
  */
 export function getFinishLabel(card: { foil_type?: string | null; card_type: string; is_etched?: boolean | null }): string {
   if (card.is_etched) return 'Etched Foil'
-  return card.foil_type || card.card_type
+  return card.foil_type || card.card_type || 'Normal'
 }
 
 /**
@@ -293,7 +293,7 @@ export function getFinishBadgeClasses(finish: string): string {
       return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100'
     default:
       // Generic foil fallback for unknown foil subtypes
-      if (finish.toLowerCase().includes('foil')) {
+      if (finish && finish.toLowerCase().includes('foil')) {
         return 'bg-amber-100 text-amber-700 dark:bg-amber-800 dark:text-amber-200'
       }
       // Fallback to secondary
