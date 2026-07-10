@@ -90,27 +90,41 @@ function parseIsNew(value: string): boolean {
 
 function parseFinishFromRow(row: CsvRow): { card_type: 'Normal' | 'Holo' | 'Foil'; foil_type: string | null } {
   const sheetType = row['Card Type']?.trim()
+  const foilCol = row['Foil?']?.trim()
+  const serial = row.Serial || ''
 
-  // Explicit mappings for special card types
+  // ── Non-foil types ────────────────────────────────────────────────────
   if (sheetType === 'Normal')      return { card_type: 'Normal', foil_type: null }
   if (sheetType === 'Holo')        return { card_type: 'Holo', foil_type: null }
+
+  // ── Card Type has an explicit foil subtype (e.g. "Fracture Foil", "Silver Foil") ──
   if (sheetType === 'Serialized')  return { card_type: 'Foil', foil_type: 'Serialized' }
+  if (sheetType && sheetType !== 'Foil' && /foil/i.test(sheetType)) {
+    return { card_type: 'Foil', foil_type: sheetType }
+  }
 
-  // Exact 'Foil' → generic foil (no subtype)
-  if (sheetType === 'Foil')        return { card_type: 'Foil', foil_type: null }
+  // ── Card Type is "Foil" (generic) or absent → check Foil? column for subtype ──
+  // The Foil? column may contain a named subtype like "Galaxy Foil" or "Surge Foil"
+  // (as opposed to just "TRUE" which means generic foil)
+  if (sheetType === 'Foil' || (foilCol && foilCol.length > 0)) {
+    // Check Foil? column for a named subtype
+    if (foilCol && foilCol.toUpperCase() !== 'TRUE' && foilCol.toUpperCase() !== 'FALSE') {
+      const foilType = /foil/i.test(foilCol) ? foilCol : `${foilCol} Foil`
+      return { card_type: 'Foil', foil_type: foilType }
+    }
 
-  // Any value containing 'foil' (case-insensitive) → foil with the raw value as subtype
-  if (sheetType && /foil/i.test(sheetType)) return { card_type: 'Foil', foil_type: sheetType }
+    // Serial suffix fallback for foil subtype detection
+    if (/^[A-Z]-\d+r$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Raised Foil' }
+    if (/^[A-Z]-\d+z$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Serialized' }
+    if (/^[A-Z]-\d+g$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
 
-  // Serial suffix fallback
-  const serial = row.Serial || ''
-  if (/^[A-Z]-\d+r$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Raised Foil' }
-  if (/^[A-Z]-\d+z$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Serialized' }
-  if (/^[A-Z]-\d+g$/i.test(serial)) return { card_type: 'Foil', foil_type: 'Galaxy Foil' }
+    // Generic foil with no identifiable subtype
+    return { card_type: 'Foil', foil_type: null }
+  }
 
+  // ── Fallback: no Card Type match → derive from serial prefix ──────────
   const baseCardType = getCardTypeFromSerial(serial)
-  const foilType = row['Foil?'] && row['Foil?'] !== 'TRUE' ? row['Foil?'] : null
-  return { card_type: baseCardType, foil_type: foilType }
+  return { card_type: baseCardType, foil_type: null }
 }
 
 function parseSheetCsv(csvContent: string): CardRecord[] {
