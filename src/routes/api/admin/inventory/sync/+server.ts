@@ -41,11 +41,11 @@ interface CsvRow {
   'Type Line': string
   'Mana Cost': string
   'Scryfall ID': string
-  Coding: string
+  'Moxfield Syntax': string
   'Ron Print': string
   OOS: string
   '🆕': string
-  'Misprint?': string
+  Misprint: string
 }
 
 interface CardRecord {
@@ -181,7 +181,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
         flavor_name: row['Flavor Name'] || null,
         scryfall_link: row.Link || null,
         scryfall_id: row['Scryfall ID'] || null,
-        moxfield_syntax: row.Coding || null,
+        moxfield_syntax: row['Moxfield Syntax'] || null,
         color: row.Color || null,
         color_identity: row['Color Identity'] || null,
         type_line: row['Type Line'] || null,
@@ -189,7 +189,7 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
         ron_image_url: row['Ron Print'] || null,
         is_in_stock: !parseBoolean(row.OOS),
         is_new: parseIsNew(row['🆕']),
-        is_misprint: parseBoolean(row['Misprint?'])
+        is_misprint: parseBoolean(row.Misprint)
       }
 
       // Etched override: if is_etched flag is set, force foil classification
