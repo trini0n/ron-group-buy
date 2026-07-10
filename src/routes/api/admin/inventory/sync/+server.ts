@@ -6,6 +6,7 @@ import { parse } from 'csv-parse/sync'
 import { getCardTypeFromSerial } from '$lib/utils'
 import { logger } from '$lib/server/logger'
 import { detectDuplicatesInBatch, resolveDuplicates, type CardWithIdentity } from '$lib/server/card-identity'
+import { invalidateCardsCaches } from '$lib/server/card-cache'
 
 /**
  * POST /api/admin/inventory/sync
@@ -385,6 +386,9 @@ export const POST: RequestHandler = async ({ locals }) => {
         const successCount = inserted + updated
 
         logger.info({ inserted, updated, skipped, errorCount, duplicatesResolved, alertsCreated }, 'Sheets sync complete')
+
+        // Invalidate the shared card cache so the next page load fetches fresh data
+        invalidateCardsCaches()
 
         send({
           type: 'done',

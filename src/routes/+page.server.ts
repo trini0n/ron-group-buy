@@ -3,26 +3,28 @@ import { createAdminClient } from '$lib/server/admin'
 import type { Card } from '$lib/server/types'
 import { logger } from '$lib/server/logger'
 import { getFinishLabel } from '$lib/utils'
+import {
+  CACHE_TTL_MS,
+  isCacheValid,
+  getCardsCache,
+  setCardsCache,
+  getSetsCache,
+  setSetsCache
+} from '$lib/server/card-cache'
 
-// In-memory cache for cards and sets
+// Scryfall cache stays local — no need to invalidate on sync
 interface CacheEntry<T> {
   data: T
   timestamp: number
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const SCRYFALL_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours — set release dates rarely change
-let cardsCache: CacheEntry<Card[]> | null = null
-let setsCache: CacheEntry<{ code: string; name: string }[]> | null = null
 let scryfallSetsCache: CacheEntry<Record<string, string>> | null = null
 
-function isCacheValid<T>(cache: CacheEntry<T> | null): cache is CacheEntry<T> {
-  return cache !== null && Date.now() - cache.timestamp < CACHE_TTL_MS
-}
-
 async function fetchCards(): Promise<Card[]> {
-  if (isCacheValid(cardsCache)) {
-    return cardsCache.data
+  const cached = getCardsCache()
+  if (isCacheValid(cached)) {
+    return cached.data
   }
 
   const adminClient = createAdminClient()
@@ -54,10 +56,10 @@ async function fetchCards(): Promise<Card[]> {
     }
   }
 
-  // Update cache
-  cardsCache = { data: allCards, timestamp: Date.now() }
+  setCardsCache(allCards)
   return allCards
 }
+
 
 /**
  * Derive the set of foil subtypes from cached card data.
@@ -80,8 +82,9 @@ function deriveFoilSubtypesFromCards(cards: Card[]): string[] {
 }
 
 async function fetchSets(): Promise<{ code: string; name: string }[]> {
-  if (isCacheValid(setsCache)) {
-    return setsCache.data
+  const cached = getSetsCache()
+  if (isCacheValid(cached)) {
+    return cached.data
   }
 
   const adminClient = createAdminClient()
@@ -122,8 +125,7 @@ async function fetchSets(): Promise<{ code: string; name: string }[]> {
     .map(([code, name]) => ({ code, name }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  // Update cache
-  setsCache = { data: sets, timestamp: Date.now() }
+  setSetsCache(sets)
   return sets
 }
 
