@@ -335,7 +335,8 @@
       frameTypes: [...filters.frameTypes],
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew,
-      isMisprint: filters.isMisprint
+      isMisprint: filters.isMisprint,
+      languages: [...filters.languages]
     }
 
     // Cancel any pending frame to prevent stacking updates
