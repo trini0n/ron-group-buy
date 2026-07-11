@@ -60,6 +60,7 @@
   // Combobox state
   let setComboboxOpen = $state(false)
   let setSearchValue = $state('')
+  let langComboboxOpen = $state(false)
 
   // Mobile accordion state - collapsed by default on mobile
   let isMobile = $state(false)
@@ -179,6 +180,17 @@
     } else {
       filters.languages = [...filters.languages, lang]
     }
+  }
+
+  // Language selector label
+  const selectedLangLabel = $derived.by(() => {
+    if (filters.languages.length === 0 || allLanguagesSelected) return 'All Languages'
+    if (filters.languages.length === 1) return getLanguageLabel(filters.languages[0])
+    return `${filters.languages.length} languages`
+  })
+
+  function clearLangSelection() {
+    filters.languages = [...languageOptions]
   }
 
   function toggleColor(color: string) {
@@ -418,94 +430,133 @@
       {/if}
     </div>
 
-    <!-- Card Types (Type Line) - Multiselect with OR logic -->
-    <div class="space-y-2">
-      <Label>Card Type</Label>
-      <div class="grid grid-cols-2 gap-2">
-        {#each cardTypes as type}
-          <label class="flex cursor-pointer items-center space-x-2">
-            <Checkbox checked={filters.cardTypes.includes(type)} onCheckedChange={() => toggleCardType(type)} />
-            <span class="text-sm">{type}</span>
-          </label>
-        {/each}
-      </div>
-    </div>
+    <!-- Card Type, Finish, Frame Type — collapsible accordion -->
+    <Accordion.Root type="multiple" value={['card-type', 'finish', 'frame-type']}>
+      <!-- Card Types (Type Line) - Multiselect with OR logic -->
+      <Accordion.Item value="card-type">
+        <Accordion.Trigger class="py-2 text-sm font-medium">Card Type</Accordion.Trigger>
+        <Accordion.Content>
+          <div class="grid grid-cols-2 gap-2 pt-1 pb-2">
+            {#each cardTypes as type}
+              <label class="flex cursor-pointer items-center space-x-2">
+                <Checkbox checked={filters.cardTypes.includes(type)} onCheckedChange={() => toggleCardType(type)} />
+                <span class="text-sm">{type}</span>
+              </label>
+            {/each}
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
 
-    <!-- Finish (card_type column) - 3 top-level categories + foil subtypes -->
-    <div class="space-y-2">
-      <Label>Finish</Label>
-      <div class="space-y-2">
-        {#each priceCategories as category}
-          <label class="flex cursor-pointer items-center space-x-2">
-            <Checkbox
-              checked={filters.priceCategories.includes(category.value)}
-              onCheckedChange={() => togglePriceCategory(category.value)}
-            />
-            <span class="text-sm">{category.label}</span>
-          </label>
-          {#if category.value === 'Non-Foil' && nonFoilSelected}
-            <!-- Non-Foil subtypes — indented under the Non-Foil checkbox -->
-            <div class="ml-6 space-y-1.5 border-l border-border pl-3">
-              {#each NON_FOIL_SUBTYPES as sub}
-                <label class="flex cursor-pointer items-center space-x-2">
-                  <Checkbox
-                    checked={filters.nonFoilSubtypes.includes(sub.value)}
-                    onCheckedChange={() => toggleNonFoilSubtype(sub.value)}
-                  />
-                  <span class="text-xs text-muted-foreground">{sub.label}</span>
-                </label>
-              {/each}
-            </div>
-          {/if}
-          {#if category.value === 'Foil' && foilSelected}
-            <!-- Foil subtypes — indented under the Foil checkbox -->
-            <div class="ml-6 space-y-1.5 border-l border-border pl-3">
-              {#each foilSubtypeOptions as sub}
-                <label class="flex cursor-pointer items-center space-x-2">
-                  <Checkbox
-                    checked={filters.foilSubtypes.includes(sub.value)}
-                    onCheckedChange={() => toggleFoilSubtype(sub.value)}
-                  />
-                  <span class="text-xs text-muted-foreground">{sub.label}</span>
-                </label>
-              {/each}
-            </div>
-          {/if}
-        {/each}
-      </div>
-    </div>
+      <!-- Finish (card_type column) - 3 top-level categories + foil subtypes -->
+      <Accordion.Item value="finish">
+        <Accordion.Trigger class="py-2 text-sm font-medium">Finish</Accordion.Trigger>
+        <Accordion.Content>
+          <div class="space-y-2 pt-1 pb-2">
+            {#each priceCategories as category}
+              <label class="flex cursor-pointer items-center space-x-2">
+                <Checkbox
+                  checked={filters.priceCategories.includes(category.value)}
+                  onCheckedChange={() => togglePriceCategory(category.value)}
+                />
+                <span class="text-sm">{category.label}</span>
+              </label>
+              {#if category.value === 'Non-Foil' && nonFoilSelected}
+                <!-- Non-Foil subtypes — indented under the Non-Foil checkbox -->
+                <div class="ml-6 space-y-1.5 border-l border-border pl-3">
+                  {#each NON_FOIL_SUBTYPES as sub}
+                    <label class="flex cursor-pointer items-center space-x-2">
+                      <Checkbox
+                        checked={filters.nonFoilSubtypes.includes(sub.value)}
+                        onCheckedChange={() => toggleNonFoilSubtype(sub.value)}
+                      />
+                      <span class="text-xs text-muted-foreground">{sub.label}</span>
+                    </label>
+                  {/each}
+                </div>
+              {/if}
+              {#if category.value === 'Foil' && foilSelected}
+                <!-- Foil subtypes — indented under the Foil checkbox -->
+                <div class="ml-6 space-y-1.5 border-l border-border pl-3">
+                  {#each foilSubtypeOptions as sub}
+                    <label class="flex cursor-pointer items-center space-x-2">
+                      <Checkbox
+                        checked={filters.foilSubtypes.includes(sub.value)}
+                        onCheckedChange={() => toggleFoilSubtype(sub.value)}
+                      />
+                      <span class="text-xs text-muted-foreground">{sub.label}</span>
+                    </label>
+                  {/each}
+                </div>
+              {/if}
+            {/each}
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
 
-    <!-- Frame Type Filter -->
-    <div class="space-y-2">
-      <Label>Frame Type</Label>
-      <div class="space-y-2">
-        {#each frameTypes as frame}
-          <label class="flex cursor-pointer items-center space-x-2">
-            <Checkbox
-              checked={filters.frameTypes.includes(frame.value)}
-              onCheckedChange={() => toggleFrameType(frame.value)}
-            />
-            <span class="text-sm">{frame.label}</span>
-          </label>
-        {/each}
-      </div>
-    </div>
+      <!-- Frame Type Filter -->
+      <Accordion.Item value="frame-type">
+        <Accordion.Trigger class="py-2 text-sm font-medium">Frame Type</Accordion.Trigger>
+        <Accordion.Content>
+          <div class="space-y-2 pt-1 pb-2">
+            {#each frameTypes as frame}
+              <label class="flex cursor-pointer items-center space-x-2">
+                <Checkbox
+                  checked={filters.frameTypes.includes(frame.value)}
+                  onCheckedChange={() => toggleFrameType(frame.value)}
+                />
+                <span class="text-sm">{frame.label}</span>
+              </label>
+            {/each}
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
 
-    <!-- Language Filter -->
+    <!-- Language Filter — Multiselect Dropdown -->
     {#if languageOptions.length > 1}
       <div class="space-y-2">
-        <Label>Language</Label>
-        <div class="space-y-2">
-          {#each languageOptions as lang}
-            <label class="flex cursor-pointer items-center space-x-2">
-              <Checkbox
-                checked={filters.languages.includes(lang)}
-                onCheckedChange={() => toggleLanguage(lang)}
-              />
-              <span class="text-sm">{getLanguageLabel(lang)}</span>
-            </label>
-          {/each}
+        <div class="flex items-center justify-between">
+          <Label>Language</Label>
+          {#if !allLanguagesSelected}
+            <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearLangSelection}>Reset</Button>
+          {/if}
         </div>
+        <Popover.Root bind:open={langComboboxOpen}>
+          <Popover.Trigger>
+            {#snippet child({ props })}
+              <Button
+                {...props}
+                variant="outline"
+                class="w-full justify-between"
+                role="combobox"
+                aria-expanded={langComboboxOpen}
+              >
+                <span class="truncate">{selectedLangLabel}</span>
+                <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            {/snippet}
+          </Popover.Trigger>
+          <Popover.Content class="w-[220px] p-0" align="start">
+            <Command.Root>
+              <Command.List>
+                <Command.Group>
+                  {#each languageOptions as lang}
+                    <Command.Item value={lang} onSelect={() => toggleLanguage(lang)}>
+                      <div class="flex w-full items-center">
+                        <Check
+                          class="mr-2 h-4 w-4 flex-shrink-0 {filters.languages.includes(lang)
+                            ? 'opacity-100'
+                            : 'opacity-0'}"
+                        />
+                        <span class="min-w-0 flex-1 truncate">{getLanguageLabel(lang)}</span>
+                      </div>
+                    </Command.Item>
+                  {/each}
+                </Command.Group>
+              </Command.List>
+            </Command.Root>
+          </Popover.Content>
+        </Popover.Root>
       </div>
     {/if}
 
