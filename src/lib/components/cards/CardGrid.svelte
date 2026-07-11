@@ -29,6 +29,7 @@
     inStockOnly: boolean
     isNew: boolean
     isMisprint: boolean
+    languages: string[]
   }
 
   // Supertypes to ignore when matching card types
@@ -171,6 +172,12 @@
           }
         })
         if (!matchesFrameType) return false
+      }
+
+      // Language filter
+      if (f.languages.length > 0) {
+        const cardLang = (card.language || 'en').toLowerCase()
+        if (!f.languages.includes(cardLang)) return false
       }
 
       // In stock filter

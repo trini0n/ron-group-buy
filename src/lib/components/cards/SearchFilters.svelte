@@ -11,6 +11,7 @@
   import { browser } from '$app/environment'
   import * as Tooltip from '$components/ui/tooltip'
   import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
+  import { getLanguageLabel } from '$lib/utils'
 
   interface Set {
     code: string
@@ -29,17 +30,19 @@
     inStockOnly: boolean
     isNew: boolean
     isMisprint: boolean
+    languages: string[]
   }
 
   interface Props {
     filters: Filters
     sets: Set[]
     foilSubtypeOptions?: Array<{ value: string; label: string }>
+    languageOptions?: string[]
     sortBy?: SortBy
     onClearAll?: () => void
   }
 
-  let { filters = $bindable(), sets, foilSubtypeOptions = [], sortBy = $bindable('name-asc'), onClearAll }: Props = $props()
+  let { filters = $bindable(), sets, foilSubtypeOptions = [], languageOptions = [], sortBy = $bindable('name-asc'), onClearAll }: Props = $props()
 
   // Sort options matching the dropdown in the screenshot
   const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
@@ -167,6 +170,17 @@
     }
   }
 
+  // Whether all languages are selected
+  const allLanguagesSelected = $derived(filters.languages.length === languageOptions.length)
+
+  function toggleLanguage(lang: string) {
+    if (filters.languages.includes(lang)) {
+      filters.languages = filters.languages.filter((l) => l !== lang)
+    } else {
+      filters.languages = [...filters.languages, lang]
+    }
+  }
+
   function toggleColor(color: string) {
     if (filters.colorIdentity.includes(color)) {
       filters.colorIdentity = filters.colorIdentity.filter((c) => c !== color)
@@ -184,6 +198,7 @@
     filters.nonFoilSubtypes = NON_FOIL_SUBTYPES.map((s) => s.value)
     filters.cardTypes = []
     filters.frameTypes = []
+    filters.languages = [...languageOptions]
     filters.inStockOnly = false
     filters.isNew = false
     filters.isMisprint = false
@@ -475,6 +490,24 @@
         {/each}
       </div>
     </div>
+
+    <!-- Language Filter -->
+    {#if languageOptions.length > 1}
+      <div class="space-y-2">
+        <Label>Language</Label>
+        <div class="space-y-2">
+          {#each languageOptions as lang}
+            <label class="flex cursor-pointer items-center space-x-2">
+              <Checkbox
+                checked={filters.languages.includes(lang)}
+                onCheckedChange={() => toggleLanguage(lang)}
+              />
+              <span class="text-sm">{getLanguageLabel(lang)}</span>
+            </label>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <!-- Toggles -->
     <div class="space-y-3">

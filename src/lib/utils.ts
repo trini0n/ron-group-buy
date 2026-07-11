@@ -180,6 +180,28 @@ export function isDefaultLanguage(language: string | null | undefined): boolean 
   return lang === 'en' || lang === 'qya' || lang === 'ph'
 }
 
+/** Language code → display name mapping */
+export const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  ja: 'Japanese',
+  de: 'German',
+  fr: 'French',
+  it: 'Italian',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ko: 'Korean',
+  ru: 'Russian',
+  zhs: 'Simplified Chinese',
+  zht: 'Traditional Chinese',
+  ph: 'Phyrexian',
+  qya: 'Quenya'
+}
+
+/** Get human-readable language name from code */
+export function getLanguageLabel(code: string): string {
+  return LANGUAGE_NAMES[code.toLowerCase()] || code.toUpperCase()
+}
+
 /**
  * Generate the URL path for a card detail page
  * Format: /card/setCode/collectorsNum/card-name-slug/ (for default languages)

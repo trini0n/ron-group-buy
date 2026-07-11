@@ -12,25 +12,12 @@
     getFinishLabel,
     getMispriceKey,
     getFinishBadgeClasses,
-    isDefaultLanguage
+    isDefaultLanguage,
+    LANGUAGE_NAMES
   } from '$lib/utils'
   import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Home, Globe } from 'lucide-svelte'
   import { cartStore } from '$lib/stores/cart.svelte'
   import { untrack } from 'svelte'
-
-  // Language code to display name mapping
-  const LANGUAGE_NAMES: Record<string, string> = {
-    ja: 'Japanese',
-    de: 'German',
-    fr: 'French',
-    it: 'Italian',
-    es: 'Spanish',
-    pt: 'Portuguese',
-    ko: 'Korean',
-    ru: 'Russian',
-    zhs: 'Simplified Chinese',
-    zht: 'Traditional Chinese'
-  }
 
   let { data } = $props()
 

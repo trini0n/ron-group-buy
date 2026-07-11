@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types'
 import { createAdminClient } from '$lib/server/admin'
 import type { Card } from '$lib/server/types'
 import { logger } from '$lib/server/logger'
-import { getFinishLabel } from '$lib/utils'
+import { getFinishLabel, getLanguageLabel } from '$lib/utils'
 import {
   CACHE_TTL_MS,
   isCacheValid,
@@ -79,6 +79,21 @@ function deriveFoilSubtypesFromCards(cards: Card[]): string[] {
   }
   subtypes.delete('Foil')
   return ['Foil', ...Array.from(subtypes).sort()]
+}
+
+/**
+ * Derive distinct language codes from card data.
+ * Returns sorted array with 'en' always first, then others alphabetically by display name.
+ */
+function deriveLanguagesFromCards(cards: Card[]): string[] {
+  const langs = new Set<string>()
+  for (const card of cards) {
+    const lang = (card.language || 'en').toLowerCase()
+    langs.add(lang)
+  }
+  langs.delete('en')
+  const sorted = Array.from(langs).sort((a, b) => getLanguageLabel(a).localeCompare(getLanguageLabel(b)))
+  return ['en', ...sorted]
 }
 
 async function fetchSets(): Promise<{ code: string; name: string }[]> {
@@ -189,6 +204,7 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     inStockOnly: url.searchParams.get('stock') === '1',
     isNew: url.searchParams.get('new') === '1',
     isMisprint: url.searchParams.get('misprint') === '1',
+    languages: url.searchParams.get('langs')?.split(',').filter(Boolean) || [],
     view: (url.searchParams.get('view') as 'grid' | 'table') || 'grid',
     page: parseInt(url.searchParams.get('page') || '1') || 1,
     sortBy: (VALID_SORTS.includes(sortParam as SortBy) ? sortParam : 'name-asc') as SortBy
@@ -202,7 +218,8 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
       cardsData: Promise.all([fetchCards(), fetchSets(), fetchScryfallSetDates()]).then(
         ([cards, sets, setReleaseDates]) => {
           const foilSubtypes = deriveFoilSubtypesFromCards(cards)
-          return { cards, sets, setReleaseDates, foilSubtypes }
+          const languages = deriveLanguagesFromCards(cards)
+          return { cards, sets, setReleaseDates, foilSubtypes, languages }
         }
       )
     }

@@ -35,7 +35,8 @@
     frameTypes: initialFilters.frameTypes as string[],
     inStockOnly: initialFilters.inStockOnly,
     isNew: initialFilters.isNew,
-    isMisprint: ((initialFilters as Record<string, unknown>).isMisprint as boolean) ?? false
+    isMisprint: ((initialFilters as Record<string, unknown>).isMisprint as boolean) ?? false,
+    languages: ((initialFilters as Record<string, unknown>).languages as string[]) ?? []
   })
 
   // Cache loaded data so skeleton only shows on initial load
@@ -43,6 +44,7 @@
   let loadedSets = $state<{ code: string; name: string }[] | null>(null)
   let loadedSetReleaseDates = $state<Record<string, string> | null>(null)
   let loadedFoilSubtypes = $state<string[]>(['Foil'])
+  let loadedLanguages = $state<string[]>(['en'])
   let loadError = $state<string | null>(null)
   let isLoading = $state(true)
 
@@ -54,9 +56,14 @@
         loadedSets = cardsData.sets
         loadedSetReleaseDates = cardsData.setReleaseDates
         loadedFoilSubtypes = (cardsData as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil']
+        loadedLanguages = (cardsData as Record<string, unknown>).languages as string[] ?? ['en']
         // Populate foil filter defaults from server data on initial load
         if (filters.foilSubtypes.length === 0) {
           filters.foilSubtypes = [...loadedFoilSubtypes]
+        }
+        // Populate language filter defaults — empty means all selected
+        if (filters.languages.length === 0) {
+          filters.languages = [...loadedLanguages]
         }
         isLoading = false
       })
@@ -90,6 +97,7 @@
     inStockOnly: false,
     isNew: false,
     isMisprint: false,
+    languages: '',
     viewMode: 'grid' as 'grid' | 'table',
     sortBy: 'name-asc' as SortBy
   }
@@ -133,6 +141,10 @@
     if (filters.inStockOnly) params.set('stock', '1')
     if (filters.isNew) params.set('new', '1')
     if (filters.isMisprint) params.set('misprint', '1')
+    // Write langs only when not all languages are selected
+    if (filters.languages.length > 0 && filters.languages.length < loadedLanguages.length) {
+      params.set('langs', filters.languages.join(','))
+    }
     if (viewMode !== 'grid') params.set('view', viewMode)
     if (sortBy !== 'name-asc') params.set('sort', sortBy)
     if (currentPage > 1) params.set('page', String(currentPage))
@@ -195,6 +207,7 @@
       inStockOnly: filters.inStockOnly,
       isNew: filters.isNew,
       isMisprint: filters.isMisprint,
+      languages: filters.languages.join(','),
       viewMode: viewMode,
       sortBy: sortBy
     }
@@ -331,6 +344,7 @@
         bind:sortBy
         sets={loadedSets || []}
         {foilSubtypeOptions}
+        languageOptions={loadedLanguages}
         onClearAll={() => {
           searchQuery = ''
           currentPage = 1

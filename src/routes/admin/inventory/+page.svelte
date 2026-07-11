@@ -236,17 +236,12 @@
             if (event.type === 'progress') {
               sheetsProgress = { step: event.step, totalSteps: event.totalSteps, message: event.message }
             } else if (event.type === 'done') {
-              // Log full response for debugging
-              console.log('[SYNC DEBUG]', JSON.stringify(event, null, 2))
               const foilInfo = event.foil_types_found?.length
                 ? `\nFoil types: ${event.foil_types_found.join(', ')}`
-                : '\nFoil types: NONE DETECTED'
-              const debugInfo = event._debug?.sample_foil_rows?.length
-                ? `\nSample: ${JSON.stringify(event._debug.sample_foil_rows[0])}`
                 : ''
               toast.success(
-                `Sync complete! ${event.success} cards synced, ${event.errors} errors. Total: ${event.total}${foilInfo}${debugInfo}`,
-                { duration: 30000 }
+                `Sync complete! ${event.success} cards synced, ${event.errors} errors. Total: ${event.total}${foilInfo}`,
+                { duration: 8000 }
               )
               invalidateAll()
             } else if (event.type === 'error') {
