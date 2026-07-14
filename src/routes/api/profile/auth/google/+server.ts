@@ -56,17 +56,29 @@ export const DELETE: RequestHandler = async ({ locals }) => {
       throw error(400, 'Cannot remove last authentication method')
     }
 
-    // Find Google identity
+    // Find Google identity in Supabase Auth
     const googleIdentity = identities.find((i: any) => i.provider === 'google')
-    if (!googleIdentity) {
-      throw error(404, 'Google account not linked')
-    }
 
-    const { error: unlinkError } = await locals.supabase.auth.unlinkIdentity(googleIdentity)
+    if (googleIdentity) {
+      // Identity exists in Supabase Auth — unlink it
+      const { error: unlinkError } = await locals.supabase.auth.unlinkIdentity(googleIdentity)
 
-    if (unlinkError) {
-      logger.error({ error: unlinkError }, 'Error unlinking Google account')
-      throw error(500, unlinkError.message || 'Failed to unlink Google account')
+      if (unlinkError) {
+        logger.error({ error: unlinkError }, 'Error unlinking Google account')
+        throw error(500, unlinkError.message || 'Failed to unlink Google account')
+      }
+    } else {
+      // Identity not in Supabase Auth (likely deduplicated by email) — check users table
+      const { data: googleCheck } = await locals.supabase
+        .from('users')
+        .select('google_id')
+        .eq('id', locals.user.id)
+        .single()
+
+      if (!googleCheck?.google_id) {
+        throw error(404, 'Google account not linked')
+      }
+      logger.info({ userId: locals.user.id }, 'Google identity not in Supabase Auth (deduplicated) — clearing DB fields only')
     }
 
     // Clear google_id from users table

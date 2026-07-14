@@ -43,9 +43,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
   const identities = authData.user.identities || []
 
-  // Find the identity to remove
+  // Find the identity to remove from Supabase Auth
   const targetIdentity = identities.find((i) => i.provider === provider)
-  if (!targetIdentity) {
+
+  // Check if the provider is linked in the users table (covers deduplication edge case)
+  const isLinkedInDB = provider === 'discord' ? !!userRecord.discord_id : !!userRecord.google_id
+
+  if (!targetIdentity && !isLinkedInDB) {
     throw error(404, `User does not have ${provider} linked`)
   }
 
@@ -64,29 +68,34 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     throw error(400, 'Cannot remove last authentication method. User would be locked out.')
   }
 
-  // Delete the identity from Supabase Auth via REST API
-  // The JS SDK's GoTrueAdminApi doesn't expose deleteIdentity, so we call the REST endpoint directly
-  try {
-    const response = await fetch(
-      `${PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${targetUserId}/identities/${targetIdentity.id}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          'apikey': SUPABASE_SERVICE_ROLE_KEY
+  // Delete the identity from Supabase Auth via REST API (only if it exists in auth)
+  // When Supabase deduplicates identities (same email), the identity may not exist in auth
+  // but the provider is still tracked in the users table — in that case we just clear the DB fields
+  if (targetIdentity) {
+    try {
+      const response = await fetch(
+        `${PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${targetUserId}/identities/${targetIdentity.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'apikey': SUPABASE_SERVICE_ROLE_KEY
+          }
         }
-      }
-    )
+      )
 
-    if (!response.ok) {
-      const errorBody = await response.text()
-      logger.error({ status: response.status, body: errorBody, userId: targetUserId, provider }, 'Error deleting identity via REST')
+      if (!response.ok) {
+        const errorBody = await response.text()
+        logger.error({ status: response.status, body: errorBody, userId: targetUserId, provider }, 'Error deleting identity via REST')
+        throw error(500, `Failed to unlink ${provider}`)
+      }
+    } catch (err: any) {
+      if (err.status) throw err
+      logger.error({ error: err, userId: targetUserId, provider }, 'Error deleting identity')
       throw error(500, `Failed to unlink ${provider}`)
     }
-  } catch (err: any) {
-    if (err.status) throw err
-    logger.error({ error: err, userId: targetUserId, provider }, 'Error deleting identity')
-    throw error(500, `Failed to unlink ${provider}`)
+  } else {
+    logger.info({ userId: targetUserId, provider }, 'Identity not found in Supabase Auth (likely deduplicated) — clearing DB fields only')
   }
 
   // Clear the corresponding field in the users table

@@ -56,17 +56,29 @@ export const DELETE: RequestHandler = async ({ locals }) => {
       throw error(400, 'Cannot remove last authentication method')
     }
 
-    // Find Discord identity
+    // Find Discord identity in Supabase Auth
     const discordIdentity = identities.find((i: any) => i.provider === 'discord')
-    if (!discordIdentity) {
-      throw error(404, 'Discord account not linked')
-    }
 
-    const { error: unlinkError } = await locals.supabase.auth.unlinkIdentity(discordIdentity)
+    if (discordIdentity) {
+      // Identity exists in Supabase Auth — unlink it
+      const { error: unlinkError } = await locals.supabase.auth.unlinkIdentity(discordIdentity)
 
-    if (unlinkError) {
-      logger.error({ error: unlinkError }, 'Error unlinking Discord account')
-      throw error(500, unlinkError.message || 'Failed to unlink Discord account')
+      if (unlinkError) {
+        logger.error({ error: unlinkError }, 'Error unlinking Discord account')
+        throw error(500, unlinkError.message || 'Failed to unlink Discord account')
+      }
+    } else {
+      // Identity not in Supabase Auth (likely deduplicated by email) — check users table
+      const { data: discordCheck } = await locals.supabase
+        .from('users')
+        .select('discord_id')
+        .eq('id', locals.user.id)
+        .single()
+
+      if (!discordCheck?.discord_id) {
+        throw error(404, 'Discord account not linked')
+      }
+      logger.info({ userId: locals.user.id }, 'Discord identity not in Supabase Auth (deduplicated) — clearing DB fields only')
     }
 
     // Clear discord_id and discord_username from users table
