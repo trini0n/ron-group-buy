@@ -174,10 +174,12 @@ async function fetchScryfallSetDates(): Promise<Record<string, string>> {
 }
 
 export const load: PageServerLoad = async ({ url, setHeaders }) => {
-  // Cache homepage for 5 minutes on CDN, allow 30 minutes of stale content with background revalidation
-  // This dramatically improves UX by serving cached content instantly while updating in background
+  // Private cache only — no CDN caching.
+  // The root layout includes user-specific data (avatar, session, admin status) in SSR HTML.
+  // Public/CDN caching would serve one user's profile to other users (cross-user data leak).
+  // Server-side card cache (card-cache.ts, 5-min TTL) keeps responses fast without CDN.
   setHeaders({
-    'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800'
+    'Cache-Control': 'private, max-age=60'
   })
 
   // Parse initial filter state from URL

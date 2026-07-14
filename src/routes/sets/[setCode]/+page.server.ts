@@ -39,7 +39,7 @@ function collectorNumberSort(a: string, b: string): number {
 }
 
 export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
-  setHeaders({ 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' })
+  setHeaders({ 'Cache-Control': 'private, max-age=60' })
 
   // Fetch the set (404 if not found)
   const { data: set, error: setError } = await locals.supabase

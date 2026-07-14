@@ -1,5 +1,6 @@
 import { createAdminClient } from '$lib/server/admin'
 import { error } from '@sveltejs/kit'
+import { logger } from '$lib/server/logger'
 
 export const load = async ({ params }: { params: { id: string } }) => {
   const adminClient = createAdminClient()
@@ -9,6 +10,33 @@ export const load = async ({ params }: { params: { id: string } }) => {
 
   if (userError || !user) {
     throw error(404, 'User not found')
+  }
+
+  // Fetch auth identities from Supabase Auth
+  let authMethods = {
+    hasGoogle: false,
+    hasDiscord: false,
+    hasPassword: false
+  }
+  let authIdentities: Array<{ id: string; provider: string }> = []
+
+  try {
+    const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(params.id)
+
+    if (!authError && authData?.user?.identities) {
+      const identities = authData.user.identities
+      authMethods = {
+        hasGoogle: identities.some((i: any) => i.provider === 'google'),
+        hasDiscord: identities.some((i: any) => i.provider === 'discord'),
+        hasPassword: identities.some((i: any) => i.provider === 'email')
+      }
+      authIdentities = identities.map((i: any) => ({
+        id: i.id,
+        provider: i.provider
+      }))
+    }
+  } catch (err) {
+    logger.error({ error: err }, 'Error fetching auth identities for admin user detail')
   }
 
   // Fetch user's orders
@@ -47,6 +75,9 @@ export const load = async ({ params }: { params: { id: string } }) => {
   return {
     user,
     orders: ordersWithTotals,
-    addresses: addresses || []
+    addresses: addresses || [],
+    authMethods,
+    authIdentities
   }
 }
+

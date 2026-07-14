@@ -968,7 +968,7 @@ export class CartService {
       const { data: serialCards } = await this.supabase
         .from('cards')
         .select(
-          'id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock, card_type'
+          'id, serial, card_name, set_code, collector_number, is_foil, is_etched, language, is_in_stock, card_type, is_misprint'
         )
         .in('serial', serialsToFetch)
 
@@ -988,7 +988,8 @@ export class CartService {
           card_type: orderItem.card_type || 'Normal',
           is_foil: orderItem.is_foil || false,
           is_etched: orderItem.is_etched || false,
-          language: orderItem.language || 'en'
+          language: orderItem.language || 'en',
+          is_misprint: false
         }
         logger.info(
           { card_name: orderItem.card_name, identity },

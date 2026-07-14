@@ -2,10 +2,9 @@ import type { PageServerLoad } from './$types'
 import { error } from '@sveltejs/kit'
 
 export const load: PageServerLoad = async ({ params, locals, setHeaders }) => {
-  // Cache card detail pages for 10 minutes, stale-while-revalidate for 2 hours
-  // Card data rarely changes, so aggressive caching provides instant UX with background updates
+  // Private cache only — no CDN caching (root layout includes user-specific SSR data)
   setHeaders({
-    'Cache-Control': 'public, max-age=600, s-maxage=600, stale-while-revalidate=7200'
+    'Cache-Control': 'private, max-age=120'
   });
 
   const { serial } = params

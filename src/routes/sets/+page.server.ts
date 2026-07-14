@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types'
 
 export const load: PageServerLoad = async ({ locals, setHeaders }) => {
-  setHeaders({ 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' })
+  setHeaders({ 'Cache-Control': 'private, max-age=60' })
 
   const { data: sets } = await locals.supabase
     .from('sets')

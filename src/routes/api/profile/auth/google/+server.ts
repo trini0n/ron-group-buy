@@ -40,7 +40,19 @@ export const DELETE: RequestHandler = async ({ locals }) => {
     const { data: identitiesData } = await locals.supabase.auth.getUserIdentities()
     const identities = identitiesData?.identities || []
 
-    if (identities.length <= 1) {
+    // Cross-reference the users table for linked providers (handles Supabase identity deduplication)
+    const { data: userRecord } = await locals.supabase
+      .from('users')
+      .select('discord_id')
+      .eq('id', locals.user.id)
+      .single()
+
+    const otherAuthIdentities = identities.filter((i: any) => i.provider !== 'google')
+    const hasPasswordIdentity = identities.some((i: any) => i.provider === 'email')
+    const hasOtherOAuthInDB = !!userRecord?.discord_id
+    const hasRemainingAuth = otherAuthIdentities.length > 0 || hasOtherOAuthInDB || hasPasswordIdentity
+
+    if (!hasRemainingAuth) {
       throw error(400, 'Cannot remove last authentication method')
     }
 

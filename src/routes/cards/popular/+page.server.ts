@@ -44,7 +44,7 @@ async function fetchSymbolMap(): Promise<Record<string, string>> {
 }
 
 export const load = async ({ url, setHeaders }: { url: URL; setHeaders: (headers: Record<string, string>) => void }) => {
-	setHeaders({ 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' })
+	setHeaders({ 'Cache-Control': 'private, max-age=60' })
 
 	const adminClient = createAdminClient()
 

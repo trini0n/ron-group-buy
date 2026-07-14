@@ -185,7 +185,7 @@
   // Language selector label
   const selectedLangLabel = $derived.by(() => {
     if (filters.languages.length === 0 || allLanguagesSelected) return 'All Languages'
-    if (filters.languages.length === 1) return getLanguageLabel(filters.languages[0])
+    if (filters.languages.length === 1) return getLanguageLabel(filters.languages[0]!)
     return `${filters.languages.length} languages`
   })
 
