@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-15T07:19:00Z",
+  "title": "Design System: Group Buy — MTG Proxy Shop",
+  "extensions": {
+    "colorMeta": {
+      "void":          { "role": "neutral",  "displayName": "Void",          "canonical": "#09090b", "tonalRamp": ["#09090b","#18181b","#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8"] },
+      "surface":       { "role": "neutral",  "displayName": "Surface",       "canonical": "#09090b", "tonalRamp": ["#09090b","#18181b","#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8"] },
+      "surface-raised":{ "role": "neutral",  "displayName": "Raised Surface", "canonical": "#18181b", "tonalRamp": ["#09090b","#18181b","#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8"] },
+      "surface-muted": { "role": "neutral",  "displayName": "Muted Surface",  "canonical": "#27272a", "tonalRamp": ["#09090b","#18181b","#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8"] },
+      "ink":           { "role": "neutral",  "displayName": "Near-White Ink", "canonical": "#fafafa", "tonalRamp": ["#09090b","#27272a","#52525b","#71717a","#a1a1aa","#d4d4d8","#e4e4e7","#fafafa"] },
+      "ink-muted":     { "role": "neutral",  "displayName": "Muted Ink",      "canonical": "#a1a1aa", "tonalRamp": ["#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8","#e4e4e7","#fafafa"] },
+      "ink-faint":     { "role": "neutral",  "displayName": "Faint Ink",      "canonical": "#71717a", "tonalRamp": ["#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8","#e4e4e7","#fafafa"] },
+      "border":        { "role": "neutral",  "displayName": "Border",         "canonical": "#27272a", "tonalRamp": ["#09090b","#18181b","#27272a","#3f3f46","#52525b","#71717a","#a1a1aa","#d4d4d8"] },
+      "primary":       { "role": "primary",  "displayName": "Primary (White)","canonical": "#fafafa", "tonalRamp": ["#09090b","#27272a","#52525b","#71717a","#a1a1aa","#d4d4d8","#e4e4e7","#fafafa"] },
+      "destructive":   { "role": "semantic", "displayName": "Destructive Red","canonical": "#dc2626", "tonalRamp": ["#450a0a","#7f1d1d","#991b1b","#b91c1c","#dc2626","#ef4444","#fca5a5","#fee2e2"] },
+      "success":       { "role": "semantic", "displayName": "Success Green",  "canonical": "#16a34a", "tonalRamp": ["#052e16","#14532d","#166534","#15803d","#16a34a","#22c55e","#86efac","#dcfce7"] },
+      "warning":       { "role": "semantic", "displayName": "Warning Amber",  "canonical": "#d97706", "tonalRamp": ["#451a03","#78350f","#92400e","#b45309","#d97706","#f59e0b","#fcd34d","#fef3c7"] },
+      "mtg-gold":      { "role": "attribute","displayName": "MTG Gold",       "canonical": "#C9A964", "tonalRamp": ["#3b2800","#6b4c00","#8b6300","#a87c1a","#C9A964","#d9c38a","#ecdeb0","#faf5e4"] },
+      "mtg-red":       { "role": "attribute","displayName": "MTG Red",        "canonical": "#D3202A", "tonalRamp": ["#450a0a","#7f1d1d","#991b1b","#b91c1c","#D3202A","#e85460","#f9a8ae","#fee2e4"] },
+      "mtg-blue":      { "role": "attribute","displayName": "MTG Blue",       "canonical": "#0E68AB", "tonalRamp": ["#0a1628","#1e3a5f","#1e4d7a","#0E68AB","#2490cf","#7ec8e3","#bae8f5","#e0f5fc"] },
+      "mtg-green":     { "role": "attribute","displayName": "MTG Green",      "canonical": "#00733E", "tonalRamp": ["#052e16","#14532d","#166534","#00733E","#059669","#34d399","#a7f3d0","#d1fae5"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display",  "purpose": "Page-level headings. One per view." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings and card detail titles." },
+      "title":    { "displayName": "Title",    "purpose": "Card names in detail, dialog titles, sub-section heads." },
+      "body":     { "displayName": "Body",     "purpose": "All prose, descriptions, cart labels, helper text. Max 65ch." },
+      "label":    { "displayName": "Label",    "purpose": "Metadata tags, badge text, form labels, set codes." }
+    },
+    "shadows": [
+      { "name": "card-hover", "value": "0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.4)", "purpose": "Catalog card hover lift. Only shadow in the system; state-driven, not decorative." },
+      { "name": "overlay-scrim", "value": "rgba(0,0,0,0.6) full-page", "purpose": "Modal/dialog backdrop dimming." }
+    ],
+    "motion": [
+      { "name": "ease-state",    "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default state transitions: hover, active, focus." },
+      { "name": "ease-reveal",   "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Dropdown/popover appear transitions." },
+      { "name": "ease-spin",     "value": "linear infinite",                      "purpose": "Loading spinner (animate-spin). Loading states only." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px",  "note": "Nav collapses to hamburger below this point." },
+      { "name": "lg", "value": "1024px", "note": "Cart switches from single-column to 2/3 + 1/3 grid." },
+      { "name": "2xl","value": "1400px", "note": "Container max-width ceiling." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The strongest call to action on any surface. Used for Proceed to Checkout, Add to Cart, Browse Cards.",
+      "html": "<button class=\"ds-btn-primary\">Proceed to Checkout</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #fafafa; color: #09090b; padding: 8px 16px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border-radius: 8px; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; } .ds-btn-primary:hover { background: #e4e4e7; } .ds-btn-primary:focus-visible { outline: 2px solid #fafafa; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions: Continue Shopping, Sign In, Browse Sets.",
+      "html": "<button class=\"ds-btn-outline\">Continue Shopping</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #fafafa; padding: 8px 16px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border-radius: 8px; border: 1px solid #27272a; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-outline:hover { background: #27272a; } .ds-btn-outline:focus-visible { outline: 2px solid #fafafa; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary actions: Clear Cart, Close, theme toggle, dismiss banner.",
+      "html": "<button class=\"ds-btn-ghost\">Clear Cart</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #a1a1aa; padding: 8px 16px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; border-radius: 8px; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-ghost:hover { background: #27272a; color: #fafafa; } .ds-btn-ghost:focus-visible { outline: 2px solid #fafafa; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card Container",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Primary content container for catalog items, cart rows, and order summaries.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-content\"><p class=\"ds-card-title\">Lightning Bolt</p><p class=\"ds-card-meta\">M11 #149</p></div></div>",
+      "css": ".ds-card { background: #09090b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden; } .ds-card-content { padding: 12px; } .ds-card-title { font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; color: #fafafa; line-height: 1.5; } .ds-card-meta { font-family: Inter, system-ui, sans-serif; font-size: 0.75rem; color: #a1a1aa; margin-top: 4px; }"
+    },
+    {
+      "name": "Badge — Default",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Finish labels (Normal, Holo, Foil), set codes, metadata tags.",
+      "html": "<span class=\"ds-badge\">Normal</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; background: #27272a; color: #fafafa; font-family: Inter, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.02em; padding: 2px 8px; border-radius: 9999px; }"
+    },
+    {
+      "name": "Badge — Destructive",
+      "kind": "chip",
+      "refersTo": "badge-destructive",
+      "description": "Out of Stock indicator. Appears over card image as an overlay and in cart item lists.",
+      "html": "<span class=\"ds-badge-destructive\">Out of Stock</span>",
+      "css": ".ds-badge-destructive { display: inline-flex; align-items: center; background: #dc2626; color: #ffffff; font-family: Inter, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.02em; padding: 2px 8px; border-radius: 9999px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Search fields, form inputs, shipping address fields.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search cards...\" />",
+      "css": ".ds-input { background: transparent; color: #fafafa; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; padding: 8px 12px; border: 1px solid #27272a; border-radius: 8px; width: 100%; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1); outline: none; } .ds-input::placeholder { color: #71717a; } .ds-input:focus-visible { border-color: #3f3f46; outline: 2px solid #3f3f46; outline-offset: 0; } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Quantity Stepper",
+      "kind": "custom",
+      "description": "Compound control: minus button + number input + plus button, joined into a single bordered unit. Used on catalog cards and cart items.",
+      "html": "<div class=\"ds-qty\"><button class=\"ds-qty-btn\" aria-label=\"Decrease\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg></button><input class=\"ds-qty-input\" type=\"number\" value=\"1\" min=\"1\" max=\"99\" /><button class=\"ds-qty-btn\" aria-label=\"Increase\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg></button></div>",
+      "css": ".ds-qty { display: inline-flex; align-items: center; border: 1px solid #27272a; border-radius: 8px; overflow: hidden; } .ds-qty-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: transparent; color: #a1a1aa; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms; } .ds-qty-btn:hover { background: #27272a; color: #fafafa; } .ds-qty-input { width: 40px; height: 28px; background: transparent; color: #fafafa; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; text-align: center; border: none; border-left: 1px solid #27272a; border-right: 1px solid #27272a; -moz-appearance: textfield; } .ds-qty-input::-webkit-inner-spin-button, .ds-qty-input::-webkit-outer-spin-button { display: none; } .ds-qty-input:focus { outline: none; }"
+    },
+    {
+      "name": "Finish Segment Control",
+      "kind": "custom",
+      "description": "Inline segmented picker for card finish variants (Normal/Holo/Foil). Replaces the single badge when multiple finishes exist.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-btn ds-seg-active\">Normal<br/><strong>$1.25</strong></button><button class=\"ds-seg-btn\">Foil<br/><strong>$1.50</strong></button></div>",
+      "css": ".ds-seg { display: flex; border: 1px solid #27272a; border-radius: 8px; overflow: hidden; } .ds-seg-btn { flex: 1; padding: 4px 4px; font-family: Inter, system-ui, sans-serif; font-size: 10px; line-height: 1.4; text-align: center; background: #18181b; color: #a1a1aa; border: none; cursor: pointer; transition: background 150ms, color 150ms; } .ds-seg-btn:not(:last-child) { border-right: 1px solid #27272a; } .ds-seg-btn:hover { background: #27272a; color: #fafafa; } .ds-seg-active { background: #fafafa !important; color: #09090b !important; font-weight: 500; } .ds-seg-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: line-through; }"
+    },
+    {
+      "name": "Group Buy Banner",
+      "kind": "custom",
+      "description": "Full-width status banner above the header. Three states: open (green), scheduled (blue), closed (amber). The only place a semantic color saturates a full surface.",
+      "html": "<div class=\"ds-banner ds-banner-open\"><div class=\"ds-banner-inner\"><span>🛒 <strong>Summer Group Buy</strong> is open! Closes August 1, 2026.</span><button class=\"ds-banner-dismiss\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg></button></div></div>",
+      "css": ".ds-banner { padding: 8px 16px; text-align: center; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; } .ds-banner-open { background: #16a34a; color: #ffffff; } .ds-banner-scheduled { background: #2563eb; color: #ffffff; } .ds-banner-closed { background: #d97706; color: #ffffff; } .ds-banner-inner { display: flex; align-items: center; justify-content: center; gap: 16px; max-width: 1400px; margin: 0 auto; } .ds-banner-dismiss { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: transparent; color: inherit; border: none; border-radius: 4px; cursor: pointer; opacity: 0.8; transition: opacity 150ms; } .ds-banner-dismiss:hover { opacity: 1; background: rgba(0,0,0,0.15); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Underground Mint",
+    "overview": "Factory-floor confidence — not a storefront, a press. Cards roll off, prices are posted on the wall, and there's no ceremony between browsing and buying. This system doesn't explain itself, doesn't decorate itself, and doesn't apologize for what it sells. It operates with the quiet authority of a place that's been doing this long enough to have it figured out.\n\nThe visual register is dark, dense, and precise. The chrome is minimal so the cards can breathe. Typography does the heavy lifting: weights shift to create hierarchy instead of color doing the job. Accent color is used with restraint — it appears on primary actions and state indicators only, never as decoration.\n\nWhat this system explicitly rejects: the generic TCGO-style storefront (TCGPlayer clone aesthetic, 'official card store' optimism), cheap proxy sites (watermarks, discount-bin energy, awkward layout), and the overdesigned SaaS dashboard (feature-announcement chrome, corporate coldness).",
+    "keyCharacteristics": [
+      "Dark by default, always — not a theme, the identity",
+      "Information-dense layouts with tight vertical rhythm",
+      "One neutral palette; color appears as state, not decoration",
+      "MTG color identities used for card-attribute display, never for chrome",
+      "Card imagery is the hero; the UI is the frame",
+      "Fast, direct navigation — the user knows what they want"
+    ],
+    "rules": [
+      { "name": "The Identity Quarantine Rule", "body": "MTG color identity values (mtg-*) are restricted to card-attribute badges and mana symbol indicators. They are prohibited in navigation, buttons, backgrounds, or any chrome element.", "section": "colors" },
+      { "name": "The One-Accent Rule", "body": "The primary white (#fafafa) is used on ≤10% of any given screen — primary buttons, current selection highlights, and active states. Its rarity is what makes it legible as an action signal.", "section": "colors" },
+      { "name": "The Single Family Rule", "body": "Inter is the only font in use. Do not introduce a display face, a mono face for data, or a serif for any reason. Weight contrast within Inter is sufficient for the full hierarchy this product needs.", "section": "typography" },
+      { "name": "The No-Shadow Rule", "body": "Drop shadows are prohibited on cards, buttons, and popover panels. The sole exception is the group-hover shadow on catalog card items — a subtle lift on hover to confirm interactivity.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the background at #09090b (void) across all content surfaces.",
+      "Do use Inter at weight 600–700 for headings and 400–500 for body and labels.",
+      "Do define card components with a 1px border in #27272a.",
+      "Do use the primary (#fafafa) only on the single most-important action on any screen.",
+      "Do use semantic colors (green/red/amber) exclusively for status signals.",
+      "Do restrict MTG color identities (mtg-* palette) to card-attribute badges only.",
+      "Do keep button radii at 8px across all variants.",
+      "Do use text-muted-foreground (#a1a1aa) for secondary metadata and verify 4.5:1 contrast."
+    ],
+    "donts": [
+      "Don't introduce a generic TCGO-style storefront aesthetic (TCGPlayer/Card Kingdom optimism, light-mode marketplace chrome).",
+      "Don't use cheap proxy-site patterns: watermark overlays on non-promotional UI, discount-badge decoration.",
+      "Don't use SaaS dashboard chrome: feature-announcement gradients, marketing typography in UI labels.",
+      "Don't add box-shadow to cards, buttons, or input fields at rest.",
+      "Don't use border-radius greater than 8px on cards or input fields.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe.",
+      "Don't apply background-clip: text gradient text effects.",
+      "Don't use MTG color identity values in navigation, buttons, or any interface chrome.",
+      "Don't add motion to page-load sequences or background elements.",
+      "Don't render identical icon-grid card layouts for non-card content."
+    ]
+  }
+}
