@@ -99,9 +99,10 @@
   // Foil subtypes — driven by foilSubtypeOptions prop (derived from card data upstream)
 
   // Non-Foil subtypes — only visible when 'Non-Foil' is checked
+  // Labels match the badge text shown on cards in the catalog
   const NON_FOIL_SUBTYPES = [
-    { value: 'Normal', label: 'No Holostamp' },
-    { value: 'Holo', label: 'Holostamped' }
+    { value: 'Normal', label: 'Normal' },
+    { value: 'Holo', label: 'Holo' }
   ]
 
   // Whether the Foil subtype panel is relevant
@@ -396,20 +397,23 @@
         {#each colors as color}
           <button
             type="button"
+            aria-label="{color.label}{filters.colorIdentity.includes(color.value) ? ' (selected)' : ''}"
+            aria-pressed={filters.colorIdentity.includes(color.value)}
             class="relative rounded-full transition-all {filters.colorIdentity.includes(color.value)
               ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
               : 'opacity-60 hover:opacity-100'}"
             onclick={() => toggleColor(color.value)}
-            title={color.label}
           >
             <ManaIcon color={color.value} size={32} />
           </button>
         {/each}
       </div>
       {#if filters.colorIdentity.length > 0}
-        <div class="mt-3 flex overflow-hidden rounded-md border border-border text-sm">
+        <div class="mt-3 flex overflow-hidden rounded-md border border-border text-sm" role="group" aria-label="Color matching mode">
           <button
             type="button"
+            aria-label="Only these colors — cards must fit entirely within the selected colors"
+            aria-pressed={filters.colorIdentityStrict}
             class="flex-1 px-3 py-1 transition-colors {filters.colorIdentityStrict
               ? 'bg-foreground text-background font-medium'
               : 'bg-transparent text-muted-foreground hover:text-foreground'}"
@@ -419,6 +423,8 @@
           </button>
           <button
             type="button"
+            aria-label="Any of these colors — cards that include at least one selected color"
+            aria-pressed={!filters.colorIdentityStrict}
             class="flex-1 border-l border-border px-3 py-1 transition-colors {!filters.colorIdentityStrict
               ? 'bg-foreground text-background font-medium'
               : 'bg-transparent text-muted-foreground hover:text-foreground'}"
@@ -518,7 +524,7 @@
         <div class="flex items-center justify-between">
           <Label>Language</Label>
           {#if !allLanguagesSelected}
-            <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearLangSelection}>Reset</Button>
+            <Button variant="ghost" size="sm" class="h-auto py-0 px-1 text-xs" onclick={clearLangSelection}>Clear</Button>
           {/if}
         </div>
         <Popover.Root bind:open={langComboboxOpen}>
@@ -585,7 +591,7 @@
               </Tooltip.Trigger>
               <Tooltip.Content>
                 <p class="max-w-[220px] text-xs">
-                  Misprint cards have accidental printing errors or do not exist as real paper MTG cards
+                  Misprints are cards with accidental printing errors, or cards that don't exist as official paper MTG releases.
                 </p>
               </Tooltip.Content>
             </Tooltip.Root>

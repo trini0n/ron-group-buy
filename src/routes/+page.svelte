@@ -264,20 +264,20 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-  <title>Ron's Group Buy</title>
-  <meta name="description" content="Browse and order cards for Ron's monthly group buy" />
+  <title>Browse Cards — Ron's Group Buy</title>
+  <meta name="description" content="Browse and order proxy Magic: The Gathering cards for Ron's monthly group buy. Filter by set, color, type, and finish." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Ron's Group Buy" />
-  <meta property="og:description" content="Browse and order cards for Ron's monthly group buy" />
+  <meta property="og:title" content="Browse Cards — Ron's Group Buy" />
+  <meta property="og:description" content="Browse and order proxy Magic: The Gathering cards for Ron's monthly group buy. Filter by set, color, type, and finish." />
   <meta property="og:image" content="/ron-gb.png" />
   <meta property="og:site_name" content="Ron GB" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Ron's Group Buy" />
-  <meta name="twitter:description" content="Browse and order cards for Ron's monthly group buy" />
+  <meta name="twitter:title" content="Browse Cards — Ron's Group Buy" />
+  <meta name="twitter:description" content="Browse and order proxy Magic: The Gathering cards for Ron's monthly group buy. Filter by set, color, type, and finish." />
   <meta name="twitter:image" content="/ron-gb.png" />
 </svelte:head>
 
@@ -285,7 +285,10 @@
   <!-- Hero Section -->
   <div class="mb-8 text-center">
     <h1 class="text-4xl font-bold tracking-tight">Card Catalog</h1>
-    <p class="mt-2 text-muted-foreground">Browse Ron's library of Magic: The Gathering cards</p>
+    <p class="mt-2 text-muted-foreground">
+      Browse the full library and add cards to your cart.
+      Got a decklist? <a href="/import" class="text-foreground underline underline-offset-4 hover:text-primary transition-colors">Import it instead →</a>
+    </p>
   </div>
 
   <!-- Search Bar & View Toggle -->
@@ -295,27 +298,30 @@
       <Input
         bind:ref={searchInputEl}
         type="search"
-        placeholder="Search cards by name... (Press / to focus)"
+        placeholder="Search by name or is:fetchland, is:shockland… (press / to focus)"
+        aria-label="Search cards by name or land type tag"
         class="pl-10"
         value={searchQuery}
         oninput={handleSearchInput}
       />
       <IsTagAutocomplete query={searchQuery} onselect={handleAutocompleteSelect} cards={loadedCards} />
     </div>
-    <div class="flex items-center rounded-lg border bg-muted p-1">
+    <div class="flex items-center rounded-lg border bg-muted p-1" role="group" aria-label="View mode">
       <Tooltip.Root>
         <Tooltip.Trigger>
           <Button
             variant={viewMode === 'grid' ? 'default' : 'ghost'}
             size="icon"
             class="h-8 w-8"
+            aria-label="Gallery view"
+            aria-pressed={viewMode === 'grid'}
             onclick={() => (viewMode = 'grid')}
           >
             <LayoutGrid class="h-4 w-4" />
           </Button>
         </Tooltip.Trigger>
         <Tooltip.Content>
-          <p>Gallery View</p>
+          <p>Gallery view</p>
         </Tooltip.Content>
       </Tooltip.Root>
       <Tooltip.Root>
@@ -324,13 +330,15 @@
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="icon"
             class="h-8 w-8"
+            aria-label="List view"
+            aria-pressed={viewMode === 'table'}
             onclick={() => (viewMode = 'table')}
           >
             <List class="h-4 w-4" />
           </Button>
         </Tooltip.Trigger>
         <Tooltip.Content>
-          <p>List View</p>
+          <p>List view</p>
         </Tooltip.Content>
       </Tooltip.Root>
     </div>
@@ -375,8 +383,14 @@
         </div>
       {:else if loadError}
         <div class="flex flex-col items-center justify-center py-16 text-center">
-          <p class="text-xl font-medium text-destructive">Error loading cards</p>
-          <p class="mt-2 text-muted-foreground">{loadError}</p>
+          <p class="text-xl font-medium text-destructive">Couldn't load the catalog</p>
+          <p class="mt-2 text-muted-foreground">Something went wrong on our end. Try refreshing the page.</p>
+          <button
+            class="mt-4 text-sm underline underline-offset-4 text-muted-foreground hover:text-foreground transition-colors"
+            onclick={() => window.location.reload()}
+          >
+            Refresh
+          </button>
         </div>
       {:else if loadedCards}
         {#if viewMode === 'grid'}

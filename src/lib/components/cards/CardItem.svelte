@@ -4,7 +4,6 @@
   import { Badge } from '$components/ui/badge'
   import * as CardUI from '$components/ui/card'
   import { Input } from '$components/ui/input'
-  import * as Tooltip from '$components/ui/tooltip'
   import {
     getRonImageUrl,
     getScryfallImageUrl,
@@ -17,6 +16,7 @@
   } from '$lib/utils'
   import { Plus, Minus, ShoppingCart } from 'lucide-svelte'
   import { cartStore } from '$lib/stores/cart.svelte'
+
 
   interface Props {
     card: Card
@@ -158,7 +158,7 @@
 
       <!-- Finish Segment Control or Single Badge -->
       {#if finishVariants.length > 1}
-        <div class="mt-2 flex rounded-md border overflow-hidden">
+        <div class="mt-2 flex rounded-md border overflow-hidden" role="group" aria-label="Select finish">
           {#each finishVariants as variant}
             {@const isActive = selectedCard.serial === variant.serial}
             <button
@@ -168,7 +168,9 @@
                 selectedCard = variant
               }}
               disabled={!variant.is_in_stock}
-              class="flex-1 py-1 px-1 text-center transition-all text-[10px] leading-tight
+              aria-pressed={isActive}
+              aria-label="{getFinishLabel(variant)} — {formatPrice(getCardPrice(variant.card_type))}{!variant.is_in_stock ? ' (out of stock)' : ''}"
+              class="flex-1 py-1 px-1 text-center transition-all text-xs leading-tight
                 {isActive
                 ? 'bg-primary text-primary-foreground font-medium'
                 : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
@@ -191,12 +193,13 @@
 
       <!-- Quantity & Add to Cart -->
       {#if selectedCard.is_in_stock}
-        <div class="mt-3 flex items-center justify-between gap-2" role="group">
+        <div class="mt-3 flex items-center gap-2" role="group" aria-label="Quantity and add to cart">
           <div class="flex items-center rounded-md border">
             <Button
               variant="ghost"
               size="icon"
               class="h-7 w-7 rounded-r-none"
+              aria-label="Decrease quantity"
               onclick={decrementQuantity}
               disabled={quantity <= 1}
             >
@@ -206,6 +209,7 @@
               type="number"
               min="1"
               max="99"
+              aria-label="Quantity"
               class="h-7 w-10 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               bind:value={quantity}
               onclick={handleQuantityInput}
@@ -214,26 +218,21 @@
               variant="ghost"
               size="icon"
               class="h-7 w-7 rounded-l-none"
+              aria-label="Increase quantity"
               onclick={incrementQuantity}
               disabled={quantity >= 99}
             >
               <Plus class="h-3 w-3" />
             </Button>
           </div>
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              <Button size="icon" class="h-8 w-8" onclick={addToCart}>
-                {#if isInCart}
-                  <ShoppingCart class="h-4 w-4 text-green-600" fill="currentColor" />
-                {:else}
-                  <ShoppingCart class="h-4 w-4" />
-                {/if}
-              </Button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-              <p>Add to Cart</p>
-            </Tooltip.Content>
-          </Tooltip.Root>
+          <Button
+            class="h-8 flex-1 gap-1.5"
+            aria-label={isInCart ? `${selectedCard.card_name} added to cart` : `Add ${selectedCard.card_name} to cart`}
+            onclick={addToCart}
+          >
+            <ShoppingCart class="h-3.5 w-3.5 shrink-0 {isInCart ? 'text-green-400' : ''}" fill={isInCart ? 'currentColor' : 'none'} />
+            <span>{isInCart ? 'Added' : 'Add'}</span>
+          </Button>
         </div>
       {/if}
     </CardUI.Content>
