@@ -285,15 +285,15 @@
 </script>
 
 <div class="space-y-4 rounded-lg border bg-card p-4">
-  <!-- Header with toggle for mobile - entire bar is clickable -->
-  <div
-    class="flex cursor-pointer items-center justify-between lg:cursor-default"
-    onclick={() => (mobileFiltersOpen = !mobileFiltersOpen)}
-    onkeydown={(e) => e.key === 'Enter' && (mobileFiltersOpen = !mobileFiltersOpen)}
-    role="button"
-    tabindex="0"
-  >
-    <div class="flex items-center gap-2 font-semibold">
+  <!-- Header: on mobile the whole row is a button that toggles filter visibility -->
+  <div class="flex items-center justify-between">
+    <button
+      class="flex flex-1 cursor-pointer items-center gap-2 font-semibold lg:cursor-default"
+      onclick={() => (mobileFiltersOpen = !mobileFiltersOpen)}
+      onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), mobileFiltersOpen = !mobileFiltersOpen)}
+      aria-expanded={isMobile ? mobileFiltersOpen : undefined}
+      aria-controls="filter-panel"
+    >
       <Filter class="h-4 w-4 lg:hidden" />
       <span>Filters</span>
       {#if activeFilterCount > 0}
@@ -302,15 +302,12 @@
         </span>
       {/if}
       <ChevronDown class="h-4 w-4 transition-transform lg:hidden {mobileFiltersOpen ? 'rotate-180' : ''}" />
-    </div>
+    </button>
     {#if hasActiveFilters}
       <Button
         variant="ghost"
         size="sm"
-        onclick={(e: MouseEvent) => {
-          e.stopPropagation()
-          clearFilters()
-        }}
+        onclick={clearFilters}
       >
         <X class="mr-1 h-3 w-3" />
         Clear
@@ -319,7 +316,7 @@
   </div>
 
   <!-- Filter content - collapsible on mobile -->
-  <div class="space-y-6 {isMobile && !mobileFiltersOpen ? 'hidden' : ''}">
+  <div id="filter-panel" class="space-y-6 {isMobile && !mobileFiltersOpen ? 'hidden' : ''}">
 
     <!-- Sort By -->
     <div class="space-y-2">
@@ -393,18 +390,20 @@
     <!-- Color Identity Filter -->
     <div class="space-y-2">
       <Label>Color Identity</Label>
-      <div class="flex gap-2">
+      <div class="flex gap-1">
         {#each colors as color}
           <button
             type="button"
             aria-label="{color.label}{filters.colorIdentity.includes(color.value) ? ' (selected)' : ''}"
             aria-pressed={filters.colorIdentity.includes(color.value)}
-            class="relative rounded-full transition-all {filters.colorIdentity.includes(color.value)
-              ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-              : 'opacity-60 hover:opacity-100'}"
+            class="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-all
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+              {filters.colorIdentity.includes(color.value)
+                ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                : 'opacity-60 hover:opacity-100'}"
             onclick={() => toggleColor(color.value)}
           >
-            <ManaIcon color={color.value} size={32} />
+            <ManaIcon color={color.value} size={28} />
           </button>
         {/each}
       </div>

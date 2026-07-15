@@ -170,7 +170,8 @@
               disabled={!variant.is_in_stock}
               aria-pressed={isActive}
               aria-label="{getFinishLabel(variant)} — {formatPrice(getCardPrice(variant.card_type))}{!variant.is_in_stock ? ' (out of stock)' : ''}"
-              class="flex-1 py-1 px-1 text-center transition-all text-xs leading-tight
+              class="flex-1 min-h-[44px] py-1 px-1 text-center transition-all text-xs leading-tight
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset
                 {isActive
                 ? 'bg-primary text-primary-foreground font-medium'
                 : 'bg-muted/50 hover:bg-muted text-muted-foreground'}
@@ -198,7 +199,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-7 rounded-r-none"
+              class="h-9 w-9 rounded-r-none"
               aria-label="Decrease quantity"
               onclick={decrementQuantity}
               disabled={quantity <= 1}
@@ -210,14 +211,14 @@
               min="1"
               max="99"
               aria-label="Quantity"
-              class="h-7 w-10 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              class="h-9 w-10 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               bind:value={quantity}
               onclick={handleQuantityInput}
             />
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-7 rounded-l-none"
+              class="h-9 w-9 rounded-l-none"
               aria-label="Increase quantity"
               onclick={incrementQuantity}
               disabled={quantity >= 99}
@@ -226,7 +227,7 @@
             </Button>
           </div>
           <Button
-            class="h-8 flex-1 gap-1.5"
+            class="h-11 flex-1 gap-1.5"
             aria-label={isInCart ? `${selectedCard.card_name} added to cart` : `Add ${selectedCard.card_name} to cart`}
             onclick={addToCart}
           >

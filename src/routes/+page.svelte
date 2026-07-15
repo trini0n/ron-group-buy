@@ -333,7 +333,7 @@
           <Button
             variant={viewMode === 'grid' ? 'default' : 'ghost'}
             size="icon"
-            class="h-8 w-8"
+            class="h-9 w-9"
             aria-label="Gallery view"
             aria-pressed={viewMode === 'grid'}
             onclick={() => (viewMode = 'grid')}
@@ -350,7 +350,7 @@
           <Button
             variant={viewMode === 'table' ? 'default' : 'ghost'}
             size="icon"
-            class="h-8 w-8"
+            class="h-9 w-9"
             aria-label="List view"
             aria-pressed={viewMode === 'table'}
             onclick={() => (viewMode = 'table')}
