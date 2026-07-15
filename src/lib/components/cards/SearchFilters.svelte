@@ -442,7 +442,7 @@
       <Accordion.Item value="card-type">
         <Accordion.Trigger class="py-2 text-sm font-medium">Card Type</Accordion.Trigger>
         <Accordion.Content>
-          <div class="grid grid-cols-2 gap-2 pt-1 pb-2">
+          <div class="flex flex-col gap-2 pt-1 pb-2">
             {#each cardTypes as type}
               <label class="flex cursor-pointer items-center space-x-2">
                 <Checkbox checked={filters.cardTypes.includes(type)} onCheckedChange={() => toggleCardType(type)} />
