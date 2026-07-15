@@ -281,18 +281,18 @@
   <meta name="twitter:image" content="/ron-gb.png" />
 </svelte:head>
 
-<div class="container py-8">
-  <!-- Hero Section -->
-  <div class="mb-8 text-center">
-    <h1 class="text-4xl font-bold tracking-tight">Card Catalog</h1>
-    <p class="mt-2 text-muted-foreground">
-      Browse the full library and add cards to your cart.
-      Got a decklist? <a href="/import" class="text-foreground underline underline-offset-4 hover:text-primary transition-colors">Import it instead →</a>
+<div class="container pt-6 pb-8">
+  <!-- Page header: title + import nudge inline above search -->
+  <div class="mb-3 flex items-baseline justify-between gap-4">
+    <h1 class="text-lg font-semibold tracking-tight text-foreground">Card Catalog</h1>
+    <p class="shrink-0 text-sm text-muted-foreground">
+      Got a decklist?
+      <a href="/import" class="text-foreground underline underline-offset-4 hover:text-primary transition-colors whitespace-nowrap">Import it →</a>
     </p>
   </div>
 
   <!-- Search Bar & View Toggle -->
-  <div class="mb-6 flex items-center gap-4">
+  <div class="mb-5 flex items-center gap-3">
     <div class="relative flex-1">
       <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
@@ -300,7 +300,7 @@
         type="search"
         placeholder="Search by name or is:fetchland, is:shockland… (press / to focus)"
         aria-label="Search cards by name or land type tag"
-        class="pl-10"
+        class="h-11 pl-10 text-sm"
         value={searchQuery}
         oninput={handleSearchInput}
       />
@@ -345,8 +345,8 @@
   </div>
 
   <div class="flex flex-col gap-6 lg:flex-row">
-    <!-- Filters Sidebar - always visible, sets load async -->
-    <aside class="w-full shrink-0 lg:w-64">
+    <!-- Filters Sidebar -->
+    <aside class="w-full shrink-0 lg:w-64 lg:border-r lg:border-border lg:pr-6">
       <SearchFilters
         bind:filters
         bind:sortBy
@@ -362,7 +362,7 @@
     </aside>
 
     <!-- Card View -->
-    <div class="flex-1">
+    <div class="flex-1 min-w-0">
       {#if isLoading}
         <!-- Skeleton for card grid while loading -->
         <div class="mb-4 flex items-center justify-between">
