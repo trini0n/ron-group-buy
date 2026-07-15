@@ -284,7 +284,7 @@
 <div class="container pt-6 pb-8">
   <!-- Page header: title + import nudge inline above search -->
   <div class="mb-3 flex items-baseline justify-between gap-4">
-    <h1 class="text-lg font-semibold tracking-tight text-foreground">Card Catalog</h1>
+    <h1 class="text-lg font-bold tracking-tight text-foreground">Card Catalog</h1>
     <p class="shrink-0 text-sm text-muted-foreground">
       Got a decklist?
       <a href="/import" class="text-foreground underline underline-offset-4 hover:text-primary transition-colors whitespace-nowrap">Import it →</a>
@@ -293,20 +293,20 @@
 
   <!-- Search Bar & View Toggle -->
   <div class="mb-5 flex items-center gap-3">
-    <div class="relative flex-1">
-      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div class="search-primary relative flex-1 rounded-md border">
+      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
       <Input
         bind:ref={searchInputEl}
         type="search"
         placeholder="Search by name or is:fetchland, is:shockland… (press / to focus)"
         aria-label="Search cards by name or land type tag"
-        class="h-11 pl-10 text-sm"
+        class="h-11 border-0 bg-transparent pl-10 text-sm shadow-none focus-visible:ring-0"
         value={searchQuery}
         oninput={handleSearchInput}
       />
       <IsTagAutocomplete query={searchQuery} onselect={handleAutocompleteSelect} cards={loadedCards} />
     </div>
-    <div class="flex items-center rounded-lg border bg-muted p-1" role="group" aria-label="View mode">
+    <div class="flex self-stretch items-center rounded-md border border-zinc-700 bg-zinc-900 p-1" role="group" aria-label="View mode">
       <Tooltip.Root>
         <Tooltip.Trigger>
           <Button
@@ -346,7 +346,7 @@
 
   <div class="flex flex-col gap-6 lg:flex-row">
     <!-- Filters Sidebar -->
-    <aside class="w-full shrink-0 lg:w-64 lg:border-r lg:border-border lg:pr-6">
+    <aside class="w-full shrink-0 lg:w-64 lg:border-r lg:border-zinc-700 lg:pr-6">
       <SearchFilters
         bind:filters
         bind:sortBy

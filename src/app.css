@@ -77,7 +77,13 @@
 
 /* Card hover effects */
 .card-hover {
-  @apply transition-all duration-200 hover:scale-[1.02] hover:shadow-lg;
+  @apply transition-all duration-200;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card-hover {
+    @apply hover:scale-[1.02] hover:shadow-lg;
+  }
 }
 
 /* MTG mana symbols background colors */
@@ -89,6 +95,7 @@
 .mana-c { @apply bg-mtg-colorless text-gray-900; }
 .mana-m { @apply bg-mtg-gold text-gray-900; }
 
+
 /* Stock indicator */
 .stock-available {
   @apply text-green-600 dark:text-green-400;
@@ -96,4 +103,21 @@
 
 .stock-out {
   @apply text-red-600 dark:text-red-400 line-through opacity-60;
+}
+
+/*
+  Underground Mint — identity utilities
+  These classes encode the design system's one committed accent moment:
+  the MTG-gold focus ring on the primary search surface.
+  Do not apply to decorative elements — per DESIGN.md, gold is state/action only.
+*/
+.search-primary {
+  @apply bg-zinc-900 border-zinc-700;
+  @apply focus-within:ring-2 focus-within:ring-yellow-600/50 focus-within:border-yellow-700/70;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .search-primary {
+    transition: box-shadow 150ms ease, border-color 150ms ease;
+  }
 }
