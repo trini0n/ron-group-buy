@@ -194,12 +194,12 @@
 
       <!-- Quantity & Add to Cart -->
       {#if selectedCard.is_in_stock}
-        <div class="mt-3 flex items-center gap-2" role="group" aria-label="Quantity and add to cart">
-          <div class="flex items-center rounded-md border">
+        <div class="mt-3 flex items-center gap-1.5" role="group" aria-label="Quantity and add to cart">
+          <div class="flex shrink-0 items-center rounded-md border">
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-7 rounded-r-none"
+              class="h-7 w-6 rounded-r-none"
               aria-label="Decrease quantity"
               onclick={decrementQuantity}
               disabled={quantity <= 1}
@@ -211,14 +211,14 @@
               min="1"
               max="99"
               aria-label="Quantity"
-              class="h-7 w-10 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              class="h-7 w-8 rounded-none border-x border-y-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               bind:value={quantity}
               onclick={handleQuantityInput}
             />
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-7 rounded-l-none"
+              class="h-7 w-6 rounded-l-none"
               aria-label="Increase quantity"
               onclick={incrementQuantity}
               disabled={quantity >= 99}
@@ -227,7 +227,7 @@
             </Button>
           </div>
           <Button
-            class="h-8 flex-1 gap-1.5"
+            class="h-8 min-w-0 flex-1 gap-1 overflow-hidden px-2"
             aria-label={isInCart ? `${selectedCard.card_name} added to cart` : `Add ${selectedCard.card_name} to cart`}
             onclick={addToCart}
           >
