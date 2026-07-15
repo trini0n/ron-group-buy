@@ -47,6 +47,12 @@
       expressPerHalfKg: 8.0,
       tariff: 9.0,
     },
+    eu: {
+      regular: 6.0,
+      express: 25.0,
+      expressPerHalfKg: 5.0,
+      tariff: 9.0,
+    },
     international: {
       regular: 6.0,
       express: 25.0,
@@ -54,6 +60,20 @@
       tariff: 0,
     },
   };
+
+  // ISO 3166-1 alpha-2 codes for EU member states
+  const EU_COUNTRY_CODES = new Set([
+    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+    'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+    'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'
+  ]);
+
+  function getTariffRates(country: string) {
+    const c = (country ?? '').toUpperCase();
+    if (c === 'US' || c === 'USA' || c === 'UNITED STATES') return SHIPPING_RATES.us;
+    if (EU_COUNTRY_CODES.has(c)) return SHIPPING_RATES.eu;
+    return SHIPPING_RATES.international;
+  }
 
   // Email verification
   let isResendingVerification = $state(false);
@@ -134,15 +154,7 @@
     }
   });
 
-  let isUSShipping = $derived(
-    selectedCountry.toUpperCase() === "US" ||
-      selectedCountry.toUpperCase() === "USA" ||
-      selectedCountry.toUpperCase() === "UNITED STATES",
-  );
-
-  let rates = $derived(
-    isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international,
-  );
+  let rates = $derived(getTariffRates(selectedCountry));
   let shippingCost = $derived(
     shippingType === "regular" ? rates.regular : rates.express,
   );
@@ -784,7 +796,7 @@
               </div>
               {#if tariffCost > 0}
                 <div class="flex justify-between text-sm">
-                  <span>Tariff (US orders)</span>
+                  <span>Tariff</span>
                   <span>{formatPrice(tariffCost)}</span>
                 </div>
               {/if}

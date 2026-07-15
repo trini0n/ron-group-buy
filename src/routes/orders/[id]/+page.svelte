@@ -22,8 +22,23 @@
   // Shipping pricing constants
   const SHIPPING_RATES = {
     us: { regular: 6.00, express: 40.00, tariff: 9.00 },
+    eu: { regular: 6.00, express: 25.00, tariff: 9.00 },
     international: { regular: 6.00, express: 25.00, tariff: 0 }
   };
+
+  // ISO 3166-1 alpha-2 codes for EU member states
+  const EU_COUNTRY_CODES = new Set([
+    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+    'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+    'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'
+  ]);
+
+  function getTariffRates(country: string) {
+    const c = (country ?? '').toUpperCase();
+    if (c === 'US' || c === 'USA' || c === 'UNITED STATES') return SHIPPING_RATES.us;
+    if (EU_COUNTRY_CODES.has(c)) return SHIPPING_RATES.eu;
+    return SHIPPING_RATES.international;
+  }
 
   const order = $derived(data.order);
 
@@ -61,12 +76,7 @@
   );
 
   // Calculate shipping costs
-  const isUSShipping = $derived(
-    order.shipping_country?.toUpperCase() === 'US' ||
-    order.shipping_country?.toUpperCase() === 'USA' ||
-    order.shipping_country?.toUpperCase() === 'UNITED STATES'
-  );
-  const rates = $derived(isUSShipping ? SHIPPING_RATES.us : SHIPPING_RATES.international);
+  const rates = $derived(getTariffRates(order.shipping_country ?? ''));
   const shippingCost = $derived(order.shipping_type === 'express' ? rates.express : rates.regular);
   const tariffCost = $derived(rates.tariff);
   const grandTotal = $derived(subtotal + bundleSubtotal + shippingCost + tariffCost);
@@ -201,7 +211,7 @@
             </div>
             {#if tariffCost > 0}
               <div class="flex justify-between text-sm">
-                <span>Tariff (US)</span>
+                <span>Tariff</span>
                 <span>{formatPrice(tariffCost)}</span>
               </div>
             {/if}

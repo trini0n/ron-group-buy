@@ -79,7 +79,22 @@ interface OrderItemExportData extends OrderItem {
 // Constants for pricing
 const SHIPPING_RATES = {
   us: { regular: 6.0, express: 40.0, tariff: 9.0 },
+  eu: { regular: 6.0, express: 25.0, tariff: 9.0 },
   international: { regular: 6.0, express: 25.0, tariff: 0 }
+}
+
+// ISO 3166-1 alpha-2 codes for EU member states
+const EU_COUNTRY_CODES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+  'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+  'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'
+])
+
+function getTariffRates(country: string) {
+  const c = country.toUpperCase()
+  if (c === 'US' || c === 'USA' || c === 'UNITED STATES') return SHIPPING_RATES.us
+  if (EU_COUNTRY_CODES.has(c)) return SHIPPING_RATES.eu
+  return SHIPPING_RATES.international
 }
 
 /**
@@ -357,7 +372,7 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
   worksheet.getCell(`C${currentRow}`).value = `${formatCurrency(totals.shipping)} (${shippingSpeed})`
   currentRow++
 
-  // Tariff (if US)
+  // Tariff (US and EU orders)
   if (totals.tariff > 0) {
     worksheet.getCell(`B${currentRow}`).value = 'Tariff:'
     worksheet.getCell(`C${currentRow}`).value = formatCurrency(totals.tariff)
@@ -514,11 +529,8 @@ function calculateOrderTotals(order: OrderExportData) {
 
   const subtotal = cardSubtotal + bundleSubtotal
 
-  // Determine if US shipping
-  const country = order.shipping_country?.toUpperCase() || ''
-  const isUS = country === 'US' || country === 'USA' || country === 'UNITED STATES'
-
-  const rates = isUS ? SHIPPING_RATES.us : SHIPPING_RATES.international
+  // Determine shipping region (US and EU both incur a tariff)
+  const rates = getTariffRates(order.shipping_country || '')
   const shipping = order.shipping_type === 'express' ? rates.express : rates.regular
   const tariff = rates.tariff
   const total = subtotal + shipping + tariff
