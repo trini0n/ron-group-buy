@@ -113,7 +113,7 @@
   }
 </script>
 
-<a href={getCardUrl(card)} class="card-hover group block h-full">
+<a href={getCardUrl(card)} class="card-hover group block h-full overflow-hidden rounded-lg">
   <CardUI.Root class="flex h-full flex-col overflow-hidden">
     <!-- Card Image -->
     <div class="relative aspect-[2.5/3.5] overflow-hidden bg-muted">
