@@ -396,7 +396,7 @@
             type="button"
             aria-label="{color.label}{filters.colorIdentity.includes(color.value) ? ' (selected)' : ''}"
             aria-pressed={filters.colorIdentity.includes(color.value)}
-            class="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-all
+            class="relative flex flex-1 min-h-[44px] items-center justify-center rounded-full transition-all
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
               {filters.colorIdentity.includes(color.value)
                 ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
