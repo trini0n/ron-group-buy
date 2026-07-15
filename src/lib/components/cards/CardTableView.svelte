@@ -46,9 +46,10 @@
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
+    onClearAll?: () => void
   }
 
-  let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+  let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, onClearAll }: Props = $props()
 
 
   // Sorting state with session storage persistence and default
@@ -467,8 +468,34 @@
 
 {#if sortedCards.length === 0}
   <div class="flex flex-col items-center justify-center py-16 text-center">
-    <p class="text-xl font-medium">No cards found</p>
-    <p class="mt-2 text-muted-foreground">Try adjusting your search or filters</p>
+    {#if searchQuery.trim().length > 0 && filters.colorIdentity.length === 0 && filters.cardTypes.length === 0 && filters.frameTypes.length === 0 && filters.setCodes.length === 0 && !filters.inStockOnly && !filters.isNew && filters.languages.length === 0}
+      <p class="text-xl font-medium">No results for &ldquo;{searchQuery.trim()}&rdquo;</p>
+      <p class="mt-2 text-sm text-muted-foreground">Check the spelling, or try <code class="font-mono text-foreground">is:fetchland</code> for tag-based search.</p>
+    {:else if filters.colorIdentity.length > 0 || filters.cardTypes.length > 0 || filters.frameTypes.length > 0 || filters.setCodes.length > 0 || filters.inStockOnly || filters.isNew || filters.languages.length > 0}
+      <p class="text-xl font-medium">No cards match your filters</p>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {#if searchQuery.trim().length > 0}Search &ldquo;{searchQuery.trim()}&rdquo; with {/if}your current filters returned nothing.
+      </p>
+      {#if onClearAll}
+        <button
+          class="mt-5 text-sm underline underline-offset-4 text-foreground hover:text-primary transition-colors"
+          onclick={onClearAll}
+        >
+          Clear all filters
+        </button>
+      {/if}
+    {:else}
+      <p class="text-xl font-medium">No cards available</p>
+      <p class="mt-2 text-sm text-muted-foreground">Try selecting a different finish or removing some filters.</p>
+      {#if onClearAll}
+        <button
+          class="mt-5 text-sm underline underline-offset-4 text-foreground hover:text-primary transition-colors"
+          onclick={onClearAll}
+        >
+          Clear all filters
+        </button>
+      {/if}
+    {/if}
   </div>
 {:else}
   <!-- Bulk actions bar -->

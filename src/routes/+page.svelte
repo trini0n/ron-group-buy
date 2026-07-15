@@ -167,6 +167,27 @@
     updateUrl()
   }
 
+  // Reset all search + sidebar filter state to defaults.
+  // Mirrors SearchFilters.clearFilters() — called both from the sidebar Clear button
+  // (via onClearAll prop) and from the empty-state inline CTA in CardGrid/CardTableView.
+  function clearAll() {
+    searchQuery = ''
+    currentPage = 1
+    sortBy = 'name-asc'
+    filters.setCodes = []
+    filters.colorIdentity = []
+    filters.colorIdentityStrict = true
+    filters.priceCategories = ['Non-Foil', 'Foil', 'Serialized']
+    filters.foilSubtypes = [...loadedFoilSubtypes]
+    filters.nonFoilSubtypes = ['Normal', 'Holo']
+    filters.cardTypes = []
+    filters.frameTypes = []
+    filters.inStockOnly = false
+    filters.isNew = false
+    filters.isMisprint = false
+    filters.languages = [...loadedLanguages]
+  }
+
   // Debounced search update
   function handleSearchInput(event: Event) {
     const target = event.target as HTMLInputElement
@@ -402,6 +423,7 @@
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}
+            onClearAll={clearAll}
           />
         {:else}
           <CardTableView
@@ -412,6 +434,7 @@
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}
+            onClearAll={clearAll}
           />
         {/if}
       {/if}

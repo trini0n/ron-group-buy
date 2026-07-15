@@ -43,9 +43,10 @@
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
+    onClearAll?: () => void
   }
 
-  let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {} }: Props = $props()
+  let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, onClearAll }: Props = $props()
 
 
   const CARDS_PER_PAGE = 25
@@ -363,12 +364,53 @@
     onPageChange?.(newPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  // Detect which filters are actively narrowing results for the empty state message
+  const hasActiveFilters = $derived(
+    filters.colorIdentity.length > 0 ||
+    filters.cardTypes.length > 0 ||
+    filters.frameTypes.length > 0 ||
+    filters.setCodes.length > 0 ||
+    filters.inStockOnly ||
+    filters.isNew ||
+    filters.languages.length > 0
+  )
+  const hasSearchQuery = $derived(searchQuery.trim().length > 0)
 </script>
 
 {#if groupedCards.length === 0}
   <div class="flex flex-col items-center justify-center py-16 text-center">
-    <p class="text-xl font-medium">No cards found</p>
-    <p class="mt-2 text-muted-foreground">Try adjusting your search or filters</p>
+    {#if hasSearchQuery && !hasActiveFilters}
+      <!-- Text search only, no sidebar filters -->
+      <p class="text-xl font-medium">No results for &ldquo;{searchQuery.trim()}&rdquo;</p>
+      <p class="mt-2 text-sm text-muted-foreground">Check the spelling, or try <code class="font-mono text-foreground">is:fetchland</code> for tag-based search.</p>
+    {:else if hasActiveFilters}
+      <!-- One or more sidebar filters are active -->
+      <p class="text-xl font-medium">No cards match your filters</p>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {#if hasSearchQuery}Search &ldquo;{searchQuery.trim()}&rdquo; with {/if}your current filters returned nothing.
+      </p>
+      {#if onClearAll}
+        <button
+          class="mt-5 text-sm underline underline-offset-4 text-foreground hover:text-primary transition-colors"
+          onclick={onClearAll}
+        >
+          Clear all filters
+        </button>
+      {/if}
+    {:else}
+      <!-- Fallback: price category / finish deselection edge case -->
+      <p class="text-xl font-medium">No cards available</p>
+      <p class="mt-2 text-sm text-muted-foreground">Try selecting a different finish or removing some filters.</p>
+      {#if onClearAll}
+        <button
+          class="mt-5 text-sm underline underline-offset-4 text-foreground hover:text-primary transition-colors"
+          onclick={onClearAll}
+        >
+          Clear all filters
+        </button>
+      {/if}
+    {/if}
   </div>
 {:else}
   <!-- Results count and page info -->
