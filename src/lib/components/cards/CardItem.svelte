@@ -194,8 +194,9 @@
 
       <!-- Quantity & Add to Cart -->
       {#if selectedCard.is_in_stock}
-        <div class="mt-3 flex items-center gap-2" role="group" aria-label="Quantity and add to cart">
-          <div class="flex items-center rounded-md border">
+        <div class="mt-3 space-y-2">
+          <!-- Quantity stepper -->
+          <div class="flex items-center justify-center rounded-md border" role="group" aria-label="Quantity">
             <Button
               variant="ghost"
               size="icon"
@@ -226,8 +227,9 @@
               <Plus class="h-3 w-3" />
             </Button>
           </div>
+          <!-- Add to cart — full width so it never clips -->
           <Button
-            class="h-11 flex-1 gap-1.5"
+            class="h-11 w-full gap-1.5"
             aria-label={isInCart ? `${selectedCard.card_name} added to cart` : `Add ${selectedCard.card_name} to cart`}
             onclick={addToCart}
           >

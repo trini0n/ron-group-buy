@@ -398,12 +398,14 @@
             aria-pressed={filters.colorIdentity.includes(color.value)}
             class="relative flex flex-1 min-h-[44px] items-center justify-center rounded-full transition-all
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
-              {filters.colorIdentity.includes(color.value)
-                ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                : 'opacity-60 hover:opacity-100'}"
+              {filters.colorIdentity.includes(color.value) ? 'opacity-100' : 'opacity-60 hover:opacity-100'}"
             onclick={() => toggleColor(color.value)}
           >
-            <ManaIcon color={color.value} size={28} />
+            <span class="rounded-full {filters.colorIdentity.includes(color.value)
+              ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+              : ''}">
+              <ManaIcon color={color.value} size={28} />
+            </span>
           </button>
         {/each}
       </div>
