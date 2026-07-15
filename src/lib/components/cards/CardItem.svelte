@@ -199,7 +199,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-6 rounded-r-none"
+              class="h-7 w-7 rounded-r-none"
               aria-label="Decrease quantity"
               onclick={decrementQuantity}
               disabled={quantity <= 1}
@@ -218,7 +218,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-7 w-6 rounded-l-none"
+              class="h-7 w-7 rounded-l-none"
               aria-label="Increase quantity"
               onclick={incrementQuantity}
               disabled={quantity >= 99}
