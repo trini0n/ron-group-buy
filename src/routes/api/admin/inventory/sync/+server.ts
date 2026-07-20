@@ -178,13 +178,14 @@ function parseSheetCsv(csvContent: string): CardRecord[] {
     })
 }
 
-function cardFingerprint(card: Omit<CardRecord, 'serial' | 'ron_image_url' | 'is_in_stock'>): string {
+function cardFingerprint(card: Omit<CardRecord, 'serial' | 'is_in_stock'>): string {
   return [
     card.naming, card.card_name, card.set_name, card.set_code, card.collector_number,
     card.card_type, card.foil_type, card.is_retro, card.is_extended, card.is_showcase,
     card.is_borderless, card.is_etched, card.is_foil, card.language, card.flavor_name,
     card.scryfall_link, card.scryfall_id, card.moxfield_syntax, card.color,
-    card.color_identity, card.type_line, card.mana_cost, card.is_new, card.is_misprint
+    card.color_identity, card.type_line, card.mana_cost, card.is_new, card.is_misprint,
+    card.ron_image_url
   ]
     .map((v) => String(v ?? ''))
     .join('|')
