@@ -153,18 +153,21 @@
     return queryString ? `?${queryString}` : '/'
   }
 
-  // Update URL without navigation - use native history.replaceState
+  // Update URL without navigation — replaceState for filter tweaks so they don't
+  // pollute the browser history stack (e.g. every keystroke in the search box).
   function updateUrl() {
     const newUrl = buildFilterUrl()
-    // Use history.replaceState to ONLY update URL without triggering navigation
-    // This prevents full page loads and origin transfer on every filter change
     history.replaceState(history.state, '', newUrl)
   }
 
-  // Handle page change from CardGrid
+  // Handle page change from CardGrid.
+  // Uses pushState so each page navigation is a real history entry. This means
+  // clicking a card from page 4 and pressing Back returns to /?page=4 instead
+  // of the original page-1 URL that was in history before any replaceState calls.
   function handlePageChange(page: number) {
     currentPage = page
-    updateUrl()
+    const newUrl = buildFilterUrl()
+    history.pushState(history.state, '', newUrl)
   }
 
   // Reset all search + sidebar filter state to defaults.
