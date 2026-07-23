@@ -57,13 +57,18 @@
         loadedSetReleaseDates = cardsData.setReleaseDates
         loadedFoilSubtypes = (cardsData as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil']
         loadedLanguages = (cardsData as Record<string, unknown>).languages as string[] ?? ['en']
-        // Populate foil filter defaults from server data on initial load
+        // Populate foil filter defaults from server data on initial load.
+        // Also sync prevFilters so the filter-watching $effect doesn't treat
+        // this data-init write as a user filter change (which would reset currentPage to 1).
         if (filters.foilSubtypes.length === 0) {
           filters.foilSubtypes = [...loadedFoilSubtypes]
+          prevFilters.foilSubtypes = loadedFoilSubtypes.join(',')
         }
-        // Populate language filter defaults — empty means all selected
+        // Populate language filter defaults — empty means all selected.
+        // Same prevFilters sync to prevent spurious page reset.
         if (filters.languages.length === 0) {
           filters.languages = [...loadedLanguages]
+          prevFilters.languages = loadedLanguages.join(',')
         }
         isLoading = false
       })
