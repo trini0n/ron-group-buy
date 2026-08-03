@@ -1430,6 +1430,34 @@
       </div>
     {/each}
 
+    <!-- Request a Proxy CTA (shown when cards are not found) -->
+    {#if notFoundCards.length > 0}
+      <div class="mb-6 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <ExternalLink class="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <div class="flex-1 space-y-1">
+          <p class="text-sm font-medium">
+            Can't find a card?
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Request it by joining
+            <a
+              href="https://discord.gg/aYxfbVDHMv"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-primary hover:underline"
+            >Ron's Discord Server</a>
+            or through the
+            <a
+              href="https://requestaproxy.up.railway.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-primary hover:underline"
+            >Request a Proxy</a> site.
+          </p>
+        </div>
+      </div>
+    {/if}
+
     <!-- Add to Cart Button -->
     <div class="sticky bottom-4 flex justify-center">
       <Button size="lg" onclick={addSelectedToCart} disabled={totalSelected === 0 || isAddingToCart} class="shadow-lg">

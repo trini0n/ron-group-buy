@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as DropdownMenu from '$components/ui/dropdown-menu';
   import { Button } from '$components/ui/button';
-  import { ShoppingCart, User, Menu, Sun, Moon, LogOut, Shield, ChevronDown, LayoutGrid, TrendingUp } from 'lucide-svelte';
+  import { ShoppingCart, User, Menu, Sun, Moon, LogOut, Shield, ChevronDown, LayoutGrid, TrendingUp, ExternalLink } from 'lucide-svelte';
   import { toggleMode, mode } from 'mode-watcher';
   import { cartStore } from '$lib/stores/cart.svelte';
   import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -65,6 +65,15 @@
           Orders
         </a>
       {/if}
+      <a
+        href="https://requestaproxy.up.railway.app/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="ml-2 flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+      >
+        Request a Proxy
+        <ExternalLink class="h-3 w-3" />
+      </a>
     </nav>
 
     <!-- Right side actions -->
@@ -159,6 +168,18 @@
               <a href="/orders" class="flex w-full items-center">Orders</a>
             </DropdownMenu.Item>
           {/if}
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item>
+            <a
+              href="https://requestaproxy.up.railway.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex w-full items-center gap-2 text-primary"
+            >
+              <ExternalLink class="h-4 w-4" />
+              Request a Proxy
+            </a>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </div>
