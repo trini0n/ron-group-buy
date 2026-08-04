@@ -60,16 +60,12 @@
       <a href="/import" class="text-sm font-medium transition-colors hover:text-primary">
         Deck Import
       </a>
-      {#if user}
-        <a href="/orders" class="text-sm font-medium transition-colors hover:text-primary">
-          Orders
-        </a>
-      {/if}
+      <div class="h-4 w-px bg-border"></div>
       <a
         href="https://requestaproxy.up.railway.app/"
         target="_blank"
         rel="noopener noreferrer"
-        class="ml-2 flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+        class="flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
       >
         Request a Proxy
         <ExternalLink class="h-3 w-3" />
@@ -163,11 +159,7 @@
           <DropdownMenu.Item>
             <a href="/import" class="flex w-full items-center">Deck Import</a>
           </DropdownMenu.Item>
-          {#if user}
-            <DropdownMenu.Item>
-              <a href="/orders" class="flex w-full items-center">Orders</a>
-            </DropdownMenu.Item>
-          {/if}
+
           <DropdownMenu.Separator />
           <DropdownMenu.Item>
             <a
