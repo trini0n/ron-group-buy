@@ -34,6 +34,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
       id,
       user_id,
       status,
+      group_buy_id,
       order_items (
         card_id,
         quantity
@@ -54,6 +55,28 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
   if (order.status !== 'pending') {
     throw error(400, 'Only pending orders can be modified')
   }
+
+  // Check if the group buy is still open (only if order is linked to a group buy)
+  if (order.group_buy_id) {
+    const { data: groupBuy } = await locals.supabase
+      .from('group_buy_config')
+      .select('*')
+      .eq('id', order.group_buy_id)
+      .single()
+
+    const isOpen = (() => {
+      if (!groupBuy || !groupBuy.is_active) return false
+      const now = new Date()
+      if (groupBuy.opens_at && now < new Date(groupBuy.opens_at)) return false
+      if (groupBuy.closes_at && now > new Date(groupBuy.closes_at)) return false
+      return true
+    })()
+
+    if (!isOpen) {
+      throw error(403, 'This order belongs to a closed group buy and can no longer be modified.')
+    }
+  }
+
 
   if (action === 'merge') {
     // 1. Get or create the user's cart (must include version for optimistic lock check)

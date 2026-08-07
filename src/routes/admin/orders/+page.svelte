@@ -21,8 +21,12 @@
     Folder,
     FolderOpen,
     X,
+    Upload,
     Download,
-    Upload
+    FileSpreadsheet,
+    Check,
+    AlertTriangle,
+    Loader2
   } from 'lucide-svelte';
 
   let { data } = $props();
@@ -38,6 +42,17 @@
   
   // Accordion state for status sections
   let expandedSections = $state<string[]>(['pending', 'invoiced']);
+
+  // Import Dialog State
+  let importDialogOpen = $state(false);
+  let importStep = $state<1 | 2 | 3 | 4>(1);
+  let importFile = $state<File | null>(null);
+  let importSheets = $state<string[]>([]);
+  let importSelectedSheet = $state<string>('');
+  let importPreview = $state<any>(null);
+  let importGroupBuyId = $state<string>('');
+  let isImporting = $state(false);
+  let isParsing = $state(false);
 
   // Bulk tracking upload state
   let trackingDialogOpen = $state(false);
@@ -279,6 +294,107 @@
       isExporting = false;
     }
   }
+
+  async function handleImportFileUpload(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (!target.files || target.files.length === 0) return;
+    
+    importFile = target.files[0] ?? null;
+    if (!importFile) return;
+    isParsing = true;
+    try {
+      const formData = new FormData();
+      formData.append('action', 'list-sheets');
+      formData.append('file', importFile);
+      
+      const res = await fetch('/api/admin/imports/orders', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        importSheets = result.sheets;
+        importStep = 2;
+        if (importSheets.length > 0) importSelectedSheet = importSheets[0] ?? '';
+      } else {
+        toast.error('Failed to list sheets');
+      }
+    } catch (err) {
+      toast.error('Error uploading file');
+    } finally {
+      isParsing = false;
+    }
+  }
+
+  async function parseImportSheet() {
+    if (!importFile || !importSelectedSheet) return;
+    
+    isParsing = true;
+    try {
+      const formData = new FormData();
+      formData.append('action', 'parse-sheet');
+      formData.append('file', importFile);
+      formData.append('sheetName', importSelectedSheet);
+      
+      const res = await fetch('/api/admin/imports/orders', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (res.ok) {
+        importPreview = await res.json();
+        importGroupBuyId = data.groupBuyFilter === 'unassigned' || !data.groupBuyFilter ? '' : data.groupBuyFilter;
+        importStep = 3;
+      } else {
+        toast.error('Failed to parse sheet');
+      }
+    } catch (err) {
+      toast.error('Error parsing sheet');
+    } finally {
+      isParsing = false;
+    }
+  }
+  
+  async function confirmImport() {
+    if (!importGroupBuyId) {
+      toast.error('Please select a group buy');
+      return;
+    }
+    
+    const userIdToUse = importPreview.matchedUserId || importPreview.manualUserId;
+    if (!userIdToUse) {
+      toast.error('A user must be matched or selected');
+      return;
+    }
+    
+    isImporting = true;
+    try {
+      const res = await fetch('/api/admin/imports/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'import',
+          groupBuyId: importGroupBuyId,
+          userId: userIdToUse,
+          parsed: importPreview.parsed,
+          matchResults: importPreview.matchResults
+        })
+      });
+      
+      if (res.ok) {
+        toast.success('Order imported successfully');
+        importDialogOpen = false;
+        invalidateAll();
+      } else {
+        toast.error('Failed to import order');
+      }
+    } catch (err) {
+      toast.error('Error importing order');
+    } finally {
+      isImporting = false;
+    }
+  }
 </script>
 
 <div class="flex h-full">
@@ -393,6 +509,16 @@
 
         <!-- Right-side action buttons -->
         <div class="flex items-center gap-2">
+          <!-- Import Order Button -->
+          <Button 
+            variant="outline" 
+            size="sm"
+            onclick={() => { importDialogOpen = true; importStep = 1; importFile = null; importSheets = []; }}
+          >
+            <FileSpreadsheet class="mr-2 h-4 w-4" />
+            Import Order
+          </Button>
+
           <!-- Bulk Export Button (only show when group buy is selected) -->
           {#if data.groupBuyFilter && data.groupBuyFilter !== 'unassigned'}
             <Button 
@@ -668,5 +794,178 @@
         {isUploadingTracking ? 'Uploading...' : 'Upload Tracking'}
       </Button>
     </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Import Order Dialog -->
+<Dialog.Root bind:open={importDialogOpen}>
+  <Dialog.Content class="max-w-3xl">
+    <Dialog.Header>
+      <Dialog.Title>Import Order from XLSX</Dialog.Title>
+      <Dialog.Description>
+        Re-import an order that was previously exported.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="py-4">
+      {#if importStep === 1}
+        <div class="space-y-4">
+          <p class="text-sm font-medium">Step 1: Select XLSX File</p>
+          <div class="flex items-center gap-4">
+            <Input 
+              type="file" 
+              accept=".xlsx" 
+              onchange={handleImportFileUpload}
+              disabled={isParsing}
+            />
+            {#if isParsing}
+              <Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
+            {/if}
+          </div>
+        </div>
+      {:else if importStep === 2}
+        <div class="space-y-4">
+          <p class="text-sm font-medium">Step 2: Select Sheet to Import</p>
+          <Select.Root 
+            type="single"
+            value={importSelectedSheet}
+            onValueChange={(v) => importSelectedSheet = v}
+          >
+            <Select.Trigger>
+              {importSelectedSheet || 'Select a sheet'}
+            </Select.Trigger>
+            <Select.Content>
+              {#each importSheets as sheetName}
+                <Select.Item value={sheetName}>{sheetName}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <div class="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onclick={() => importStep = 1}>Back</Button>
+            <Button 
+              onclick={parseImportSheet} 
+              disabled={!importSelectedSheet || isParsing}
+            >
+              {#if isParsing}
+                <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                Parsing...
+              {:else}
+                Parse Sheet
+              {/if}
+            </Button>
+          </div>
+        </div>
+      {:else if importStep === 3 || importStep === 4}
+        <ScrollArea class="h-[60vh]">
+          <div class="space-y-6 px-1">
+            <div class="space-y-2">
+              <h3 class="text-lg font-medium">Customer Match</h3>
+              <div class="flex items-center justify-between p-3 border rounded-md">
+                <div>
+                  <p class="text-sm font-medium">Email in File: {importPreview.parsed.header.paypalEmail || 'Unknown'}</p>
+                </div>
+                {#if importPreview.matchedUserId}
+                  <Badge class="bg-green-500/20 text-green-500 border-green-500/50">
+                    <Check class="mr-1 h-3 w-3" /> Matched User
+                  </Badge>
+                {:else}
+                  <Badge class="bg-amber-500/20 text-amber-500 border-amber-500/50">
+                    <AlertTriangle class="mr-1 h-3 w-3" /> No Match Found
+                  </Badge>
+                {/if}
+              </div>
+              {#if !importPreview.matchedUserId}
+                <div class="mt-2 space-y-1">
+                  <label class="text-sm font-medium" for="manual-user-id">Select User manually (User ID)</label>
+                  <Input id="manual-user-id" bind:value={importPreview.manualUserId} placeholder="uuid..." />
+                </div>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <h3 class="text-lg font-medium">Assign Group Buy</h3>
+              <Select.Root 
+                type="single"
+                value={importGroupBuyId}
+                onValueChange={(v) => importGroupBuyId = v}
+              >
+                <Select.Trigger>
+                  {data.groupBuys.find((gb: any) => gb.id === importGroupBuyId)?.name || 'Select Group Buy'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each data.groupBuys as gb}
+                    <Select.Item value={gb.id}>{gb.name}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="space-y-2">
+              <h3 class="text-lg font-medium">Shipping Info</h3>
+              <div class="grid grid-cols-2 gap-4 text-sm p-4 border rounded-md">
+                <div>
+                  <p class="font-medium">Address</p>
+                  <p>{importPreview.parsed.header.shippingName}</p>
+                  <p>{importPreview.parsed.header.shippingLine1}</p>
+                  {#if importPreview.parsed.header.shippingLine2}<p>{importPreview.parsed.header.shippingLine2}</p>{/if}
+                  <p>{importPreview.parsed.header.shippingCity}, {importPreview.parsed.header.shippingState} {importPreview.parsed.header.shippingPostalCode}</p>
+                  <p>{importPreview.parsed.header.shippingCountry}</p>
+                </div>
+                <div>
+                  <p><span class="font-medium">Type:</span> {importPreview.parsed.header.shippingType}</p>
+                  <p><span class="font-medium">Phone:</span> {importPreview.parsed.header.shippingPhoneNumber || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <h3 class="text-lg font-medium">Items ({importPreview.matchResults.length})</h3>
+              <Table.Root>
+                <Table.Header>
+                  <Table.Row>
+                    <Table.Head>Item</Table.Head>
+                    <Table.Head>Qty</Table.Head>
+                    <Table.Head>Match</Table.Head>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {#each importPreview.matchResults as mr}
+                    <Table.Row>
+                      <Table.Cell>
+                        <p class="font-medium">{mr.item.cardName}</p>
+                        <p class="text-xs text-muted-foreground">{mr.item.setCode} • {mr.item.collectorNumber} • {mr.item.finish}</p>
+                      </Table.Cell>
+                      <Table.Cell>{mr.item.quantity}</Table.Cell>
+                      <Table.Cell>
+                        {#if mr.matched}
+                          <Badge variant="outline" class="text-green-500 border-green-500/20">Matched</Badge>
+                        {:else}
+                          <Badge variant="outline" class="text-amber-500 border-amber-500/20">Snapshot Only</Badge>
+                        {/if}
+                      </Table.Cell>
+                    </Table.Row>
+                  {/each}
+                </Table.Body>
+              </Table.Root>
+            </div>
+          </div>
+        </ScrollArea>
+        
+        <div class="flex justify-end gap-2 mt-4 pt-4 border-t">
+          <Button variant="outline" onclick={() => importStep = 2}>Back</Button>
+          <Button 
+            onclick={confirmImport} 
+            disabled={isImporting}
+          >
+            {#if isImporting}
+              <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+              Importing...
+            {:else}
+              Import Order
+            {/if}
+          </Button>
+        </div>
+      {/if}
+    </div>
   </Dialog.Content>
 </Dialog.Root>

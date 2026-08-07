@@ -27,7 +27,8 @@
     Package,
     X,
     Merge,
-    Boxes
+    Boxes,
+    Lock
   } from 'lucide-svelte'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
@@ -81,6 +82,12 @@
         const err = await response.json()
         toast.error(err.error || 'Cart was updated — please try again')
         await invalidateAll()
+        return
+      }
+
+      if (response.status === 403) {
+        const err = await response.json()
+        toast.error(err.message || err.error || 'Failed to process order')
         return
       }
 
@@ -482,43 +489,54 @@
       <p class="mt-4 text-sm text-muted-foreground">What would you like to do with this order?</p>
     </div>
 
-    <div class="space-y-2">
-      <Button
-        class="w-full justify-start gap-3 h-auto py-4"
-        variant="outline"
-        onclick={() => handlePendingOrderAction('merge')}
-        disabled={pendingOrderAction !== null}
-      >
-        {#if pendingOrderAction === 'merge'}
-          <Loader2 class="h-4 w-4 animate-spin" />
-          <span class="font-medium">Adding...</span>
-        {:else}
-          <Merge class="h-4 w-4 text-green-500" />
-          <div class="text-left">
-            <p class="font-medium">Add to cart</p>
-            <p class="text-xs text-muted-foreground">Merge these items into your current cart</p>
-          </div>
-        {/if}
-      </Button>
+    {#if !isGroupBuyOpen}
+      <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+        <div class="flex items-start gap-3">
+          <Lock class="mt-0.5 h-5 w-5 text-amber-600" />
+          <p class="text-sm text-amber-700 dark:text-amber-300">
+            This order belongs to a closed group buy and cannot be modified.
+          </p>
+        </div>
+      </div>
+    {:else}
+      <div class="space-y-2">
+        <Button
+          class="w-full justify-start gap-3 h-auto py-4"
+          variant="outline"
+          onclick={() => handlePendingOrderAction('merge')}
+          disabled={pendingOrderAction !== null}
+        >
+          {#if pendingOrderAction === 'merge'}
+            <Loader2 class="h-4 w-4 animate-spin" />
+            <span class="font-medium">Adding...</span>
+          {:else}
+            <Merge class="h-4 w-4 text-green-500" />
+            <div class="text-left">
+              <p class="font-medium">Add to cart</p>
+              <p class="text-xs text-muted-foreground">Merge these items into your current cart</p>
+            </div>
+          {/if}
+        </Button>
 
-      <Button
-        class="w-full justify-start gap-3 h-auto py-4"
-        variant="outline"
-        onclick={() => handlePendingOrderAction('cancel')}
-        disabled={pendingOrderAction !== null}
-      >
-        {#if pendingOrderAction === 'cancel'}
-          <Loader2 class="h-4 w-4 animate-spin" />
-          <span class="font-medium">Processing...</span>
-        {:else}
-          <X class="h-4 w-4 text-red-500" />
-          <div class="text-left">
-            <p class="font-medium">Cancel order</p>
-            <p class="text-xs text-muted-foreground">Delete this pending order</p>
-          </div>
-        {/if}
-      </Button>
-    </div>
+        <Button
+          class="w-full justify-start gap-3 h-auto py-4"
+          variant="outline"
+          onclick={() => handlePendingOrderAction('cancel')}
+          disabled={pendingOrderAction !== null}
+        >
+          {#if pendingOrderAction === 'cancel'}
+            <Loader2 class="h-4 w-4 animate-spin" />
+            <span class="font-medium">Processing...</span>
+          {:else}
+            <X class="h-4 w-4 text-red-500" />
+            <div class="text-left">
+              <p class="font-medium">Cancel order</p>
+              <p class="text-xs text-muted-foreground">Delete this pending order</p>
+            </div>
+          {/if}
+        </Button>
+      </div>
+    {/if}
 
     <Dialog.Footer class="mt-4">
       <Button variant="ghost" onclick={() => (pendingOrderDialogOpen = false)}>Close</Button>

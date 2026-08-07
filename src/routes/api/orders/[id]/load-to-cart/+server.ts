@@ -18,7 +18,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   // Fetch the order and verify ownership
   const { data: order, error: orderError } = await locals.supabase
     .from('orders')
-    .select('id, user_id, status')
+    .select('id, user_id, status, group_buy_id')
     .eq('id', orderId)
     .single()
 
@@ -29,6 +29,27 @@ export const POST: RequestHandler = async ({ params, locals }) => {
   // Verify ownership
   if (order.user_id !== locals.user.id) {
     throw error(403, 'Not authorized to load this order')
+  }
+
+  // Check if the group buy is still open (only if order is linked to a group buy)
+  if (order.group_buy_id) {
+    const { data: groupBuy } = await locals.supabase
+      .from('group_buy_config')
+      .select('*')
+      .eq('id', order.group_buy_id)
+      .single()
+
+    const isOpen = (() => {
+      if (!groupBuy || !groupBuy.is_active) return false
+      const now = new Date()
+      if (groupBuy.opens_at && now < new Date(groupBuy.opens_at)) return false
+      if (groupBuy.closes_at && now > new Date(groupBuy.closes_at)) return false
+      return true
+    })()
+
+    if (!isOpen) {
+      throw error(403, 'This order belongs to a closed group buy and can no longer be modified.')
+    }
   }
 
   // Get or create the user's cart
