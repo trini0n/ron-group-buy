@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types'
 import { requireAdmin, createAdminClient } from '$lib/server/admin'
 import { listSheetNames, parseOrderSheet } from '$lib/server/import-parser'
 import { logger } from '$lib/server/logger'
+import { getCardPrice } from '$lib/utils'
+import { FALLBACK_PRICES } from '$lib/server/pricing'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   await requireAdmin(locals)
@@ -64,17 +66,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             setData: sets?.[0] || null
           })
         } else {
-          // match normal card
+          // Match by serial — the card serial is unique and the most reliable identifier
           const { data: cards } = await adminClient
             .from('cards')
-            .select('id, card_name, card_type, set_code, collector_number, is_foil, is_etched, language')
-            .eq('set_code', item.setCode.toLowerCase())
-            .eq('collector_number', item.collectorNumber)
-            .eq('language', item.language === '' ? 'en' : item.language)
+            .select('id, serial, card_name, card_type, set_code, collector_number, is_foil, is_etched, language')
+            .eq('serial', item.cardSerial)
             .limit(1)
-            
-          // In an advanced version, we might check for foil match. But this basic matching is enough to link standard cards
-          // For now, any hit on set_code + collector_number + language is a good match
           
           matchResults.push({
             item,
@@ -149,15 +146,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             price_at_purchase: mr.setData?.price != null ? Number(mr.setData.price) : 0
           })
         } else {
+          // Determine card_type for pricing:
+          // If matched to inventory, use the card's actual card_type
+          // Otherwise, derive from the Finish column in the export
+          const cardType = mr.cardData?.card_type || item.finish || 'Normal'
+          const unitPrice = getCardPrice(cardType, FALLBACK_PRICES)
+
           itemsToInsert.push({
             order_id: orderId,
             card_id: mr.cardData?.id || null,
             card_serial: item.cardSerial,
             card_name: item.cardName,
-            card_type: mr.cardData?.card_type || item.finish,
+            card_type: cardType,
             quantity: item.quantity,
-            unit_price: 0, // usually 0 for import unless we recalculate based on pricing table
-            set_code: item.setCode || null,
+            unit_price: unitPrice,
+            set_code: item.setCode?.toLowerCase() || null,
             collector_number: item.collectorNumber || null,
             is_foil: item.finish.toLowerCase().includes('foil') || item.finish === 'Raised Foil',
             is_etched: item.finish === 'Etched' || item.finish === 'Foil Etched',
