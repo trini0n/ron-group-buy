@@ -338,19 +338,19 @@ describe('Export File Content Validation', () => {
     expect(ws.getRow(2).getCell(1).value).toBe('Order Date:')
     expect(ws.getRow(3).getCell(1).value).toBe('Order Status:')
 
-    // Find the line items table header row (contains 'Card Serial' in col 1)
+    // Find the line items table header row (contains 'Quantity' in col 1)
     let tableHeaderCells: (string | number | null)[] = []
     ws.eachRow((row) => {
-      if (row.getCell(1).value === 'Card Serial') {
+      if (row.getCell(1).value === 'Quantity') {
         tableHeaderCells = Array.from({ length: 9 }, (_, i) => row.getCell(i + 1).value as string | number | null)
       }
     })
 
     // Verify all 9 column headers are present
     expect(tableHeaderCells).toHaveLength(9)
-    expect(tableHeaderCells[0]).toBe('Card Serial')
-    expect(tableHeaderCells[1]).toBe('Card Name')
-    expect(tableHeaderCells[8]).toBe('Quantity')
+    expect(tableHeaderCells[0]).toBe('Quantity')
+    expect(tableHeaderCells[1]).toBe('Card Serial')
+    expect(tableHeaderCells[8]).toBe('Finish')
   })
 
   it('should handle multi-tab export with correct tab ordering', async () => {

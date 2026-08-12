@@ -103,7 +103,7 @@ export async function parseOrderSheet(buffer: Buffer, sheetName: string): Promis
       inAdminNotes = false
     } else if (cellA === 'Shipping Information:') {
       shippingInfoRow = rowNumber
-    } else if (cellA === 'Card Serial') {
+    } else if (cellA === 'Quantity' && row.getCell(2).text?.trim() === 'Card Serial') {
       tableStartRow = rowNumber
     } else {
       if (inCustomerNotes && cellB) customerNotes.push(cellB)
@@ -179,22 +179,22 @@ export async function parseOrderSheet(buffer: Buffer, sheetName: string): Promis
   if (tableStartRow > 0) {
     for (let r = tableStartRow + 1; r <= sheet.rowCount; r++) {
       const row = sheet.getRow(r)
-      const cardSerial = row.getCell(1).text?.trim()
+      const cardSerial = row.getCell(2).text?.trim()
       if (!cardSerial) break
       
-      const cardName = row.getCell(2).text?.trim() || ''
-      const finish = row.getCell(5).text?.trim() || ''
+      const cardName = row.getCell(3).text?.trim() || ''
+      const finish = row.getCell(9).text?.trim() || ''
       
       items.push({
         cardSerial,
         cardName,
-        flavorName: row.getCell(3).text?.trim() || '',
-        cardFrame: row.getCell(4).text?.trim() || '',
+        flavorName: row.getCell(4).text?.trim() || '',
+        language: row.getCell(5).text?.trim() || 'en',
+        cardFrame: row.getCell(6).text?.trim() || '',
         finish,
-        setCode: row.getCell(6).text?.trim() || '',
-        collectorNumber: row.getCell(7).text?.trim() || '',
-        language: row.getCell(8).text?.trim() || 'en',
-        quantity: parseInt(row.getCell(9).text?.trim() || '1', 10),
+        setCode: row.getCell(7).text?.trim() || '',
+        collectorNumber: row.getCell(8).text?.trim() || '',
+        quantity: parseInt(row.getCell(1).text?.trim() || '1', 10),
         isBundle: finish === 'Set' || cardName.endsWith('(Set Bundle)')
       })
     }

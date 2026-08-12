@@ -230,15 +230,15 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
 
   // Set column widths
   worksheet.columns = [
-    { width: 15 }, // A - Card Serial
-    { width: 30 }, // B - Card Name
-    { width: 20 }, // C - Flavor Name
-    { width: 25 }, // D - Card Frame
-    { width: 12 }, // E - Finish
-    { width: 10 }, // F - Set Code
-    { width: 10 }, // G - Collector Number
-    { width: 10 }, // H - Language
-    { width: 8 } // I - Quantity
+    { width: 8 },  // A - Quantity
+    { width: 15 }, // B - Card Serial
+    { width: 30 }, // C - Card Name
+    { width: 20 }, // D - Flavor Name
+    { width: 10 }, // E - Language
+    { width: 25 }, // F - Card Frame
+    { width: 10 }, // G - Set Code
+    { width: 10 }, // H - Collector Number
+    { width: 12 }  // I - Finish
   ]
 
   let currentRow = 1
@@ -395,15 +395,15 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
 
   // Table headers
   const headers = [
+    'Quantity',
     'Card Serial',
     'Card Name',
     'Flavor Name',
+    'Language',
     'Card Frame',
-    'Finish',
     'Set Code',
     'Collector Number',
-    'Language',
-    'Quantity'
+    'Finish'
   ]
 
   headers.forEach((header, index) => {
@@ -431,15 +431,15 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
   // Bundle rows first (Set Bundles appear before individual cards)
   for (const bundle of (order.bundle_items || [])) {
     const bundleRow = [
+      bundle.quantity || 1,              // Quantity
       bundle.set_code.toUpperCase(),     // Card Serial  ← set code
       `${bundle.set_name} (Set Bundle)`, // Card Name
       '—',                               // Flavor Name
+      '',                                // Language
       '—',                               // Card Frame
-      'Set',                             // Finish
       '—',                               // Set Code
       '—',                               // Collector Number
-      '',                                // Language
-      bundle.quantity || 1               // Quantity
+      'Set'                              // Finish
     ]
     bundleRow.forEach((value, index) => {
       const cell = worksheet.getCell(currentRow, index + 1)
@@ -503,15 +503,15 @@ function buildLineItemRow(item: OrderItemExportData): (string | number)[] {
   const flavorName = item.card?.flavor_name || ''
 
   return [
+    item.quantity || 1,
     item.card_serial,
     item.card_name,
     flavorName,
+    languageDisplay,
     frameLabel,
-    finishLabel,
     setCode.toUpperCase(),
     collectorNumber,
-    languageDisplay,
-    item.quantity || 1
+    finishLabel
   ]
 }
 
