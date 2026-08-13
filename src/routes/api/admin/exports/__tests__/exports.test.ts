@@ -350,7 +350,7 @@ describe('Export File Content Validation', () => {
     expect(tableHeaderCells).toHaveLength(9)
     expect(tableHeaderCells[0]).toBe('Quantity')
     expect(tableHeaderCells[1]).toBe('Card Serial')
-    expect(tableHeaderCells[8]).toBe('Finish')
+    expect(tableHeaderCells[8]).toBe('Collector Number')
   })
 
   it('should handle multi-tab export with correct tab ordering', async () => {

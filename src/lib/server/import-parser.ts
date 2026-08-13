@@ -183,17 +183,17 @@ export async function parseOrderSheet(buffer: Buffer, sheetName: string): Promis
       if (!cardSerial) break
       
       const cardName = row.getCell(3).text?.trim() || ''
-      const finish = row.getCell(9).text?.trim() || ''
+      const finish = row.getCell(6).text?.trim() || ''
       
       items.push({
         cardSerial,
         cardName,
         flavorName: row.getCell(4).text?.trim() || '',
         language: row.getCell(5).text?.trim() || 'en',
-        cardFrame: row.getCell(6).text?.trim() || '',
         finish,
-        setCode: row.getCell(7).text?.trim() || '',
-        collectorNumber: row.getCell(8).text?.trim() || '',
+        cardFrame: row.getCell(7).text?.trim() || '',
+        setCode: row.getCell(8).text?.trim() || '',
+        collectorNumber: row.getCell(9).text?.trim() || '',
         quantity: parseInt(row.getCell(1).text?.trim() || '1', 10),
         isBundle: finish === 'Set' || cardName.endsWith('(Set Bundle)')
       })

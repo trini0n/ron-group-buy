@@ -235,10 +235,10 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
     { width: 30 }, // C - Card Name
     { width: 20 }, // D - Flavor Name
     { width: 10 }, // E - Language
-    { width: 25 }, // F - Card Frame
-    { width: 10 }, // G - Set Code
-    { width: 10 }, // H - Collector Number
-    { width: 12 }  // I - Finish
+    { width: 12 }, // F - Finish
+    { width: 25 }, // G - Card Frame
+    { width: 10 }, // H - Set Code
+    { width: 10 }  // I - Collector Number
   ]
 
   let currentRow = 1
@@ -400,10 +400,10 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
     'Card Name',
     'Flavor Name',
     'Language',
+    'Finish',
     'Card Frame',
     'Set Code',
-    'Collector Number',
-    'Finish'
+    'Collector Number'
   ]
 
   headers.forEach((header, index) => {
@@ -436,10 +436,10 @@ async function buildOrderWorksheet(workbook: ExcelJS.Workbook, order: OrderExpor
       `${bundle.set_name} (Set Bundle)`, // Card Name
       '—',                               // Flavor Name
       '',                                // Language
+      'Set',                             // Finish
       '—',                               // Card Frame
       '—',                               // Set Code
-      '—',                               // Collector Number
-      'Set'                              // Finish
+      '—'                                // Collector Number
     ]
     bundleRow.forEach((value, index) => {
       const cell = worksheet.getCell(currentRow, index + 1)
@@ -508,10 +508,10 @@ function buildLineItemRow(item: OrderItemExportData): (string | number)[] {
     item.card_name,
     flavorName,
     languageDisplay,
+    finishLabel,
     frameLabel,
     setCode.toUpperCase(),
-    collectorNumber,
-    finishLabel
+    collectorNumber
   ]
 }
 
