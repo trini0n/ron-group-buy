@@ -127,10 +127,17 @@ async function syncUserData(user: {
     }
   }
 
-  // Fallback to user_metadata for legacy support
-  if (!discordId && user.user_metadata?.provider_id) {
-    discordId = (user.user_metadata.provider_id as string) || (user.user_metadata.sub as string) || null
-    discordUsername = (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
+  // Fallback to user_metadata for legacy support — only if we know the provider
+  if (user.user_metadata?.provider_id) {
+    const fallbackProvider = user.app_metadata?.provider as string | undefined
+    const fallbackId = (user.user_metadata.provider_id as string) || (user.user_metadata.sub as string) || null
+    if (!discordId && fallbackProvider === 'discord' && fallbackId) {
+      discordId = fallbackId
+      discordUsername = (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
+    }
+    if (!googleId && fallbackProvider === 'google' && fallbackId) {
+      googleId = fallbackId
+    }
     if (!name) {
       name = (user.user_metadata.full_name as string) || (user.user_metadata.name as string) || null
     }

@@ -18,13 +18,16 @@ export async function ensureUserRow(supabase: SupabaseClient, user: User): Promi
 
   if (checkError?.code === 'PGRST116' || !userExists) {
     const adminClient = createAdminClient()
+    const provider = user.app_metadata?.provider as string | undefined
+    const providerId = (user.user_metadata?.provider_id as string) || null
     const { error: createError } = await adminClient.from('users').insert({
       id: user.id,
       email: user.email || '',
       name: user.user_metadata?.name || user.user_metadata?.full_name || null,
       avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-      discord_id: user.user_metadata?.provider_id || null,
-      discord_username: user.user_metadata?.full_name || null
+      discord_id: provider === 'discord' ? providerId : null,
+      discord_username: provider === 'discord' ? (user.user_metadata?.full_name as string) || null : null,
+      google_id: provider === 'google' ? providerId : null
     })
     if (createError) {
       if (createError.code === '23505') {
