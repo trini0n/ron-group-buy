@@ -207,7 +207,7 @@
   // ── Market price: USD preferred, fallback EUR × rate ───────────────────────
   function getMarketPrice(card: PopularCard, detail: ScryfallDetail | null): string | null {
     if (!detail?.prices) return null
-    const isFoil = !!(card.foil_type || card.card_type?.toLowerCase().includes('foil'))
+    const isPremium = !!(card.foil_type || card.card_type?.toLowerCase().includes('foil') || card.foil_type?.toLowerCase() === 'serialized' || card.card_type?.toLowerCase() === 'serialized')
     const isEtched = card.foil_type?.toLowerCase() === 'etched' || card.card_type?.toLowerCase() === 'etched'
     const p = detail.prices
 
@@ -215,7 +215,7 @@
     let usd: string | null = null
     if (isEtched) {
       usd = p.usd_etched ?? p.usd_foil ?? p.usd
-    } else if (isFoil) {
+    } else if (isPremium) {
       usd = p.usd_foil ?? p.usd
     } else {
       usd = p.usd
@@ -223,7 +223,7 @@
     if (usd) return parseFloat(usd).toFixed(2)
 
     // EUR fallback
-    let eur: string | null = isFoil ? (p.eur_foil ?? p.eur) : p.eur
+    let eur: string | null = isPremium ? (p.eur_foil ?? p.eur) : p.eur
     if (eur) return (parseFloat(eur) * EUR_TO_USD).toFixed(2)
 
     return null

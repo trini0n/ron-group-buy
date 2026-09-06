@@ -203,16 +203,16 @@
     const p = enrichment.prices
     const finishLabel = getFinishLabel(selectedCard).toLowerCase()
     const isEtched = finishLabel.includes('etched')
-    const isFoil   = isEtched || finishLabel.includes('foil')
+    const isPremium = isEtched || finishLabel.includes('foil') || finishLabel.includes('serialized')
 
     let usd: string | null = null
-    if (isEtched)     usd = p.usd_etched ?? p.usd_foil ?? p.usd
-    else if (isFoil)  usd = p.usd_foil ?? p.usd
-    else              usd = p.usd
+    if (isEtched)       usd = p.usd_etched ?? p.usd_foil ?? p.usd
+    else if (isPremium)  usd = p.usd_foil ?? p.usd
+    else                usd = p.usd
 
     if (usd) return parseFloat(usd).toFixed(2)
 
-    const eur = isFoil ? (p.eur_foil ?? p.eur) : p.eur
+    const eur = isPremium ? (p.eur_foil ?? p.eur) : p.eur
     if (eur)  return (parseFloat(eur) * EUR_TO_USD).toFixed(2)
 
     return null
