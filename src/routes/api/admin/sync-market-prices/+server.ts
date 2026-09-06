@@ -151,15 +151,21 @@ export async function POST({ locals }: RequestEvent) {
 
         send({ type: 'status', message: `Found ${allCards.length} cards. Fetching Scryfall prices…` })
 
-        // 2. Chunk into Scryfall batches of 75
-        const chunks: typeof allCards[] = []
-        for (let i = 0; i < allCards.length; i += SCRYFALL_BATCH_SIZE) {
-          chunks.push(allCards.slice(i, i + SCRYFALL_BATCH_SIZE))
+        // 2. Group cards by scryfall_id (multiple finishes share the same ID)
+        const cardMap = new Map<string, (typeof allCards)[number][]>()
+        for (const card of allCards) {
+          if (card.scryfall_id) {
+            const existing = cardMap.get(card.scryfall_id)
+            if (existing) existing.push(card)
+            else cardMap.set(card.scryfall_id, [card])
+          }
         }
 
-        const cardMap = new Map<string, (typeof allCards)[number]>()
-        for (const card of allCards) {
-          if (card.scryfall_id) cardMap.set(card.scryfall_id, card)
+        // Chunk unique scryfall_ids into Scryfall batches of 75
+        const uniqueIds = [...cardMap.keys()]
+        const idChunks: string[][] = []
+        for (let i = 0; i < uniqueIds.length; i += SCRYFALL_BATCH_SIZE) {
+          idChunks.push(uniqueIds.slice(i, i + SCRYFALL_BATCH_SIZE))
         }
 
         let fetched = 0
@@ -167,9 +173,9 @@ export async function POST({ locals }: RequestEvent) {
         const updates: Array<{ id: string; market_price_usd: number | null }> = []
 
         // 3. Fetch Scryfall prices, streaming progress per chunk
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i]!
-          const identifiers = chunk.map((c) => ({ id: c.scryfall_id }))
+        for (let i = 0; i < idChunks.length; i++) {
+          const chunk = idChunks[i]!
+          const identifiers = chunk.map((scryfallId) => ({ id: scryfallId }))
 
           try {
             const resp = await fetch('https://api.scryfall.com/cards/collection', {
@@ -190,11 +196,13 @@ export async function POST({ locals }: RequestEvent) {
                 body.data ?? []
 
               for (const sc of scryfallCards) {
-                const cardRow = cardMap.get(sc.id)
-                if (!cardRow) { skipped++; continue }
-                const price = resolvePrice(sc.prices ?? {}, cardRow.card_type, cardRow.foil_type, cardRow.is_etched)
-                updates.push({ id: cardRow.id, market_price_usd: price })
-                fetched++
+                const cardRows = cardMap.get(sc.id)
+                if (!cardRows) { skipped++; continue }
+                for (const cardRow of cardRows) {
+                  const price = resolvePrice(sc.prices ?? {}, cardRow.card_type, cardRow.foil_type, cardRow.is_etched)
+                  updates.push({ id: cardRow.id, market_price_usd: price })
+                  fetched++
+                }
               }
 
               skipped += (body.not_found ?? []).length
@@ -208,14 +216,14 @@ export async function POST({ locals }: RequestEvent) {
           send({
             type: 'progress',
             chunk: i + 1,
-            totalChunks: chunks.length,
+            totalChunks: idChunks.length,
             fetched,
             skipped,
             totalCards: allCards.length
           })
 
           // Polite delay between Scryfall requests (skip after last chunk)
-          if (i < chunks.length - 1) {
+          if (i < idChunks.length - 1) {
             await sleep(SCRYFALL_DELAY_MS)
           }
         }
