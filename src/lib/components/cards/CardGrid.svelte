@@ -268,13 +268,23 @@
           if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
           return aNum - bNum
 
-        case 'price-asc':
+        case 'price-asc': {
+          // Cards WITH market prices first, sorted ascending; nulls at the end
+          const aHasMarketAsc = a.primary.market_price_usd != null
+          const bHasMarketAsc = b.primary.market_price_usd != null
+          if (aHasMarketAsc !== bHasMarketAsc) return aHasMarketAsc ? -1 : 1
           if (aPrice !== bPrice) return aPrice - bPrice
           return a.primary.card_name.localeCompare(b.primary.card_name)
+        }
 
-        case 'price-desc':
+        case 'price-desc': {
+          // Cards WITH market prices first, sorted descending; nulls at the end
+          const aHasMarketDesc = a.primary.market_price_usd != null
+          const bHasMarketDesc = b.primary.market_price_usd != null
+          if (aHasMarketDesc !== bHasMarketDesc) return aHasMarketDesc ? -1 : 1
           if (aPrice !== bPrice) return bPrice - aPrice
           return a.primary.card_name.localeCompare(b.primary.card_name)
+        }
 
         case 'release-newest':
           if (aReleased !== bReleased) return bReleased.localeCompare(aReleased)
