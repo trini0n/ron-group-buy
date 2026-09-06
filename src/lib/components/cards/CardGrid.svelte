@@ -368,6 +368,31 @@
     return groupedCards.slice(start, end)
   })
 
+  // Price sort boundary: index in groupedCards where unpriced cards start
+  const priceBoundary = $derived.by(() => {
+    if (sortBy !== 'price-asc' && sortBy !== 'price-desc') return null
+    const idx = groupedCards.findIndex(g => g.primary.market_price_usd == null)
+    if (idx === -1 || idx === 0) return null // all priced or all unpriced
+    return idx
+  })
+
+  // Position of the boundary within the current page's slice, or null
+  const priceBoundaryOnPage = $derived.by(() => {
+    if (priceBoundary === null) return null
+    const pageStart = (currentPage - 1) * CARDS_PER_PAGE
+    const pos = priceBoundary - pageStart
+    if (pos > 0 && pos < paginatedGroups.length) return pos
+    return null
+  })
+
+  // Whether the entire current page falls in the unpriced zone
+  const isPageFullyUnpriced = $derived.by(() => {
+    if (sortBy !== 'price-asc' && sortBy !== 'price-desc') return false
+    if (priceBoundary === null) return false
+    const pageStart = (currentPage - 1) * CARDS_PER_PAGE
+    return priceBoundary <= pageStart
+  })
+
   function goToPage(page: number) {
     const newPage = Math.max(1, Math.min(page, totalPages))
     internalPage = newPage
@@ -434,11 +459,35 @@
     {/if}
   </div>
 
-  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-    {#each paginatedGroups as group (group.primary.serial)}
-      <CardItem card={group.primary} finishVariants={group.finishVariants} />
-    {/each}
-  </div>
+  {#if priceBoundaryOnPage !== null}
+    <!-- Page contains the boundary between priced and unpriced cards -->
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {#each paginatedGroups.slice(0, priceBoundaryOnPage) as group (group.primary.serial)}
+        <CardItem card={group.primary} finishVariants={group.finishVariants} />
+      {/each}
+    </div>
+
+    <div class="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+      <div class="flex-1 border-t border-zinc-700"></div>
+      <span class="shrink-0 uppercase tracking-wider">No market price data</span>
+      <div class="flex-1 border-t border-zinc-700"></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {#each paginatedGroups.slice(priceBoundaryOnPage) as group (group.primary.serial)}
+        <CardItem card={group.primary} finishVariants={group.finishVariants} />
+      {/each}
+    </div>
+  {:else}
+    {#if isPageFullyUnpriced}
+      <p class="mb-3 text-xs text-muted-foreground">No market price data available — sorted alphabetically</p>
+    {/if}
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {#each paginatedGroups as group (group.primary.serial)}
+        <CardItem card={group.primary} finishVariants={group.finishVariants} />
+      {/each}
+    </div>
+  {/if}
 
   <!-- Pagination -->
   {#if totalPages > 1}
