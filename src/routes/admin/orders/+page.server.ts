@@ -1,4 +1,5 @@
 import { createAdminClient } from '$lib/server/admin'
+import { buildUserSearchFilter } from '$lib/server/admin-search'
 import { sortOrdersByShippingAndDate } from '$lib/utils'
 import { logger } from '$lib/server/logger'
 
@@ -76,7 +77,7 @@ export const load = async ({ url }: { url: URL }) => {
     `
     )
 
-  // Apply search filter
+  // Apply smart search filter (auto-detects: order number, email, discord UID, name, or discord username)
   if (searchQuery) {
     const isOrd = searchQuery.toUpperCase().startsWith('ORD-')
     
@@ -84,11 +85,11 @@ export const load = async ({ url }: { url: URL }) => {
       // If it looks like an order number, only search order_number
       query = query.or(`order_number.ilike.%${searchQuery}%`)
     } else {
-      // Find matching users first since Supabase OR doesn't easily cross tables natively
+      // Find matching users using smart search (handles email, discord UID, name, username)
       const { data: matchingUsers } = await adminClient
         .from('users')
         .select('id')
-        .or(`discord_username.ilike.%${searchQuery}%,name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+        .or(buildUserSearchFilter(searchQuery))
         
       const userIds = matchingUsers?.map(u => u.id.trim()) || []
       

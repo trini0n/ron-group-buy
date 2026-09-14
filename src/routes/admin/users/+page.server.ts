@@ -1,4 +1,5 @@
 import { createAdminClient } from '$lib/server/admin'
+import { buildUserSearchFilter } from '$lib/server/admin-search'
 import { logger } from '$lib/server/logger'
 
 export const load = async ({ url }: { url: URL }) => {
@@ -12,9 +13,9 @@ export const load = async ({ url }: { url: URL }) => {
   // Build query
   let query = adminClient.from('users').select('*', { count: 'exact' }).order('created_at', { ascending: false })
 
-  // Apply search filter
+  // Apply smart search filter (auto-detects: email, discord UID, name, or discord username)
   if (searchQuery) {
-    query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,discord_username.ilike.%${searchQuery}%`)
+    query = query.or(buildUserSearchFilter(searchQuery))
   }
 
   // Pagination
