@@ -12,6 +12,26 @@
 
   // ── Create form ──────────────────────────────────────────────
   const SET_TYPES = ['Normal', 'Holo / Mixed', 'Foil'] as const
+
+  // Group sets by type for sectioned display
+  const sections = $derived(
+    SET_TYPES
+      .map((type) => ({
+        type,
+        sets: data.sets
+          .filter((s) => (s.set_type ?? 'Normal') === type)
+          .slice()
+          .sort((a, b) => {
+            if (a.release_date && b.release_date) {
+              const cmp = b.release_date.localeCompare(a.release_date)
+              if (cmp !== 0) return cmp
+            } else if (a.release_date && !b.release_date) return -1
+            else if (!a.release_date && b.release_date) return 1
+            return a.set_name.localeCompare(b.set_name)
+          })
+      }))
+      .filter((sec) => sec.sets.length > 0)
+  )
   let showCreateForm = $state(false)
   let newSetCode = $state('')
   let newSetName = $state('')
@@ -372,137 +392,144 @@
     </div>
   {/if}
 
-  <!-- Sets table -->
+  <!-- Sets table grouped by type -->
   {#if data.sets.length === 0}
     <div class="border rounded-lg p-12 text-center text-muted-foreground">
       <Library class="h-10 w-10 mx-auto mb-3 opacity-30" />
       <p class="text-sm">No sets yet. Click <strong>Add Set</strong> or <strong>Bulk Import</strong>.</p>
     </div>
   {:else}
-    <div class="border rounded-lg overflow-hidden">
-      <Table.Root>
-        <Table.Header>
-          <Table.Row>
-            <Table.Head class="w-28">Code</Table.Head>
-            <Table.Head>Name</Table.Head>
-            <Table.Head class="w-28">Type</Table.Head>
-            <Table.Head class="w-24 text-right">Price</Table.Head>
-            <Table.Head class="w-28">Release</Table.Head>
-            <Table.Head class="w-20 text-right">Cards</Table.Head>
-            <Table.Head class="w-28 text-right">Actions</Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {#each data.sets as set (set.set_code)}
-            <Table.Row>
-              <Table.Cell>
-                <Badge variant="secondary" class="font-mono text-xs">{set.set_code}</Badge>
-              </Table.Cell>
-              <Table.Cell>
-                {#if editingCode === set.set_code}
-                  <div class="flex items-center gap-2">
-                    <Input
-                      bind:value={editName}
-                      class="h-7 text-sm flex-1"
-                      placeholder="Set name"
-                      onkeydown={(e) => {
-                        if (e.key === 'Enter') saveEdit(set.set_code)
-                        if (e.key === 'Escape') cancelEdit()
-                      }}
-                    />
-                    <Input
-                      bind:value={editPrice}
-                      class="h-7 text-sm w-20"
-                      placeholder="Price"
-                      type="text"
-                      inputmode="decimal"
-                      onkeydown={(e) => {
-                        if (e.key === 'Enter') saveEdit(set.set_code)
-                        if (e.key === 'Escape') cancelEdit()
-                      }}
-                    />
-                    <select
-                      bind:value={editType}
-                      class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      {#each SET_TYPES as t}
-                        <option value={t}>{t}</option>
-                      {/each}
-                    </select>
-                    <button
-                      class="text-green-600 hover:text-green-700 disabled:opacity-50 shrink-0"
-                      onclick={() => saveEdit(set.set_code)}
-                      disabled={editLoading}
-                      aria-label="Save"
-                    >
-                      <Check class="h-4 w-4" />
-                    </button>
-                    <button
-                      class="text-muted-foreground hover:text-foreground shrink-0"
-                      onclick={cancelEdit}
-                      aria-label="Cancel"
-                    >
-                      <X class="h-4 w-4" />
-                    </button>
-                  </div>
-                {:else}
-                  <a href="/admin/sets/{set.set_code}" class="font-medium hover:underline">
-                    {set.set_name}
-                  </a>
-                {/if}
-              </Table.Cell>
-              <!-- Type column (only visible when not editing) -->
-              <Table.Cell class="text-sm text-muted-foreground">
-                {#if editingCode !== set.set_code}
-                  {set.set_type ?? 'Normal'}
-                {/if}
-              </Table.Cell>
-              <Table.Cell class="text-right text-sm">
-                {#if editingCode !== set.set_code}
-                  {set.price != null ? `$${Number(set.price).toFixed(2)}` : '—'}
-                {/if}
-              </Table.Cell>
-              <Table.Cell class="text-sm text-muted-foreground">
-                {#if editingCode === set.set_code}
-                  <input
-                    type="date"
-                    bind:value={editReleaseDate}
-                    class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full"
-                  />
-                {:else}
-                  {#if set.release_date}
-                    {new Date(set.release_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  {:else}
-                    —
-                  {/if}
-                {/if}
-              </Table.Cell>
-              <Table.Cell class="text-right text-sm text-muted-foreground">
-                {set.card_count}
-              </Table.Cell>
-              <Table.Cell class="text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <button
-                    class="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                    onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null, set.set_type ?? 'Normal', set.release_date ?? null)}
-                    aria-label="Edit {set.set_name}"
-                  >
-                    <Pencil class="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40"
-                    onclick={() => deleteSet(set.set_code, set.set_name)}
-                    disabled={deleteLoading === set.set_code}
-                    aria-label="Delete {set.set_name}"
-                  >
-                    <Trash2 class="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </Table.Cell>
-            </Table.Row>
-          {/each}
-        </Table.Body>
-      </Table.Root>
+    <div class="space-y-6">
+      {#each sections as section (section.type)}
+        <div class="border rounded-lg overflow-hidden">
+          <!-- Section header -->
+          <div class="px-4 py-2.5 bg-muted/40 border-b flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-sm">{section.type}</span>
+              <span class="text-xs text-muted-foreground bg-background border rounded-full px-2 py-0.5">
+                {section.sets.length} set{section.sets.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+
+          <Table.Root>
+            <Table.Header>
+              <Table.Row>
+                <Table.Head class="w-28">Code</Table.Head>
+                <Table.Head>Name</Table.Head>
+                <Table.Head class="w-24 text-right">Price</Table.Head>
+                <Table.Head class="w-28">Release</Table.Head>
+                <Table.Head class="w-20 text-right">Cards</Table.Head>
+                <Table.Head class="w-28 text-right">Actions</Table.Head>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {#each section.sets as set (set.set_code)}
+                <Table.Row>
+                  <Table.Cell>
+                    <Badge variant="secondary" class="font-mono text-xs">{set.set_code}</Badge>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {#if editingCode === set.set_code}
+                      <div class="flex items-center gap-2">
+                        <Input
+                          bind:value={editName}
+                          class="h-7 text-sm flex-1"
+                          placeholder="Set name"
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter') saveEdit(set.set_code)
+                            if (e.key === 'Escape') cancelEdit()
+                          }}
+                        />
+                        <Input
+                          bind:value={editPrice}
+                          class="h-7 text-sm w-20"
+                          placeholder="Price"
+                          type="text"
+                          inputmode="decimal"
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter') saveEdit(set.set_code)
+                            if (e.key === 'Escape') cancelEdit()
+                          }}
+                        />
+                        <select
+                          bind:value={editType}
+                          class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          {#each SET_TYPES as t}
+                            <option value={t}>{t}</option>
+                          {/each}
+                        </select>
+                        <button
+                          class="text-green-600 hover:text-green-700 disabled:opacity-50 shrink-0"
+                          onclick={() => saveEdit(set.set_code)}
+                          disabled={editLoading}
+                          aria-label="Save"
+                        >
+                          <Check class="h-4 w-4" />
+                        </button>
+                        <button
+                          class="text-muted-foreground hover:text-foreground shrink-0"
+                          onclick={cancelEdit}
+                          aria-label="Cancel"
+                        >
+                          <X class="h-4 w-4" />
+                        </button>
+                      </div>
+                    {:else}
+                      <a href="/admin/sets/{set.set_code}" class="font-medium hover:underline">
+                        {set.set_name}
+                      </a>
+                    {/if}
+                  </Table.Cell>
+                  <Table.Cell class="text-right text-sm">
+                    {#if editingCode !== set.set_code}
+                      {set.price != null ? `$${Number(set.price).toFixed(2)}` : '—'}
+                    {/if}
+                  </Table.Cell>
+                  <Table.Cell class="text-sm text-muted-foreground">
+                    {#if editingCode === set.set_code}
+                      <input
+                        type="date"
+                        bind:value={editReleaseDate}
+                        class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full"
+                      />
+                    {:else}
+                      {#if set.release_date}
+                        {new Date(set.release_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {:else}
+                        —
+                      {/if}
+                    {/if}
+                  </Table.Cell>
+                  <Table.Cell class="text-right text-sm text-muted-foreground">
+                    {set.card_count}
+                  </Table.Cell>
+                  <Table.Cell class="text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <button
+                        class="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                        onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null, set.set_type ?? 'Normal', set.release_date ?? null)}
+                        aria-label="Edit {set.set_name}"
+                      >
+                        <Pencil class="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40"
+                        onclick={() => deleteSet(set.set_code, set.set_name)}
+                        disabled={deleteLoading === set.set_code}
+                        aria-label="Delete {set.set_name}"
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </Table.Cell>
+                </Table.Row>
+              {/each}
+            </Table.Body>
+          </Table.Root>
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
