@@ -41,7 +41,10 @@ None.
 
 ### Pending Todos
 
-0 pending todos
+3 pending todos
+- **Group releases by Set — browse UI for set-based card grouping** (minor, ui) — 2026-09-15
+- **Add is:TAG autocomplete dropdown in search bar** (pending) — 2026-05-08
+- **Lock orders when group buy is closed — prevent merge/edit/cancel** (pending) — 2026-08-07
 
 ### Roadmap Evolution
 
