@@ -13,6 +13,27 @@
   // ── Create form ──────────────────────────────────────────────
   const SET_TYPES = ['Normal', 'Holo / Mixed', 'Foil'] as const
 
+  // Natural (numeric-aware) sort — "NP Normal 5" before "NP Normal 42"
+  function naturalSort(a: string, b: string): number {
+    const re = /(\d+)|(\D+)/g
+    const tokensA = a.match(re) ?? []
+    const tokensB = b.match(re) ?? []
+    const len = Math.max(tokensA.length, tokensB.length)
+    for (let i = 0; i < len; i++) {
+      const ta = tokensA[i] ?? ''
+      const tb = tokensB[i] ?? ''
+      const na = parseInt(ta, 10)
+      const nb = parseInt(tb, 10)
+      if (!isNaN(na) && !isNaN(nb)) {
+        if (na !== nb) return na - nb
+      } else {
+        const cmp = ta.localeCompare(tb)
+        if (cmp !== 0) return cmp
+      }
+    }
+    return 0
+  }
+
   // Group sets by type for sectioned display
   const sections = $derived(
     SET_TYPES
@@ -27,7 +48,7 @@
               if (cmp !== 0) return cmp
             } else if (a.release_date && !b.release_date) return -1
             else if (!a.release_date && b.release_date) return 1
-            return a.set_name.localeCompare(b.set_name)
+            return naturalSort(a.set_name, b.set_name)
           })
       }))
       .filter((sec) => sec.sets.length > 0)
