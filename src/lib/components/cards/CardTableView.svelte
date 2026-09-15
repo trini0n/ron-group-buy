@@ -46,10 +46,12 @@
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
+    /** Per-card release dates (scryfall_id -> YYYY-MM-DD) for umbrella sets like SLD/PURL/PMEI */
+    cardReleaseDates?: Record<string, string>
     onClearAll?: () => void
   }
 
-  let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, onClearAll }: Props = $props()
+  let { cards, searchQuery, filters, sortBy: _sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, cardReleaseDates = {}, onClearAll }: Props = $props()
 
 
   // Sorting state with session storage persistence and default
@@ -248,7 +250,8 @@
     cardsToSort: Card[],
     key: SortKey,
     direction: 'asc' | 'desc',
-    releaseDates: Record<string, string>
+    releaseDates: Record<string, string>,
+    perCardDates: Record<string, string>
   ): Card[] {
     return [...cardsToSort].sort((a, b) => {
       let aVal: string | number | null = null
@@ -297,8 +300,9 @@
       if (key === 'card_name') {
         const aSetCode = a.set_code?.toLowerCase() || ''
         const bSetCode = b.set_code?.toLowerCase() || ''
-        const aReleased = releaseDates[aSetCode] || ''
-        const bReleased = releaseDates[bSetCode] || ''
+        // Prefer per-card release date (for umbrella sets like SLD/PURL/PMEI) over set-level date
+        const aReleased = (a.scryfall_id && perCardDates[a.scryfall_id]) || releaseDates[aSetCode] || ''
+        const bReleased = (b.scryfall_id && perCardDates[b.scryfall_id]) || releaseDates[bSetCode] || ''
         if (aReleased !== bReleased) return bReleased.localeCompare(aReleased) // desc
 
         const aNum = parseInt(a.collector_number || '0') || 0
@@ -324,6 +328,7 @@
     const currentKey = sortKey
     const currentDir = sortDirection
     const currentReleaseDates = setReleaseDates
+    const currentCardDates = cardReleaseDates
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
       setCodes: [...filters.setCodes],
@@ -350,7 +355,7 @@
       initialLoadDone = true
       untrack(() => {
         const filtered = filterCards(currentCards, currentQuery, currentFilters)
-        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates)
+        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates, currentCardDates)
       })
       return
     }
@@ -361,7 +366,7 @@
       // Use untrack to avoid reading state during update
       untrack(() => {
         const filtered = filterCards(currentCards, currentQuery, currentFilters)
-        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates)
+        sortedCards = sortCards(filtered, currentKey, currentDir, currentReleaseDates, currentCardDates)
       })
     })
   })

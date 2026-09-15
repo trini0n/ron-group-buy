@@ -43,10 +43,12 @@
     currentPage?: number
     onPageChange?: (page: number) => void
     setReleaseDates?: Record<string, string>
+    /** Per-card release dates (scryfall_id -> YYYY-MM-DD) for umbrella sets like SLD/PURL/PMEI */
+    cardReleaseDates?: Record<string, string>
     onClearAll?: () => void
   }
 
-  let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, onClearAll }: Props = $props()
+  let { cards, searchQuery, filters, sortBy = 'name-asc', currentPage: propPage = 1, onPageChange, setReleaseDates = {}, cardReleaseDates = {}, onClearAll }: Props = $props()
 
 
   const CARDS_PER_PAGE = 25
@@ -81,6 +83,7 @@
     query: string,
     f: Filters,
     releaseDates: Record<string, string>,
+    perCardDates: Record<string, string>,
     sort: SortBy
   ): CardGroup[] {
     // Parse is:TAG tokens from the query (case-insensitive). Strip them to get text-only part.
@@ -244,8 +247,9 @@
 
       const aSetCode = a.primary.set_code?.toLowerCase() || ''
       const bSetCode = b.primary.set_code?.toLowerCase() || ''
-      const aReleased = releaseDates[aSetCode] || ''
-      const bReleased = releaseDates[bSetCode] || ''
+      // Prefer per-card release date (for umbrella sets like SLD/PURL/PMEI) over set-level date
+      const aReleased = (a.primary.scryfall_id && perCardDates[a.primary.scryfall_id]) || releaseDates[aSetCode] || ''
+      const bReleased = (b.primary.scryfall_id && perCardDates[b.primary.scryfall_id]) || releaseDates[bSetCode] || ''
       const aNum = parseInt(a.primary.collector_number || '0') || 0
       const bNum = parseInt(b.primary.collector_number || '0') || 0
       // Use DB market_price_usd if available, fall back to listing price
@@ -316,6 +320,7 @@
     const currentCards = cards
     const currentQuery = searchQuery
     const currentReleaseDates = setReleaseDates
+    const currentCardDates = cardReleaseDates
     const currentSort = sortBy
     // Create a snapshot of filters to avoid tracking nested changes
     const currentFilters = {
@@ -342,7 +347,7 @@
     if (!initialLoadDone && currentCards.length > 0) {
       initialLoadDone = true
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentSort)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentCardDates, currentSort)
       })
       return
     }
@@ -352,7 +357,7 @@
       pendingFrameId = null
       // Use untrack to avoid reading state during update
       untrack(() => {
-        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentSort)
+        groupedCards = filterAndGroupCards(currentCards, currentQuery, currentFilters, currentReleaseDates, currentCardDates, currentSort)
       })
     })
   })

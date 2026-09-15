@@ -21,6 +21,13 @@ interface CacheEntry<T> {
 const SCRYFALL_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours — set release dates rarely change
 let scryfallSetsCache: CacheEntry<Record<string, string>> | null = null
 
+// "Umbrella" sets where cards have individual release dates different from the set date.
+// For these sets, sorting by release date should use the card's released_at, not the set's.
+const UMBRELLA_SET_CODES = new Set(['sld', 'purl', 'pmei'])
+
+// Cache for per-card release dates (scryfall_id -> released_at)
+let cardReleaseDatesCache: CacheEntry<Record<string, string>> | null = null
+
 async function fetchCards(): Promise<Card[]> {
   const cached = getCardsCache()
   if (isCacheValid(cached)) {
@@ -173,6 +180,79 @@ async function fetchScryfallSetDates(): Promise<Record<string, string>> {
   }
 }
 
+/**
+ * Fetch per-card release dates for cards in umbrella sets (SLD, PURL, PMEI).
+ * These sets contain cards with many different release dates, so the set-level
+ * date is not useful for sorting. Uses Scryfall's /cards/collection endpoint
+ * (75 IDs per batch) and caches results for 24 hours.
+ *
+ * @returns Map of scryfall_id -> released_at (YYYY-MM-DD)
+ */
+async function fetchCardReleaseDates(cards: Card[]): Promise<Record<string, string>> {
+  if (cardReleaseDatesCache !== null && Date.now() - cardReleaseDatesCache.timestamp < SCRYFALL_CACHE_TTL_MS) {
+    return cardReleaseDatesCache.data
+  }
+
+  // Collect unique scryfall_ids for cards in umbrella sets
+  const scryfallIds = new Set<string>()
+  for (const card of cards) {
+    if (card.scryfall_id && card.set_code && UMBRELLA_SET_CODES.has(card.set_code.toLowerCase())) {
+      scryfallIds.add(card.scryfall_id)
+    }
+  }
+
+  if (scryfallIds.size === 0) {
+    cardReleaseDatesCache = { data: {}, timestamp: Date.now() }
+    return {}
+  }
+
+  const dates: Record<string, string> = {}
+  const ids = [...scryfallIds]
+  const BATCH_SIZE = 75
+
+  try {
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BATCH_SIZE)
+      const identifiers = chunk.map((id) => ({ id }))
+
+      const res = await fetch('https://api.scryfall.com/cards/collection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'RonGroupBuy/1.0'
+        },
+        body: JSON.stringify({ identifiers })
+      })
+
+      if (!res.ok) {
+        logger.warn({ status: res.status, batch: i / BATCH_SIZE }, 'Scryfall /cards/collection returned non-OK for card dates')
+        continue
+      }
+
+      const body = (await res.json()) as {
+        data: Array<{ id: string; released_at?: string }>
+      }
+
+      for (const card of body.data) {
+        if (card.id && card.released_at) {
+          dates[card.id] = card.released_at
+        }
+      }
+
+      // Respect Scryfall rate limits (50-100ms between requests)
+      if (i + BATCH_SIZE < ids.length) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+    }
+
+    cardReleaseDatesCache = { data: dates, timestamp: Date.now() }
+    return dates
+  } catch (err) {
+    logger.error({ err }, 'Failed to fetch per-card release dates from Scryfall')
+    return cardReleaseDatesCache?.data ?? {}
+  }
+}
+
 export const load: PageServerLoad = async ({ url, setHeaders }) => {
   // Private cache only — no CDN caching.
   // The root layout includes user-specific data (avatar, session, admin status) in SSR HTML.
@@ -218,10 +298,13 @@ export const load: PageServerLoad = async ({ url, setHeaders }) => {
     initialFilters,
     streamed: {
       cardsData: Promise.all([fetchCards(), fetchSets(), fetchScryfallSetDates()]).then(
-        ([cards, sets, setReleaseDates]) => {
+        async ([cards, sets, setReleaseDates]) => {
           const foilSubtypes = deriveFoilSubtypesFromCards(cards)
           const languages = deriveLanguagesFromCards(cards)
-          return { cards, sets, setReleaseDates, foilSubtypes, languages }
+          // Fetch per-card release dates for umbrella sets (SLD, PURL, PMEI)
+          // so sorting uses each card's actual release date, not the set's date
+          const cardReleaseDates = await fetchCardReleaseDates(cards)
+          return { cards, sets, setReleaseDates, cardReleaseDates, foilSubtypes, languages }
         }
       )
     }

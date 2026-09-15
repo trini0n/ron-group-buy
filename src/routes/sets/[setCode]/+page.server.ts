@@ -8,6 +8,12 @@ import { logger } from '$lib/server/logger'
 let scryfallCache: { data: Record<string, string>; timestamp: number } | null = null
 const CACHE_TTL_MS = 60 * 60 * 1000
 
+// "Umbrella" sets where cards have individual release dates different from the set date.
+const UMBRELLA_SET_CODES = new Set(['sld', 'purl', 'pmei'])
+
+// Cache for per-card release dates (scryfall_id -> released_at)
+let cardReleaseDatesCache: { data: Record<string, string>; timestamp: number } | null = null
+
 async function fetchScryfallDates(): Promise<Record<string, string>> {
   if (scryfallCache && Date.now() - scryfallCache.timestamp < CACHE_TTL_MS) {
     return scryfallCache.data
@@ -27,6 +33,54 @@ async function fetchScryfallDates(): Promise<Record<string, string>> {
   } catch (err) {
     logger.error({ err }, 'Failed to fetch Scryfall set dates for /sets/[setCode]')
     return scryfallCache?.data ?? {}
+  }
+}
+
+/**
+ * Fetch per-card release dates for cards in umbrella sets (SLD, PURL, PMEI).
+ * Uses Scryfall's /cards/collection endpoint (75 IDs per batch).
+ */
+async function fetchCardReleaseDates(cards: Card[]): Promise<Record<string, string>> {
+  if (cardReleaseDatesCache && Date.now() - cardReleaseDatesCache.timestamp < CACHE_TTL_MS) {
+    return cardReleaseDatesCache.data
+  }
+
+  const scryfallIds = new Set<string>()
+  for (const card of cards) {
+    if (card.scryfall_id && card.set_code && UMBRELLA_SET_CODES.has(card.set_code.toLowerCase())) {
+      scryfallIds.add(card.scryfall_id)
+    }
+  }
+
+  if (scryfallIds.size === 0) {
+    cardReleaseDatesCache = { data: {}, timestamp: Date.now() }
+    return {}
+  }
+
+  const dates: Record<string, string> = {}
+  const ids = [...scryfallIds]
+  const BATCH_SIZE = 75
+
+  try {
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BATCH_SIZE)
+      const res = await fetch('https://api.scryfall.com/cards/collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'RonGroupBuy/1.0' },
+        body: JSON.stringify({ identifiers: chunk.map((id) => ({ id })) })
+      })
+      if (!res.ok) continue
+      const body = (await res.json()) as { data: Array<{ id: string; released_at?: string }> }
+      for (const card of body.data) {
+        if (card.id && card.released_at) dates[card.id] = card.released_at
+      }
+      if (i + BATCH_SIZE < ids.length) await new Promise((r) => setTimeout(r, 100))
+    }
+    cardReleaseDatesCache = { data: dates, timestamp: Date.now() }
+    return dates
+  } catch (err) {
+    logger.error({ err }, 'Failed to fetch per-card release dates for /sets/[setCode]')
+    return cardReleaseDatesCache?.data ?? {}
   }
 }
 
@@ -64,16 +118,24 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
   const releaseDates = await fetchScryfallDates()
 
   // Build card entries: one entry per unique set_cards row, carrying quantity.
-  // Sort by release date then collector number.
-  const cardEntries = (setCards ?? [])
+  const rawEntries = (setCards ?? [])
     .map((sc) => ({ card: sc.cards as Card | null, quantity: (sc.quantity as number) ?? 1 }))
     .filter((e): e is { card: Card; quantity: number } => e.card !== null)
-    .sort((a, b) => {
-      const dateA = releaseDates[(a.card.set_code ?? '').toLowerCase()] ?? '9999-99-99'
-      const dateB = releaseDates[(b.card.set_code ?? '').toLowerCase()] ?? '9999-99-99'
-      if (dateA !== dateB) return dateA.localeCompare(dateB)
-      return collectorNumberSort(a.card.collector_number ?? '', b.card.collector_number ?? '')
-    })
+
+  // Fetch per-card release dates for umbrella sets (SLD, PURL, PMEI)
+  const allCards = rawEntries.map((e) => e.card)
+  const perCardDates = await fetchCardReleaseDates(allCards)
+
+  // Sort by release date then collector number.
+  // Prefer per-card date (umbrella sets) over set-level date.
+  const cardEntries = rawEntries.sort((a, b) => {
+    const aSetCode = (a.card.set_code ?? '').toLowerCase()
+    const bSetCode = (b.card.set_code ?? '').toLowerCase()
+    const dateA = (a.card.scryfall_id && perCardDates[a.card.scryfall_id]) || releaseDates[aSetCode] || '9999-99-99'
+    const dateB = (b.card.scryfall_id && perCardDates[b.card.scryfall_id]) || releaseDates[bSetCode] || '9999-99-99'
+    if (dateA !== dateB) return dateA.localeCompare(dateB)
+    return collectorNumberSort(a.card.collector_number ?? '', b.card.collector_number ?? '')
+  })
 
   // Expand by quantity so StacksView's count badge works (it counts duplicate
   // card objects). E.g. quantity:3 → card appears 3 times in the array.
@@ -94,4 +156,3 @@ export const load: PageServerLoad = async ({ locals, params, setHeaders }) => {
     setReleaseDates: releaseDates
   }
 }
-

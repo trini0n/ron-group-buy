@@ -43,6 +43,7 @@
   let loadedCards = $state<Card[] | null>(null)
   let loadedSets = $state<{ code: string; name: string }[] | null>(null)
   let loadedSetReleaseDates = $state<Record<string, string> | null>(null)
+  let loadedCardReleaseDates = $state<Record<string, string> | null>(null)
   let loadedFoilSubtypes = $state<string[]>(['Foil'])
   let loadedLanguages = $state<string[]>(['en'])
   let loadError = $state<string | null>(null)
@@ -55,6 +56,7 @@
         loadedCards = cardsData.cards
         loadedSets = cardsData.sets
         loadedSetReleaseDates = cardsData.setReleaseDates
+        loadedCardReleaseDates = (cardsData as Record<string, unknown>).cardReleaseDates as Record<string, string> ?? {}
         loadedFoilSubtypes = (cardsData as Record<string, unknown>).foilSubtypes as string[] ?? ['Foil']
         loadedLanguages = (cardsData as Record<string, unknown>).languages as string[] ?? ['en']
         // Populate foil filter defaults from server data on initial load.
@@ -431,6 +433,7 @@
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}
+            cardReleaseDates={loadedCardReleaseDates ?? {}}
             onClearAll={clearAll}
           />
         {:else}
@@ -442,6 +445,7 @@
             {currentPage}
             onPageChange={handlePageChange}
             setReleaseDates={loadedSetReleaseDates ?? {}}
+            cardReleaseDates={loadedCardReleaseDates ?? {}}
             onClearAll={clearAll}
           />
         {/if}
