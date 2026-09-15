@@ -52,6 +52,12 @@
                 ${Number(data.set.price).toFixed(2)}
               </span>
             {/if}
+            {#if data.set.release_date}
+              {@const d = new Date(data.set.release_date + 'T00:00:00')}
+              {#if !isNaN(d.getTime())}
+                <span class="text-xs">Released {d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+              {/if}
+            {/if}
           </div>
         </div>
       </div>

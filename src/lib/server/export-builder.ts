@@ -604,7 +604,7 @@ export async function exportAllSets(): Promise<Buffer> {
   // Fetch sets with card_list_text for the plaintext fallback
   const { data: sets, error: setsError } = await adminClient
     .from('sets')
-    .select('set_code, set_name, set_type, price, card_list_text')
+    .select('set_code, set_name, set_type, price, card_list_text, release_date')
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
 
@@ -737,6 +737,7 @@ export async function exportAllSets(): Promise<Buffer> {
     lines.push(csvRow('Name', set.set_name ?? ''))
     lines.push(csvRow('Type', (set.set_type as string) ?? 'Normal'))
     lines.push(csvRow('Price', set.price != null ? formatCurrency(Number(set.price)) : ''))
+    lines.push(csvRow('Release Date', (set as Record<string, unknown>).release_date as string ?? ''))
     lines.push('')
 
     const importedCards = cardsBySet.get(set.set_code) ?? []

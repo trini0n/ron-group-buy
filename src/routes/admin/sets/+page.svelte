@@ -17,6 +17,7 @@
   let newSetName = $state('')
   let newSetPrice = $state('')
   let newSetType = $state<string>('Normal')
+  let newSetReleaseDate = $state('')
   let createLoading = $state(false)
 
   async function createSet() {
@@ -40,7 +41,8 @@
           set_code: newSetCode.trim(),
           set_name: newSetName.trim(),
           set_type: newSetType,
-          ...(price !== undefined ? { price } : {})
+          ...(price !== undefined ? { price } : {}),
+          ...(newSetReleaseDate.trim() ? { release_date: newSetReleaseDate.trim() } : {})
         })
       })
       if (!res.ok) {
@@ -53,6 +55,7 @@
       newSetName = ''
       newSetPrice = ''
       newSetType = 'Normal'
+      newSetReleaseDate = ''
       showCreateForm = false
       await invalidateAll()
     } catch {
@@ -67,13 +70,15 @@
   let editName = $state('')
   let editPrice = $state('')
   let editType = $state<string>('Normal')
+  let editReleaseDate = $state('')
   let editLoading = $state(false)
 
-  function startEdit(setCode: string, currentName: string, currentPrice: number | null, currentType: string) {
+  function startEdit(setCode: string, currentName: string, currentPrice: number | null, currentType: string, currentReleaseDate: string | null) {
     editingCode = setCode
     editName = currentName
     editPrice = currentPrice != null ? String(currentPrice) : ''
     editType = currentType
+    editReleaseDate = currentReleaseDate ?? ''
   }
 
   function cancelEdit() {
@@ -81,6 +86,7 @@
     editName = ''
     editPrice = ''
     editType = 'Normal'
+    editReleaseDate = ''
   }
 
   async function saveEdit(setCode: string) {
@@ -97,7 +103,7 @@
       const res = await fetch(`/api/admin/sets/${encodeURIComponent(setCode)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ set_name: editName.trim(), price: price, set_type: editType })
+        body: JSON.stringify({ set_name: editName.trim(), price: price, set_type: editType, release_date: editReleaseDate.trim() || null })
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Unknown error' }))
@@ -302,10 +308,17 @@
             <option value={t}>{t}</option>
           {/each}
         </select>
+        <Input
+          id="new-set-release-date"
+          placeholder="Release date"
+          bind:value={newSetReleaseDate}
+          class="w-36"
+          type="date"
+        />
         <Button onclick={createSet} disabled={createLoading}>
           {createLoading ? 'Saving…' : 'Save'}
         </Button>
-        <Button variant="ghost" onclick={() => { showCreateForm = false; newSetCode = ''; newSetName = ''; newSetPrice = ''; newSetType = 'Normal' }}>
+        <Button variant="ghost" onclick={() => { showCreateForm = false; newSetCode = ''; newSetName = ''; newSetPrice = ''; newSetType = 'Normal'; newSetReleaseDate = '' }}>
           Cancel
         </Button>
       </div>
@@ -319,8 +332,8 @@
         <h2 class="text-sm font-medium">Bulk Import</h2>
         <p class="text-xs text-muted-foreground mt-0.5">
           Paste rows from a spreadsheet — each row is
-          <code class="font-mono bg-muted px-1 rounded">setCode [TAB] setName [TAB] price</code>.
-          Price is optional. Existing set codes will be updated.
+          <code class="font-mono bg-muted px-1 rounded">setCode [TAB] setName [TAB] price [TAB] releaseDate</code>.
+          Price and release date are optional. Existing set codes will be updated.
         </p>
       </div>
       <div class="p-4 space-y-3">
@@ -374,6 +387,7 @@
             <Table.Head>Name</Table.Head>
             <Table.Head class="w-28">Type</Table.Head>
             <Table.Head class="w-24 text-right">Price</Table.Head>
+            <Table.Head class="w-28">Release</Table.Head>
             <Table.Head class="w-20 text-right">Cards</Table.Head>
             <Table.Head class="w-28 text-right">Actions</Table.Head>
           </Table.Row>
@@ -448,6 +462,21 @@
                   {set.price != null ? `$${Number(set.price).toFixed(2)}` : '—'}
                 {/if}
               </Table.Cell>
+              <Table.Cell class="text-sm text-muted-foreground">
+                {#if editingCode === set.set_code}
+                  <input
+                    type="date"
+                    bind:value={editReleaseDate}
+                    class="h-7 rounded border border-input bg-background px-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full"
+                  />
+                {:else}
+                  {#if set.release_date}
+                    {new Date(set.release_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {:else}
+                    —
+                  {/if}
+                {/if}
+              </Table.Cell>
               <Table.Cell class="text-right text-sm text-muted-foreground">
                 {set.card_count}
               </Table.Cell>
@@ -455,7 +484,7 @@
                 <div class="flex items-center justify-end gap-1">
                   <button
                     class="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                    onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null, set.set_type ?? 'Normal')}
+                    onclick={() => startEdit(set.set_code, set.set_name, set.price ?? null, set.set_type ?? 'Normal', set.release_date ?? null)}
                     aria-label="Edit {set.set_name}"
                   >
                     <Pencil class="h-3.5 w-3.5" />

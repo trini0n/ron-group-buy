@@ -7,7 +7,7 @@ import { logger } from '$lib/server/logger'
 export const PATCH: RequestHandler = async ({ request, locals, params }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
-  let body: { set_name?: string; sort_order?: number; price?: number | null; set_type?: string; card_list_text?: string | null }
+  let body: { set_name?: string; sort_order?: number; price?: number | null; set_type?: string; card_list_text?: string | null; release_date?: string | null }
   try {
     body = await request.json()
   } catch {
@@ -23,6 +23,12 @@ export const PATCH: RequestHandler = async ({ request, locals, params }) => {
     updates.set_type = body.set_type
   }
   if (body.card_list_text !== undefined) updates.card_list_text = body.card_list_text ?? null
+  if (body.release_date !== undefined) {
+    if (body.release_date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(body.release_date)) {
+      throw error(400, 'Invalid release_date format — use YYYY-MM-DD')
+    }
+    updates.release_date = body.release_date ?? null
+  }
   if (Object.keys(updates).length === 0) throw error(400, 'No updatable fields provided')
 
   const { data, error: dbError } = await adminClient

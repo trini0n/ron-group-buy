@@ -58,7 +58,16 @@
         sets: filteredSets
           .filter((s) => (s.set_type ?? 'Normal') === type)
           .slice()
-          .sort((a, b) => naturalSort(a.set_name, b.set_name))
+          .sort((a, b) => {
+            // Sort by release_date DESC (newest first), nulls last
+            if (a.release_date && b.release_date) {
+              const cmp = b.release_date.localeCompare(a.release_date)
+              if (cmp !== 0) return cmp
+            } else if (a.release_date && !b.release_date) return -1
+            else if (!a.release_date && b.release_date) return 1
+            // Fall back to natural name sort for ties or missing dates
+            return naturalSort(a.set_name, b.set_name)
+          })
       }))
       .filter((sec) => sec.sets.length > 0)
   )
@@ -75,6 +84,13 @@
     } finally {
       addingSetCode = null
     }
+  }
+
+  function formatReleaseDate(dateStr: string | null): string | null {
+    if (!dateStr) return null
+    const d = new Date(dateStr + 'T00:00:00')
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   }
 </script>
 
@@ -160,6 +176,9 @@
                       <h2 class="font-semibold text-base leading-snug group-hover:text-primary transition-colors">
                         {set.set_name}
                       </h2>
+                      {#if formatReleaseDate(set.release_date)}
+                        <p class="text-xs text-muted-foreground mt-1">Released {formatReleaseDate(set.release_date)}</p>
+                      {/if}
                     </a>
 
                     <!-- Price + card count row -->

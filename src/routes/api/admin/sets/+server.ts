@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   const adminClient = createAdminClient()
   const { data, error: dbError } = await adminClient
     .from('sets')
-    .select('set_code, set_name, sort_order, created_at, set_cards(count)')
+    .select('set_code, set_name, sort_order, release_date, created_at, set_cards(count)')
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
   if (dbError) {
@@ -24,18 +24,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   await requireAdmin(locals)
   const adminClient = createAdminClient()
   const VALID_TYPES = ['Normal', 'Holo / Mixed', 'Foil']
-  let body: { set_code: string; set_name: string; price?: number | null; set_type?: string }
+  let body: { set_code: string; set_name: string; price?: number | null; set_type?: string; release_date?: string | null }
   try {
     body = await request.json()
   } catch {
     throw error(400, 'Invalid JSON')
   }
-  const { set_code, set_name, price, set_type } = body
+  const { set_code, set_name, price, set_type, release_date } = body
   if (!set_code?.trim() || !set_name?.trim()) {
     throw error(400, 'set_code and set_name are required')
   }
   if (set_type !== undefined && !VALID_TYPES.includes(set_type)) {
     throw error(400, 'Invalid set_type')
+  }
+  if (release_date !== undefined && release_date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(release_date)) {
+    throw error(400, 'Invalid release_date format — use YYYY-MM-DD')
   }
   const { data, error: dbError } = await adminClient
     .from('sets')
@@ -43,7 +46,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       set_code: set_code.trim().toUpperCase(),
       set_name: set_name.trim(),
       ...(price !== undefined ? { price: price ?? null } : {}),
-      ...(set_type !== undefined ? { set_type } : {})
+      ...(set_type !== undefined ? { set_type } : {}),
+      ...(release_date !== undefined ? { release_date: release_date ?? null } : {})
     })
     .select()
     .single()

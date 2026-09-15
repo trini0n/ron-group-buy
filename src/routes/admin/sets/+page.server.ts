@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
 
   const { data: sets, error } = await adminClient
     .from('sets')
-    .select('set_code, set_name, set_type, sort_order, price, set_cards(count)')
+    .select('set_code, set_name, set_type, sort_order, price, release_date, set_cards(count)')
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
 
@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
       set_type: (s.set_type as string) ?? 'Normal',
       sort_order: s.sort_order,
       price: s.price ?? null,
+      release_date: s.release_date ?? null,
       card_count: Array.isArray(s.set_cards)
         ? ((s.set_cards[0] as { count: number } | undefined)?.count ?? 0)
         : 0

@@ -10,7 +10,7 @@ interface BulkUpsertResult {
 }
 
 // POST /api/admin/sets/bulk
-// Body: { lines: string[] } — each line is tab-separated: "setCode\tsetName\tprice"
+// Body: { lines: string[] } — each line is tab-separated: "setCode\tsetName\tprice\treleaseDate"
 // price is optional (can be empty or omitted)
 export const POST: RequestHandler = async ({ request, locals }) => {
   await requireAdmin(locals)
@@ -34,6 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     set_code: string
     set_name: string
     price: number | null
+    release_date: string | null
   }
 
   const parsed: ParsedSet[] = []
@@ -74,7 +75,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       price = parsed_price
     }
 
-    parsed.push({ set_code, set_name, price })
+    let release_date: string | null = null
+    const rawDate = parts[3]?.trim()
+    if (rawDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        parseErrors.push({ line, reason: `Invalid date "${rawDate}" — use YYYY-MM-DD` })
+        continue
+      }
+      release_date = rawDate
+    }
+
+    parsed.push({ set_code, set_name, price, release_date })
   }
 
   if (parsed.length === 0) {
@@ -101,14 +112,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   if (toCreate.length > 0) {
     const { error: insertError } = await adminClient
       .from('sets')
-      .insert(toCreate.map((p) => ({ set_code: p.set_code, set_name: p.set_name, price: p.price })))
+      .insert(toCreate.map((p) => ({ set_code: p.set_code, set_name: p.set_name, price: p.price, release_date: p.release_date })))
     if (insertError) {
       logger.error({ error: insertError }, 'Error bulk inserting sets')
       // Fall back to per-row to identify which ones failed
       for (const p of toCreate) {
         const { error: rowError } = await adminClient
           .from('sets')
-          .insert({ set_code: p.set_code, set_name: p.set_name, price: p.price })
+          .insert({ set_code: p.set_code, set_name: p.set_name, price: p.price, release_date: p.release_date })
         if (rowError) {
           dbErrors.push({ line: `${p.set_code}\t${p.set_name}`, reason: rowError.message })
         } else {
@@ -124,6 +135,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   for (const p of toUpdate) {
     const updates: Record<string, unknown> = { set_name: p.set_name }
     if (p.price !== null) updates.price = p.price
+    if (p.release_date !== null) updates.release_date = p.release_date
     const { error: updateError } = await adminClient
       .from('sets')
       .update(updates)
