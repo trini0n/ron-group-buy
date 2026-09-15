@@ -29,6 +29,7 @@
 
   interface CheckResult {
     new_cards: NewCard[]
+    existing_cards: NewCard[]
     new_count: number
     existing_count: number
     total_count: number
@@ -41,6 +42,18 @@
   const outputText = $derived(
     result
       ? result.new_cards
+          .map((c) => {
+            const key = `${c.set_code.toLowerCase()}|${c.collector_number}|${(c.language ?? 'en').toLowerCase()}`
+            return rawLineMap.get(key) ?? `${c.card_name} | ${c.set_code} | ${c.collector_number}`
+          })
+          .join('\n')
+      : ''
+  )
+
+  // Build output for existing cards
+  const existingOutputText = $derived(
+    result
+      ? result.existing_cards
           .map((c) => {
             const key = `${c.set_code.toLowerCase()}|${c.collector_number}|${(c.language ?? 'en').toLowerCase()}`
             return rawLineMap.get(key) ?? `${c.card_name} | ${c.set_code} | ${c.collector_number}`
@@ -221,6 +234,16 @@
     }
   }
 
+  async function handleCopyExisting() {
+    if (!existingOutputText) return
+    try {
+      await navigator.clipboard.writeText(existingOutputText)
+      toast.success('Copied to clipboard')
+    } catch {
+      toast.error('Failed to copy — please select and copy manually')
+    }
+  }
+
   function handleClose() {
     open = false
     inputText = ''
@@ -314,6 +337,22 @@
               </div>
               <pre
                 class="max-h-48 overflow-y-auto rounded border bg-background p-3 text-xs leading-relaxed">{outputText}</pre>
+            </div>
+          {/if}
+
+          {#if result.existing_count > 0}
+            <div class="space-y-2 border-t pt-3">
+              <div class="flex items-center justify-between">
+                <Label class="text-xs uppercase tracking-wide text-muted-foreground">
+                  Existing in library ({result.existing_count})
+                </Label>
+                <Button variant="outline" size="sm" onclick={handleCopyExisting} class="h-7 gap-1.5 text-xs">
+                  <ClipboardCopy class="h-3.5 w-3.5" />
+                  Copy List
+                </Button>
+              </div>
+              <pre
+                class="max-h-48 overflow-y-auto rounded border bg-background p-3 text-xs leading-relaxed text-muted-foreground">{existingOutputText}</pre>
             </div>
           {/if}
         </div>

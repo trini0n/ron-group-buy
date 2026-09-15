@@ -38,6 +38,12 @@ export interface CheckNewCardsResponse {
     collector_number: string
     language?: string
   }>
+  existing_cards: Array<{
+    card_name: string
+    set_code: string
+    collector_number: string
+    language?: string
+  }>
   new_count: number
   existing_count: number
   total_count: number
@@ -120,10 +126,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       )
   )
 
+  // Determine which input cards ARE already in the library
+  const matchedExistingCards = cards.filter((c) =>
+    existingKeys.has(
+      `${c.set_code.trim().toLowerCase()}|${c.collector_number.trim()}|${(c.language ?? 'en').toLowerCase()}`
+    )
+  )
+
   const response: CheckNewCardsResponse = {
     new_cards: newCards,
+    existing_cards: matchedExistingCards,
     new_count: newCards.length,
-    existing_count: cards.length - newCards.length,
+    existing_count: matchedExistingCards.length,
     total_count: cards.length
   }
 
