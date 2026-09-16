@@ -45,13 +45,13 @@
       regular: 6.0,
       express: 40.0,
       expressPerHalfKg: 8.0,
-      tariff: 9.0,
+      tariff: 5.0,
     },
     eu: {
       regular: 6.0,
       express: 25.0,
       expressPerHalfKg: 5.0,
-      tariff: 9.0,
+      tariff: 5.0,
     },
     international: {
       regular: 6.0,

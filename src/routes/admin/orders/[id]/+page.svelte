@@ -118,8 +118,8 @@
 
   // Shipping pricing constants (same as checkout)
   const SHIPPING_RATES = {
-    us: { regular: 6.00, express: 40.00, tariff: 9.00 },
-    eu: { regular: 6.00, express: 25.00, tariff: 9.00 },
+    us: { regular: 6.00, express: 40.00, tariff: 5.00 },
+    eu: { regular: 6.00, express: 25.00, tariff: 5.00 },
     international: { regular: 6.00, express: 25.00, tariff: 0 }
   };
 

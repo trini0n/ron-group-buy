@@ -129,7 +129,7 @@ describe('Export Data Calculations', () => {
         ]
       }
 
-      // Expected: Subtotal=$75.50, Shipping=$6, Tariff=$9, Total=$90.50
+      // Expected: Subtotal=$75.50, Shipping=$6, Tariff=$5, Total=$86.50
       // This matches SHIPPING_RATES.us.regular
     })
 
@@ -140,7 +140,7 @@ describe('Export Data Calculations', () => {
         items: [{ quantity: 1, unit_price: 100.0 }]
       }
 
-      // Expected: Subtotal=$100, Shipping=$40, Tariff=$9, Total=$149
+      // Expected: Subtotal=$100, Shipping=$40, Tariff=$5, Total=$145
     })
 
     it('should calculate international order totals correctly', () => {
@@ -170,7 +170,7 @@ describe('Export Data Calculations', () => {
         items: []
       }
 
-      // Expected: Subtotal=$0, Shipping=$6, Tariff=$9, Total=$15
+      // Expected: Subtotal=$0, Shipping=$6, Tariff=$5, Total=$11
     })
   })
 
