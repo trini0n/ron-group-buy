@@ -6,6 +6,7 @@ export const load: PageServerLoad = async ({ locals, setHeaders }) => {
   const { data: sets } = await locals.supabase
     .from('sets')
     .select('set_code, set_name, set_type, sort_order, price, release_date, set_cards(count)')
+    .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .order('set_name', { ascending: true })
 

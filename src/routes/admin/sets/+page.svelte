@@ -6,7 +6,7 @@
   import * as Table from '$components/ui/table'
   import { invalidateAll } from '$app/navigation'
   import { toast } from 'svelte-sonner'
-  import { Plus, Pencil, Trash2, Check, X, Library, Upload, AlertCircle, Download } from 'lucide-svelte'
+  import { Plus, Pencil, Trash2, Check, X, Library, Upload, AlertCircle, Download, Archive, ArchiveRestore } from 'lucide-svelte'
 
   let { data } = $props()
 
@@ -183,6 +183,31 @@
       toast.error('Network error deleting set')
     } finally {
       deleteLoading = null
+    }
+  }
+
+  // ── Toggle active/archived ─────────────────────────────────────
+  let togglingCode = $state<string | null>(null)
+
+  async function toggleActive(setCode: string, currentlyActive: boolean) {
+    togglingCode = setCode
+    try {
+      const res = await fetch(`/api/admin/sets/${encodeURIComponent(setCode)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentlyActive })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }))
+        toast.error(err.message ?? `Failed to update set (${res.status})`)
+        return
+      }
+      toast.success(currentlyActive ? 'Set archived' : 'Set restored')
+      await invalidateAll()
+    } catch {
+      toast.error('Network error toggling set status')
+    } finally {
+      togglingCode = null
     }
   }
 
@@ -446,7 +471,7 @@
             </Table.Header>
             <Table.Body>
               {#each section.sets as set (set.set_code)}
-                <Table.Row>
+                <Table.Row class={!set.is_active ? 'opacity-50' : ''}>
                   <Table.Cell>
                     <Badge variant="secondary" class="font-mono text-xs">{set.set_code}</Badge>
                   </Table.Cell>
@@ -501,6 +526,9 @@
                       <a href="/admin/sets/{set.set_code}" class="font-medium hover:underline">
                         {set.set_name}
                       </a>
+                      {#if !set.is_active}
+                        <Badge variant="outline" class="ml-2 text-[10px] opacity-70">Archived</Badge>
+                      {/if}
                     {/if}
                   </Table.Cell>
                   <Table.Cell class="text-right text-sm">
@@ -534,6 +562,19 @@
                         aria-label="Edit {set.set_name}"
                       >
                         <Pencil class="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        class="p-1.5 rounded text-muted-foreground {set.is_active ? 'hover:bg-amber-500/10 hover:text-amber-600' : 'hover:bg-green-500/10 hover:text-green-600'} disabled:opacity-40"
+                        onclick={() => toggleActive(set.set_code, set.is_active)}
+                        disabled={togglingCode === set.set_code}
+                        aria-label={set.is_active ? `Archive ${set.set_name}` : `Restore ${set.set_name}`}
+                        title={set.is_active ? 'Archive' : 'Restore'}
+                      >
+                        {#if set.is_active}
+                          <Archive class="h-3.5 w-3.5" />
+                        {:else}
+                          <ArchiveRestore class="h-3.5 w-3.5" />
+                        {/if}
                       </button>
                       <button
                         class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-40"
