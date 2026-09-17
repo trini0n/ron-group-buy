@@ -5,6 +5,7 @@ import { createAdminClient, isAdmin } from '$lib/server/admin'
 import { parse } from 'csv-parse/sync'
 import { getDirectPhotoUrl } from '$lib/server/gphoto-converter'
 import { logger } from '$lib/server/logger'
+import { invalidateCardsCaches } from '$lib/server/card-cache'
 import { z } from 'zod'
 
 const ResyncImagesSchema = z.object({
@@ -95,6 +96,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     console.log(`📊 Found ${sheetDataMap.size} matching cards in sheet`)
 
+    // Bust the gphoto_url_cache for these share URLs so we get fresh conversions
+    // (the cache has a 30-day TTL that would otherwise serve stale direct URLs)
+    const shareUrlsToBust = [...sheetDataMap.values()].filter(Boolean)
+    if (shareUrlsToBust.length > 0) {
+      const { error: cacheError } = await adminClient
+        .from('gphoto_url_cache')
+        .delete()
+        .in('share_url', shareUrlsToBust)
+
+      if (cacheError) {
+        logger.warn({ error: cacheError }, 'Failed to bust gphoto_url_cache (proceeding anyway)')
+      } else {
+        console.log(`🗑️ Cleared ${shareUrlsToBust.length} gphoto_url_cache entries`)
+      }
+    }
+
     // Convert URLs and update cards sequentially (better for rate limiting)
     let successCount = 0
     let errorCount = 0
@@ -166,6 +183,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     console.log(`🎉 Resync complete! Success: ${successCount}, Errors: ${errorCount}`)
+
+    // Invalidate the server-side card cache so pages serve updated image URLs immediately
+    invalidateCardsCaches()
 
     return json({
       success: true,
