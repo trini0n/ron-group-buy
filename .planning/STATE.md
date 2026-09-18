@@ -10,7 +10,7 @@ updated: 2026-06-15
 **Phase:** 20 — StacksView Component + View Toggle Integration ✅
 **Plan:** 1/1 plans executed
 **Status:** Phase 20 verified and passed. Milestone v1.3 complete.
-**Last activity:** 2026-06-15 — Phase 20 executed (StacksView.svelte + view toggle)
+**Last activity:** 2026-09-18 — Quick task 260918-1wy: Cart controls on StacksView cards + set details
 
 ## Next Steps
 
@@ -78,3 +78,4 @@ None.
 | 008 | Sets UI overhaul: type sections, search, list view, no code badges, 56 default | 2026-06-14 | c41d148 | — |
 | 009 | Allow duplicate cards per set + natural sort by name number | 2026-06-15 | 2c95e39 | — |
 | 010 | Phase 20: StacksView component + view toggle (List/Grid/Stacks) | 2026-06-15 | 6d900b1 | .planning/phases/phase-20/ |
+| 011 | Cart controls on StacksView cards, set details Add Set button, sets listing click-through | 2026-09-18 | a16c98e | [260918-1wy](./quick/260918-1wy-add-quantity-stepper-and-add-to-cart-on-/) |
