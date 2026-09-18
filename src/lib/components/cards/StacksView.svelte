@@ -138,6 +138,11 @@
   let enterTimer: ReturnType<typeof setTimeout> | null = null
   let leaveTimer: ReturnType<typeof setTimeout> | null = null
 
+  // When the mouse is over the cart overlay we must suppress the leave timer
+  // so that clicking overlay buttons (which can momentarily shift focus or
+  // cause micro mouse-leave events) doesn't collapse the stack.
+  let overlayActive = false
+
   function onEnter(setCode: string, idx: number) {
     // Cancel any pending enter debounce (moved to a new card before it activated)
     if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
@@ -164,6 +169,11 @@
     // Cancel any pending enter debounce (left before it could activate)
     if (enterTimer !== null) { clearTimeout(enterTimer); enterTimer = null }
 
+    // If the mouse is currently over the cart overlay, don't collapse.
+    // The overlay's own mouseleave will call onLeave when the mouse
+    // truly exits the card area.
+    if (overlayActive) return
+
     // Start leave grace period. If onEnter fires for the same stack before this
     // clears, it will be cancelled and hoveredInfo preserved (smooth transition).
     // If no card is entered within 50ms, hoveredInfo is cleared and stack collapses.
@@ -171,6 +181,21 @@
       hoveredInfo = null
       leaveTimer = null
     }, 50)
+  }
+
+  /**
+   * Blur handler for card <a> tags.
+   * When focus moves to a CHILD element (e.g. an overlay button), we must
+   * NOT collapse the stack — the user is still interacting with this card.
+   * Only trigger onLeave when focus moves completely outside the card.
+   */
+  function onCardBlur(e: FocusEvent) {
+    const related = e.relatedTarget as Node | null
+    if (related && (e.currentTarget as HTMLElement).contains(related)) {
+      // Focus moved to a child (overlay button) — keep stack open
+      return
+    }
+    onLeave()
   }
 
   // Clean up both timers if the component is destroyed while hover is pending
@@ -491,7 +516,7 @@
             onmouseenter={() => onEnter(col.setCode, i)}
             onmouseleave={onLeave}
             onfocus={() => onEnter(col.setCode, i)}
-            onblur={onLeave}
+            onblur={onCardBlur}
             onclick={(e) => onCardClick(e, col.setCode, i)}
           >
             <!-- Scryfall card image -->
@@ -530,7 +555,12 @@
             <div
               class="card-cart-overlay absolute bottom-0 left-0 right-0 z-20 flex items-center gap-1 rounded-b-[10px] bg-black/80 px-2 py-1.5 backdrop-blur-sm"
               onclick={(e) => { e.preventDefault(); e.stopPropagation() }}
-              onmouseenter={(e) => e.stopPropagation()}
+              onmouseenter={() => {
+                overlayActive = true
+                // Cancel any pending leave timer — mouse is still in the card area
+                if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+              }}
+              onmouseleave={() => { overlayActive = false }}
             >
               <!-- Quantity stepper -->
               <div class="flex shrink-0 items-center rounded border border-white/20 bg-white/10">
