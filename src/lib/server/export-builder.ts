@@ -749,7 +749,7 @@ export async function exportAllSets(): Promise<Buffer> {
         lines.push(csvRow(
           (card.set_code ?? '').toUpperCase(),
           card.collector_number ?? '',
-          card.language && card.language !== 'en' ? card.language : '',
+          card.language ?? 'en',
           card.card_name,
           card.card_type ?? '',
           card.serial ?? '',
