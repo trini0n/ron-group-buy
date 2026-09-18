@@ -38,6 +38,23 @@ describe('getCacheKey', () => {
   it('handles already lowercase input', () => {
     expect(getCacheKey('card name')).toBe('card name')
   })
+
+  it('strips diacritics from accented characters', () => {
+    expect(getCacheKey('Andúril')).toBe('anduril')
+    expect(getCacheKey('Nazgûl')).toBe('nazgul')
+    expect(getCacheKey('Séance')).toBe('seance')
+    expect(getCacheKey('Lhurgoyf')).toBe('lhurgoyf')
+  })
+
+  it('replaces hyphens with spaces', () => {
+    expect(getCacheKey('Ach! Hans, Run!')).toBe('ach hans run')
+    expect(getCacheKey('Fire-Lit Thicket')).toBe('fire lit thicket')
+  })
+
+  it('normalizes accented input to match plain input', () => {
+    expect(getCacheKey('Andúril')).toBe(getCacheKey('Anduril'))
+    expect(getCacheKey('Nazgûl')).toBe(getCacheKey('Nazgul'))
+  })
 })
 
 describe('isFoil', () => {

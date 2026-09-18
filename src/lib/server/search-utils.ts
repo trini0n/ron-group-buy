@@ -3,6 +3,8 @@
  * Extracted for testability
  */
 
+import { normalizeForSearch } from '$lib/search-normalize'
+
 export interface CardMatch {
   id: string
   serial: string
@@ -20,11 +22,12 @@ export interface CardMatch {
 }
 
 /**
- * Generate a cache key from a card name
- * Normalizes to lowercase and trims whitespace
+ * Generate a cache key from a card name.
+ * Normalizes diacritics, punctuation, and casing for consistent lookups.
+ * e.g. "Andúril" → "anduril", "Nazgûl" → "nazgul"
  */
 export function getCacheKey(name: string): string {
-  return name.toLowerCase().trim()
+  return normalizeForSearch(name)
 }
 
 /**

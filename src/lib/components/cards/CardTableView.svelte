@@ -16,6 +16,7 @@
     getFinishBadgeClasses
   } from '$lib/utils'
   import { matchesOracleTag, ORACLE_TAGS } from '$lib/data/oracle-tags'
+  import { normalizeForSearch } from '$lib/search-normalize'
   import { browser } from '$app/environment'
   import { untrack } from 'svelte'
   import type { SortBy } from '$lib/components/cards/CardGrid.svelte'
@@ -144,9 +145,9 @@
       }
       // Text search with is:TAG tokens stripped out (AND with oracle tag filter above).
       if (textQuery) {
-        const q = textQuery.toLowerCase()
-        const nameMatch = card.card_name.toLowerCase().includes(q)
-        const flavorMatch = card.flavor_name?.toLowerCase().includes(q)
+        const q = normalizeForSearch(textQuery)
+        const nameMatch = normalizeForSearch(card.card_name).includes(q)
+        const flavorMatch = card.flavor_name ? normalizeForSearch(card.flavor_name).includes(q) : false
         if (!nameMatch && !flavorMatch) return false
       }
 
