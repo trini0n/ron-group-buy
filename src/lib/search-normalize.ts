@@ -17,8 +17,8 @@ export function normalizeForSearch(text: string): string {
       .normalize('NFD')
       // Strip combining diacritical marks (U+0300–U+036F)
       .replace(/[\u0300-\u036f]/g, '')
-      // Replace hyphens, en-dashes, em-dashes, and other punctuation with space
-      .replace(/[-–—''"",.!?:;()[\]{}/\\]/g, ' ')
+      // Replace hyphens, en-dashes, em-dashes, quotes (straight + curly), and other punctuation with space
+      .replace(/[-\u2013\u2014\u2018\u2019\u201c\u201d'",.!?:;()[\]{}/\\]/g, ' ')
       // Collapse multiple spaces into one
       .replace(/\s+/g, ' ')
       .toLowerCase()

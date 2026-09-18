@@ -33,6 +33,17 @@ describe('normalizeForSearch', () => {
     expect(normalizeForSearch("Who // What // When // Where // Why")).toBe('who what when where why')
   })
 
+  it('strips smart/curly quotes (U+2018, U+2019, U+201C, U+201D)', () => {
+    expect(normalizeForSearch('it\u2019s')).toBe('it s')      // right single curly quote
+    expect(normalizeForSearch('it\u2018s')).toBe('it s')      // left single curly quote
+    expect(normalizeForSearch('say \u201chello\u201d')).toBe('say hello')  // curly double quotes
+  })
+
+  it('strips en-dashes (U+2013) and em-dashes (U+2014)', () => {
+    expect(normalizeForSearch('Fire\u2013Lit')).toBe('fire lit')   // en-dash
+    expect(normalizeForSearch('one\u2014two')).toBe('one two')     // em-dash
+  })
+
   it('collapses multiple spaces into one', () => {
     expect(normalizeForSearch('Some   Card   Name')).toBe('some card name')
     expect(normalizeForSearch('A--B')).toBe('a b')
