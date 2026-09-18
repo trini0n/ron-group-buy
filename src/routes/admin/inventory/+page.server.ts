@@ -45,6 +45,8 @@ export const load = async ({
     query = query.eq('is_in_stock', true)
   } else if (stockFilter === 'out') {
     query = query.eq('is_in_stock', false)
+    // Hide cards that are out of stock due to being duplicates — only show manually toggled-off cards
+    query = query.eq('duplicate_count', 1)
   }
 
   if (setFilter.length > 0) {
