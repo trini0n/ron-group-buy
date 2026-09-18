@@ -54,6 +54,8 @@
   let selectedStock = $state('')
   let selectedSets = $state<string[]>([])
   let showDuplicatesOnly = $state(false)
+  let showNewOnly = $state(false)
+  let selectedFinish = $state('')
 
   // Hover state for card image popup
   let hoveredCard = $state<InventoryCard | null>(null)
@@ -68,6 +70,8 @@
     selectedStock = data.stockFilter || ''
     selectedSets = data.setFilter ? data.setFilter.split(',').filter(Boolean) : []
     showDuplicatesOnly = data.duplicatesOnly || false
+    showNewOnly = data.newOnly || false
+    selectedFinish = data.finishFilter || ''
   })
 
   // Track selected cards for bulk actions
@@ -125,6 +129,8 @@
     if (selectedStock) params.set('stock', selectedStock)
     if (selectedSets.length > 0) params.set('sets', selectedSets.join(','))
     if (showDuplicatesOnly) params.set('duplicates', '1')
+    if (showNewOnly) params.set('new', '1')
+    if (selectedFinish) params.set('finish', selectedFinish)
     params.set('page', '1')
     goto(`/admin/inventory?${params.toString()}`)
   }
@@ -135,6 +141,8 @@
     if (selectedStock) params.set('stock', selectedStock)
     if (selectedSets.length > 0) params.set('sets', selectedSets.join(','))
     if (showDuplicatesOnly) params.set('duplicates', '1')
+    if (showNewOnly) params.set('new', '1')
+    if (selectedFinish) params.set('finish', selectedFinish)
     params.set('page', newPage.toString())
     goto(`/admin/inventory?${params.toString()}`)
   }
@@ -145,6 +153,8 @@
     selectedSets = []
     setSearchValue = ''
     showDuplicatesOnly = false
+    showNewOnly = false
+    selectedFinish = ''
     goto('/admin/inventory')
   }
 
@@ -499,6 +509,25 @@
       </Select.Content>
     </Select.Root>
 
+    <Select.Root
+      type="single"
+      value={selectedFinish}
+      onValueChange={(v) => {
+        selectedFinish = v || ''
+        applyFilters()
+      }}
+    >
+      <Select.Trigger class="w-[150px]">
+        {selectedFinish === 'Normal' ? 'Normal' : selectedFinish === 'Holo' ? 'Holo' : selectedFinish === 'Foil' ? 'Foil' : 'All Finishes'}
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="">All Finishes</Select.Item>
+        <Select.Item value="Normal">Normal</Select.Item>
+        <Select.Item value="Holo">Holo</Select.Item>
+        <Select.Item value="Foil">Foil</Select.Item>
+      </Select.Content>
+    </Select.Root>
+
     <!-- Set Filter - Searchable Multiselect -->
     <Popover.Root bind:open={setComboboxOpen}>
       <Popover.Trigger>
@@ -544,6 +573,18 @@
 
     <Button variant="outline" onclick={applyFilters}>Search</Button>
 
+    <!-- New cards filter toggle -->
+    <Button
+      variant={showNewOnly ? 'default' : 'outline'}
+      onclick={() => {
+        showNewOnly = !showNewOnly
+        applyFilters()
+      }}
+      class="gap-2"
+    >
+      🆕 New
+    </Button>
+
     <!-- Duplicates filter toggle -->
     <Button
       variant={showDuplicatesOnly ? 'default' : 'outline'}
@@ -557,7 +598,7 @@
       Duplicates {#if data.totalDuplicates}({data.totalDuplicates}){/if}
     </Button>
 
-    {#if data.searchQuery || data.stockFilter || data.setFilter || data.duplicatesOnly}
+    {#if data.searchQuery || data.stockFilter || data.setFilter || data.duplicatesOnly || data.newOnly || data.finishFilter}
       <Button variant="ghost" onclick={clearFilters}>Clear</Button>
     {/if}
   </div>

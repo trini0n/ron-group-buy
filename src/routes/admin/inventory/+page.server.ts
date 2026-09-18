@@ -21,6 +21,8 @@ export const load = async ({
   const setsParam = url.searchParams.get('sets')
   const setFilter = setsParam ? setsParam.split(',').filter(Boolean) : []
   const duplicatesOnly = url.searchParams.get('duplicates') === '1'
+  const newOnly = url.searchParams.get('new') === '1'
+  const finishFilter = url.searchParams.get('finish') // 'Normal', 'Holo', 'Foil', or null
   const page = parseInt(url.searchParams.get('page') || '1')
   const perPage = 50
 
@@ -54,6 +56,16 @@ export const load = async ({
     query = query.gt('duplicate_count', 1)
   }
 
+  // Filter by new cards only
+  if (newOnly) {
+    query = query.eq('is_new', true)
+  }
+
+  // Filter by finish type (card_type column: Normal, Holo, Foil)
+  if (finishFilter && ['Normal', 'Holo', 'Foil'].includes(finishFilter)) {
+    query = query.eq('card_type', finishFilter)
+  }
+
   // Apply pagination
   const from = (page - 1) * perPage
   const to = from + perPage - 1
@@ -74,7 +86,9 @@ export const load = async ({
       searchQuery,
       stockFilter,
       setFilter: setsParam || '',
-      duplicatesOnly
+      duplicatesOnly,
+      newOnly,
+      finishFilter: finishFilter || ''
     }
   }
 
@@ -117,6 +131,8 @@ export const load = async ({
     stockFilter,
     setFilter: setsParam || '',
     duplicatesOnly,
+    newOnly,
+    finishFilter: finishFilter || '',
     sets
   }
 }
