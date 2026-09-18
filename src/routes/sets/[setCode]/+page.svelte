@@ -1,6 +1,8 @@
 <script lang="ts">
   import StacksView from '$components/cards/StacksView.svelte'
-  import { ArrowLeft, Layers, List, FileText } from 'lucide-svelte'
+  import { ArrowLeft, Layers, List, FileText, ShoppingCart } from 'lucide-svelte'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import { toast } from 'svelte-sonner'
 
   let { data } = $props()
 
@@ -18,6 +20,22 @@
     const lang = card.language?.toLowerCase()
     if (lang && lang !== 'en') parts.push(`[${lang}]`)
     return parts.join(' ')
+  }
+
+  let addingSet = $state(false)
+
+  async function addSetToCart() {
+    addingSet = true
+    try {
+      const ok = await cartStore.addBundle(data.set.set_code, 1)
+      if (ok) {
+        toast.success(`${data.set.set_name} added to cart`)
+      } else {
+        toast.error('Failed to add set to cart')
+      }
+    } finally {
+      addingSet = false
+    }
   }
 </script>
 
@@ -62,27 +80,43 @@
         </div>
       </div>
 
-      <!-- View mode toggle (only show if cards exist) -->
+      <!-- Controls: view toggle + add set to cart -->
       {#if data.cardEntries.length > 0}
-        <div class="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
-          <button
-            id="view-toggle-stacks"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'stacks' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
-            onclick={() => (viewMode = 'stacks')}
-            aria-label="Stacks view"
-          >
-            <Layers class="h-3.5 w-3.5" />
-            Stacks
-          </button>
-          <button
-            id="view-toggle-list"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
-            onclick={() => (viewMode = 'list')}
-            aria-label="Plaintext list view"
-          >
-            <List class="h-3.5 w-3.5" />
-            List
-          </button>
+        <div class="flex items-center gap-3 shrink-0 flex-wrap">
+          <!-- View mode toggle -->
+          <div class="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
+            <button
+              id="view-toggle-stacks"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'stacks' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+              onclick={() => (viewMode = 'stacks')}
+              aria-label="Stacks view"
+            >
+              <Layers class="h-3.5 w-3.5" />
+              Stacks
+            </button>
+            <button
+              id="view-toggle-list"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors {viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+              onclick={() => (viewMode = 'list')}
+              aria-label="Plaintext list view"
+            >
+              <List class="h-3.5 w-3.5" />
+              List
+            </button>
+          </div>
+
+          <!-- Add Set to Cart -->
+          {#if data.set.price != null}
+            <button
+              id="add-set-to-cart"
+              class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={addingSet}
+              onclick={addSetToCart}
+            >
+              <ShoppingCart class="h-4 w-4" />
+              {addingSet ? 'Adding…' : 'Add Set to Cart'}
+            </button>
+          {/if}
         </div>
       {/if}
     </div>

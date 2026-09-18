@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Card } from '$lib/server/types'
-  import { getScryfallImageUrl, getCardUrl } from '$lib/utils'
+  import { getScryfallImageUrl, getCardUrl, getCardPrice, formatPrice, getMispriceKey } from '$lib/utils'
+  import { cartStore } from '$lib/stores/cart.svelte'
+  import { toast } from 'svelte-sonner'
+  import { Plus, Minus, ShoppingCart } from 'lucide-svelte'
 
   interface Props {
     cards: Card[]
@@ -304,6 +307,47 @@
     }
     // If already revealed, let the <a> navigate naturally
   }
+
+  // ── Per-card cart quantity state ───────────────────────────────────────
+  //
+  // Tracks individual quantity values for each card's stepper so they
+  // persist while hovering within the same card. Keyed by row.key.
+  let cardQuantities = $state<Record<string, number>>({})
+
+  function getCardQuantity(key: string): number {
+    return cardQuantities[key] ?? 1
+  }
+
+  function incrementCardQty(e: Event, key: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const current = getCardQuantity(key)
+    if (current < 99) cardQuantities[key] = current + 1
+  }
+
+  function decrementCardQty(e: Event, key: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const current = getCardQuantity(key)
+    if (current > 1) cardQuantities[key] = current - 1
+  }
+
+  function handleQtyInput(e: Event) {
+    e.stopPropagation()
+  }
+
+  async function addCardToCart(e: Event, card: Card, key: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const qty = getCardQuantity(key)
+    const ok = await cartStore.addItem(card, qty)
+    if (ok) {
+      toast.success(`${card.card_name ?? 'Card'} added to cart`)
+      cardQuantities[key] = 1
+    } else {
+      toast.error('Failed to add to cart')
+    }
+  }
 </script>
 
 <!--
@@ -341,6 +385,22 @@
     box-shadow:
       0 16px 36px rgba(0, 0, 0, 0.6),
       0 0 0 2px rgba(245, 145, 5, 0.8);
+  }
+
+  /*
+    Cart overlay at the bottom of each card.
+    Semi-transparent by default so card image/text shows through.
+    Fully opaque when the overlay itself is hovered for usability.
+  */
+  .card-cart-overlay {
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+  .stack-card:hover .card-cart-overlay {
+    opacity: 0.6;
+  }
+  .stack-card:hover .card-cart-overlay:hover {
+    opacity: 1;
   }
 </style>
 
@@ -464,6 +524,46 @@
                 {row.count}
               </div>
             {/if}
+
+            <!-- Cart overlay: quantity stepper + add to cart -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="card-cart-overlay absolute bottom-0 left-0 right-0 z-20 flex items-center gap-1 rounded-b-[10px] bg-black/80 px-2 py-1.5 backdrop-blur-sm"
+              onclick={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onmouseenter={(e) => e.stopPropagation()}
+            >
+              <!-- Quantity stepper -->
+              <div class="flex shrink-0 items-center rounded border border-white/20 bg-white/10">
+                <button
+                  class="flex h-6 w-6 items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded-l transition-colors disabled:opacity-30"
+                  aria-label="Decrease quantity"
+                  onclick={(e) => decrementCardQty(e, row.key)}
+                  disabled={getCardQuantity(row.key) <= 1}
+                >
+                  <Minus class="h-3 w-3" />
+                </button>
+                <span class="w-6 text-center text-xs font-medium text-white tabular-nums select-none">
+                  {getCardQuantity(row.key)}
+                </span>
+                <button
+                  class="flex h-6 w-6 items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded-r transition-colors disabled:opacity-30"
+                  aria-label="Increase quantity"
+                  onclick={(e) => incrementCardQty(e, row.key)}
+                  disabled={getCardQuantity(row.key) >= 99}
+                >
+                  <Plus class="h-3 w-3" />
+                </button>
+              </div>
+              <!-- Add to cart button -->
+              <button
+                class="flex flex-1 items-center justify-center gap-1 rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+                aria-label="Add {row.card.card_name ?? 'card'} to cart"
+                onclick={(e) => addCardToCart(e, row.card, row.key)}
+              >
+                <ShoppingCart class="h-3 w-3 shrink-0" />
+                <span>Add</span>
+              </button>
+            </div>
           </a>
         {/each}
       </div>
